@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+
+# Tauri / Rust build output
+src-tauri/target/
+
+# Background audio assets (keep directory README)
+src-tauri/resources/audio/backgrounds/*
+!src-tauri/resources/audio/backgrounds/README.md
+
+# Local model / media directories
+models/
+local-models/
+media/
+local-media/
+
+# IDE settings
+.vscode/
+.idea/
+*.iml
+
+# Environment files
+.env
+.env.*
+!.env.example

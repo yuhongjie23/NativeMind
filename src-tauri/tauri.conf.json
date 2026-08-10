@@ -1,0 +1,49 @@
+{
+  "productName": "NativeMind",
+  "version": "0.1.0",
+  "identifier": "com.nativemind.app",
+  "mainBinaryName": "nativemind",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "NativeMind",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost blob: data:; media-src 'self' blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://localhost:11434; object-src 'none'; frame-src 'none'",
+      "capabilities": ["main-capability"],
+      "assetProtocol": { "enable": true, "scope": ["$RESOURCE/**"] }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "icon": ["icons/icon.ico"],
+    "shortDescription": "本地优先的 AI 学习节律工具",
+    "longDescription": "NativeMind 把任务、专注、笔记与复盘放在一起，数据留在本机，默认不联网。",
+    "resources": {
+      "resources/audio": "audio",
+      "resources/vec0.dll": "vec0.dll"
+    },
+
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"]
+      }
+    }
+  },
+  "plugins": {}
+
+}

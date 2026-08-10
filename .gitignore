@@ -1,0 +1,40 @@
+# ---- 依赖与构建产物 ----
+node_modules/
+dist/
+src-tauri/target/
+*.log
+# 安装包不随仓库分发（放 GitHub Releases）
+*.exe
+
+# ---- 个人/本地媒体资源（不随仓库分发，运行时可自行添加）----
+# 背景音乐 mp3：保留目录与 README，忽略音频文件本身
+src-tauri/resources/audio/backgrounds/*
+!src-tauri/resources/audio/backgrounds/README.md
+musics/
+download/
+ollama-models/
+即梦AI/
+不要上传的部分/
+docs.zip
+
+# ---- 运行时产生的用户数据目录 ----
+# （若在项目目录内运行，可能生成这些）
+data/
+imports/
+backups/
+extensions/
+
+# ---- 环境与密钥 ----
+.env
+.env.*
+!.env.example
+
+# ---- IDE / 系统 ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ---- 编辑器 / 工具杂项 ----
+*.tmp
+*.swp

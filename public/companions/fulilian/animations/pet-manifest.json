@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "fulilian",
+  "spritesheet": "fulilian.png",
+  "frame": {
+    "width": 345.6,
+    "height": 288,
+    "columns": 5,
+    "rows": 8
+  },
+  "animations": {
+    "idle": { "frames": [10, 11, 12, 13, 14], "fps": 0.2, "loop": true, "reducedMotionFrame": 14 },
+    "sleep_enter": { "frames": [0, 1, 2, 3, 4], "fps": 2.5, "loop": false, "fallback": "sleep_loop", "reducedMotionFrame": 4 },
+    "sleep_loop": { "frames": [3, 4, 3, 4], "fps": 0.2, "loop": true, "reducedMotionFrame": 4 },
+    "wake": { "frames": [4, 3, 2, 1, 0], "fps": 3, "loop": false, "fallback": "idle", "reducedMotionFrame": 0 },
+    "look_at_girl": { "frames": [15, 16, 17, 18, 19], "fps": 2.5, "loop": false, "fallback": "idle", "reducedMotionFrame": 18 },
+    "study_loop": { "frames": [20, 21, 22, 23, 24], "fps": 0.2, "loop": true, "reducedMotionFrame": 20 },
+    "needs_input": { "frames": [25, 26, 27, 28, 29], "fps": 0.2, "loop": true, "reducedMotionFrame": 27 },
+    "ready": { "frames": [30, 31, 32, 33, 34], "fps": 4, "loop": false, "fallback": "idle", "reducedMotionFrame": 30 },
+    "cheer": { "frames": [30, 31, 32, 33, 34], "fps": 4, "loop": false, "fallback": "idle", "reducedMotionFrame": 30 },
+    "greet": { "frames": [15, 16, 17, 18], "fps": 3, "loop": false, "fallback": "idle", "reducedMotionFrame": 15 },
+    "concerned": { "frames": [35, 36, 37, 38], "fps": 2.5, "loop": false, "fallback": "idle", "reducedMotionFrame": 37 },
+    "examining": { "frames": [35, 36, 37, 38, 39], "fps": 0.2, "loop": true, "reducedMotionFrame": 38 },
+    "move_left": { "frames": [7], "loop": true, "fps": 0.2, "reducedMotionFrame": 7 },
+    "move_right": { "frames": [8], "loop": true, "fps": 0.2, "reducedMotionFrame": 8 },
+    "drag_lift": { "frames": [5, 6], "fps": 3, "loop": false, "fallback": "drag_hold", "reducedMotionFrame": 6 },
+    "drag_hold": { "frames": [6], "loop": true, "fps": 0.2, "reducedMotionFrame": 6 },
+    "drag_left": { "frames": [7], "loop": true, "fps": 0.2, "reducedMotionFrame": 7 },
+    "drag_right": { "frames": [8], "loop": true, "fps": 0.2, "reducedMotionFrame": 8 },
+    "drag_release": { "frames": [9], "loop": false, "fallback": "idle", "fps": 3, "reducedMotionFrame": 9 }
+  }
+}

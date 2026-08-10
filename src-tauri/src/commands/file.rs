@@ -1,0 +1,760 @@
+//! 文件命令
+//!
+//! 前端 `FileImportOptions.readTextFile` 和 `PdfExtractor` 的宿主实现。
+//!
+//! 每个命令都先过 `ensure_within`：路径来自用户的文件选择框，
+//! 但也可能来自数据库里存的旧路径（`notes.source_uri`），那份数据在
+//! 库被人手改过的情况下并不可信。校验成本极低，不做没有理由。
+
+use std::path::{Path, PathBuf};
+use std::sync::RwLock;
+
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tauri::State;
+
+use crate::db::DbConnection;
+use crate::file_parser::{ebook, markdown, pdf};
+use crate::utils::{
+    display_path, ensure_within, ensure_writable_within, CommandError, CommandResult,
+};
+
+/// 用户在设置里配置的 dataDir / resourceDir 覆盖值。
+///
+/// 数据目录里放着 SQLite，数据库位置取决于 dataDir —— 覆盖值不能存在数据库里，
+/// 所以放在**默认数据目录**下的 `paths.json`（默认目录固定不变，始终可找到）。
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathOverrides {
+    pub data_dir: Option<String>,
+    pub resource_dir: Option<String>,
+}
+
+const PATHS_CONFIG_FILE: &str = "paths.json";
+
+/// 读取路径覆盖配置；文件缺失或损坏返回默认值
+pub(crate) fn load_path_overrides(config_dir: &Path) -> PathOverrides {
+    let file = config_dir.join(PATHS_CONFIG_FILE);
+    let Ok(text) = std::fs::read_to_string(&file) else {
+        return PathOverrides::default();
+    };
+    serde_json::from_str(&text).unwrap_or_default()
+}
+
+/// 写路径覆盖配置到默认数据目录
+pub(crate) fn save_path_overrides(
+    config_dir: &Path,
+    overrides: &PathOverrides,
+) -> CommandResult<()> {
+    std::fs::create_dir_all(config_dir)?;
+    let text = serde_json::to_string_pretty(overrides)?;
+    std::fs::write(config_dir.join(PATHS_CONFIG_FILE), text)?;
+    Ok(())
+}
+
+/// 应用可访问的目录
+///
+/// 导入笔记要读用户任意位置的文件，所以 import_roots 由用户通过文件选择框
+/// 授权后加进来；而写入只允许落在 data_dir，避免应用往用户文档里乱写。
+pub struct AppPaths {
+    /// 默认数据目录（固定不变，paths.json 覆盖配置的存放处）
+    pub default_data_dir: PathBuf,
+    /// 数据目录，存储地址热替换时运行时可变
+    data_dir: RwLock<PathBuf>,
+    pub extension_dir: PathBuf,
+    /// 资源目录，用户可在设置里改，运行时可变
+    resource_dir: RwLock<PathBuf>,
+    /// 用户在设置里追加的可读目录（导入笔记/电子书），运行时可变
+    read_roots: RwLock<Vec<PathBuf>>,
+    /// 用户在设置里配置的音乐目录，运行时可变
+    music_dir: RwLock<Option<PathBuf>>,
+}
+
+impl AppPaths {
+    pub fn new(
+        default_data_dir: PathBuf,
+        data_dir: PathBuf,
+        extension_dir: PathBuf,
+        resource_dir: PathBuf,
+    ) -> Self {
+        Self {
+            default_data_dir,
+            data_dir: RwLock::new(data_dir),
+            extension_dir,
+            resource_dir: RwLock::new(resource_dir),
+            read_roots: RwLock::new(Vec::new()),
+            music_dir: RwLock::new(None),
+        }
+    }
+
+    pub fn data_dir(&self) -> PathBuf {
+        self.data_dir
+            .read()
+            .map(|guard| guard.clone())
+            .unwrap_or_else(|_| self.default_data_dir.clone())
+    }
+
+    /// 存储地址热替换：切换到新数据目录
+    pub fn set_data_dir(&self, path: PathBuf) {
+        if let Ok(mut guard) = self.data_dir.write() {
+            *guard = path;
+        }
+    }
+
+    pub fn music_dir(&self) -> Option<PathBuf> {
+        let configured = self.music_dir.read().ok().and_then(|guard| guard.clone());
+        if configured.is_some() {
+            return configured;
+        }
+        // 未配置音乐目录 → 用随包附带的内置歌曲（resources/songs）
+        let bundled = self.resource_dir().join("songs");
+        if bundled.is_dir() {
+            Some(bundled)
+        } else {
+            None
+        }
+    }
+
+    pub fn resource_dir(&self) -> PathBuf {
+        self.resource_dir
+            .read()
+            .map(|guard| guard.clone())
+            .unwrap_or_else(|_| self.data_dir())
+    }
+
+    /// 读取许可
+    ///
+    /// 放行 data_dir、resource_dir，外加用户在设置里配置的读取目录。
+    /// 写入仍只允许落在 data_dir。
+    fn read_roots(&self) -> Vec<PathBuf> {
+        let mut roots = vec![self.data_dir(), self.resource_dir()];
+        if let Ok(extra) = self.read_roots.read() {
+            roots.extend(extra.iter().cloned());
+        }
+        roots
+    }
+
+    pub(crate) fn check_readable(&self, candidate: &Path) -> CommandResult<PathBuf> {
+        let mut last_error = None;
+
+        for root in self.read_roots() {
+            match ensure_within(&root, candidate) {
+                Ok(path) => return Ok(path),
+                Err(error) => last_error = Some(error),
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| CommandError::new("路径不在允许范围内")))
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileMeta {
+    pub path: String,
+    pub size_bytes: u64,
+    pub extension: String,
+}
+
+/// 读文本文件，对应前端的 readTextFile
+#[tauri::command]
+pub async fn file_read_text(paths: State<'_, AppPaths>, path: String) -> CommandResult<String> {
+    let safe = paths.check_readable(Path::new(&path))?;
+    markdown::read_text(&safe).await
+}
+
+/// 写文本文件
+///
+/// 只允许写进 data_dir。笔记编辑后的落盘、导出的复盘都归这里，
+/// 不给应用往用户其他目录写的能力。
+#[tauri::command]
+pub async fn file_write_text(
+    paths: State<'_, AppPaths>,
+    path: String,
+    contents: String,
+) -> CommandResult<()> {
+    let safe = ensure_writable_within(&paths.data_dir(), Path::new(&path))?;
+
+    // 路径语义检查基于 canonical 后的 safe 的祖先段：data_dir 本身是 junction/symlink
+    // （如 OneDrive）时也成立，比「非 canonical 的 data_dir.join(...) 前缀比较」更稳。
+    // 禁止写 extensions/ 目录：那里的 vec0.dll 会被 load_extension 执行，
+    // 一旦被覆盖就等同任意代码执行。笔记/导出没有理由写到这里。
+    let is_under = |dir: &str| {
+        safe.ancestors()
+            .skip(1)
+            .any(|ancestor| ancestor.file_name().and_then(|n| n.to_str()) == Some(dir))
+    };
+    if is_under("extensions") {
+        return Err(CommandError::new("不允许写入扩展目录"));
+    }
+    // 禁止写 backups/ 目录：那是恢复用数据库快照，被笔记/导出路径撞上会毁掉唯一备份。
+    if is_under("backups") {
+        return Err(CommandError::new("不允许写入备份目录"));
+    }
+
+    // 禁止覆盖运行中的数据库文件：SQLite 正锁着它们，覆盖会损坏整库（含 WAL/SHM）。
+    let file_name = safe.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    if matches!(file_name, "nativemind.db" | "nativemind.db-wal" | "nativemind.db-shm") {
+        return Err(CommandError::new("不允许覆盖数据库文件"));
+    }
+
+    if let Some(parent) = safe.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
+
+    tokio::fs::write(&safe, contents).await?;
+    Ok(())
+}
+
+/// 内容哈希
+///
+/// 与前端 `hashContent` 的输出格式保持一致（`sha256:` 前缀），
+/// 否则同一份笔记在两条路径下会算出不同的 contentHash，去重就失效了。
+#[tauri::command]
+pub fn file_hash_content(contents: String) -> String {
+    let digest = Sha256::digest(contents.as_bytes());
+    format!("sha256:{digest:x}")
+}
+
+#[tauri::command]
+pub async fn file_metadata(paths: State<'_, AppPaths>, path: String) -> CommandResult<FileMeta> {
+    let safe = paths.check_readable(Path::new(&path))?;
+    let metadata = tokio::fs::metadata(&safe).await?;
+
+    Ok(FileMeta {
+        path: display_path(&safe),
+        size_bytes: metadata.len(),
+        extension: safe
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_lowercase(),
+    })
+}
+
+/// PDF 分页抽取，对应前端注入的 PdfExtractor
+#[tauri::command]
+pub async fn file_extract_pdf(
+    paths: State<'_, AppPaths>,
+    path: String,
+) -> CommandResult<pdf::PdfDocument> {
+    let safe = paths.check_readable(Path::new(&path))?;
+    pdf::extract(&safe).await
+}
+
+/// 电子书抽取（EPUB / MOBI / AZW3），对应前端注入的 EbookExtractor
+#[tauri::command]
+pub async fn file_extract_ebook(
+    paths: State<'_, AppPaths>,
+    path: String,
+) -> CommandResult<ebook::EbookDocument> {
+    let safe = paths.check_readable(Path::new(&path))?;
+    ebook::extract(&safe).await
+}
+
+/// 前端路径设置变化后同步到 Rust（读取目录 + 音乐目录）。
+/// 设置存 DB 是 TS 侧的事，这里只更新运行时的路径许可。
+#[tauri::command]
+pub fn file_update_paths(
+    paths: State<'_, AppPaths>,
+    read_dirs: Vec<String>,
+    music_dir: Option<String>,
+) -> CommandResult<()> {
+    let mut roots = paths
+        .read_roots
+        .write()
+        .map_err(|_| CommandError::new("路径状态锁被占用"))?;
+    *roots = read_dirs
+        .into_iter()
+        .map(|dir| dir.trim().to_string())
+        .filter(|dir| !dir.is_empty())
+        .map(PathBuf::from)
+        .collect();
+
+    let mut music = paths
+        .music_dir
+        .write()
+        .map_err(|_| CommandError::new("路径状态锁被占用"))?;
+    *music = music_dir
+        .map(|dir| dir.trim().to_string())
+        .filter(|dir| !dir.is_empty())
+        .map(PathBuf::from);
+
+    Ok(())
+}
+
+/// 导入前处理：把所选文件放进应用可读目录。
+///
+/// 已在许可范围（data_dir / resource_dir / 配置的读取目录）内 → 直接用原路径（保留出处）；
+/// 否则复制进 `data_dir/imports/`，从副本解析。这样用户从任意位置选文件都能导入，
+/// 同时读取仍走 check_readable 白名单，不会对任意路径放开读权限。
+#[tauri::command]
+pub async fn file_import_into_data_dir(
+    paths: State<'_, AppPaths>,
+    path: String,
+) -> CommandResult<String> {
+    let source = Path::new(&path);
+
+    if paths.check_readable(source).is_ok() {
+        return Ok(path);
+    }
+
+    let metadata = tokio::fs::metadata(source).await?;
+    if !metadata.is_file() {
+        return Err(CommandError::new("目标不是文件"));
+    }
+    let file_name = source
+        .file_name()
+        .ok_or_else(|| CommandError::new("无法识别文件名"))?;
+
+    let import_dir = paths.data_dir().join("imports");
+    tokio::fs::create_dir_all(&import_dir).await?;
+    let destination = import_dir.join(file_name);
+    tokio::fs::copy(source, &destination).await?;
+
+    Ok(display_path(&destination))
+}
+
+/// 可导入文档（来自配置的读取目录）
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadableDoc {
+    pub path: String,
+    pub name: String,
+    pub size_bytes: u64,
+    /// 来自哪个读取目录（展示分组用）
+    pub dir: String,
+}
+
+const DOC_EXTENSIONS: &[&str] = &["pdf", "md", "markdown", "txt", "text", "epub", "mobi", "azw3"];
+
+/// 配置的读取目录里可导入的文档清单（每个目录顶层文件，不递归）。
+///
+/// 让「知识 → 快速导入」能直接列出并导入设置里添加的读取目录内容，
+/// 否则这个设置配置了也没有可见作用。
+#[tauri::command]
+pub fn doc_list_readable(paths: State<'_, AppPaths>) -> Vec<ReadableDoc> {
+    let roots = paths
+        .read_roots
+        .read()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
+    let mut docs = Vec::new();
+    for root in roots {
+        let Ok(entries) = std::fs::read_dir(&root) else {
+            // 目录不存在/不可读：跳过，不打断其它目录
+            continue;
+        };
+        for entry in entries.flatten() {
+            let Ok(meta) = entry.metadata() else { continue; };
+            if !meta.is_file() {
+                continue;
+            }
+            let path = entry.path();
+            let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
+                continue;
+            };
+            if !DOC_EXTENSIONS.contains(&extension.to_lowercase().as_str()) {
+                continue;
+            }
+            docs.push(ReadableDoc {
+                path: display_path(&path),
+                name: entry.file_name().to_string_lossy().into_owned(),
+                size_bytes: meta.len(),
+                dir: display_path(&root),
+            });
+        }
+    }
+    docs
+}
+
+/// 设置页展示用：当前各目录
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppPathsInfo {
+    pub data_dir: String,
+    pub resource_dir: String,
+    pub read_dirs: Vec<String>,
+    pub music_dir: Option<String>,
+}
+
+#[tauri::command]
+pub fn file_app_paths(paths: State<'_, AppPaths>) -> AppPathsInfo {
+    let read_dirs = paths
+        .read_roots
+        .read()
+        .map(|roots| roots.iter().map(|path| display_path(path)).collect())
+        .unwrap_or_default();
+    let music_dir = paths.music_dir().map(|path| display_path(&path));
+
+    AppPathsInfo {
+        data_dir: display_path(&paths.data_dir()),
+        resource_dir: display_path(&paths.resource_dir()),
+        read_dirs,
+        music_dir,
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetPathsResult {
+    pub data_dir: String,
+    pub resource_dir: String,
+}
+
+/// 把当前数据目录的内容搬到新目录：数据库一致快照 + imports/backups/extensions。
+/// 目标已有同名文件则跳过，绝不覆盖目标里已有的数据。
+fn migrate_data(db: &DbConnection, src: &Path, dst: &Path) -> CommandResult<()> {
+    std::fs::create_dir_all(dst)?;
+
+    // 数据库：VACUUM INTO 出一致快照（WAL 下也安全，复用 db_backup 的模式）。
+    // 先写 .tmp 再 rename 成正式文件：VACUUM 中途失败不会留下「半截文件被当完整库」。
+    let new_db = dst.join("nativemind.db");
+    if !new_db.exists() {
+        let new_db_tmp = dst.join("nativemind.db.tmp");
+        let _ = std::fs::remove_file(&new_db_tmp);
+        let escaped = new_db_tmp.to_string_lossy().replace('\'', "''");
+        db.with(|connection| {
+            connection
+                .execute_batch(&format!("VACUUM INTO '{}'", escaped))
+                .map_err(crate::utils::CommandError::from)
+        })?;
+        std::fs::rename(&new_db_tmp, &new_db)?;
+        // 新库里的自定义背景音频路径还指向旧 imports，把前缀替换为新位置。
+        // 注意存储值是 JSON（前端 JSON.stringify 过），反斜杠被转义成 \\，要替换转义后的形式。
+        let old_imports = display_path(&src.join("imports"));
+        let new_imports = display_path(&dst.join("imports"));
+        if let Ok(conn) = rusqlite::Connection::open(&new_db) {
+            let _ = conn.execute(
+                "UPDATE settings SET value = replace(value, ?1, ?2) \
+                 WHERE key = 'ambient.filesByWeather'",
+                rusqlite::params![
+                    old_imports.replace('\\', "\\\\"),
+                    new_imports.replace('\\', "\\\\")
+                ],
+            );
+        }
+    }
+
+    // 目录型数据：imports / backups / extensions，目标已存在的文件跳过
+    for sub in ["imports", "backups", "extensions"] {
+        let from = src.join(sub);
+        let to = dst.join(sub);
+        if !from.exists() {
+            continue;
+        }
+        std::fs::create_dir_all(&to)?;
+        for entry in std::fs::read_dir(&from)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_file() {
+                continue;
+            }
+            let target = to.join(entry.file_name());
+            if !target.exists() {
+                std::fs::copy(entry.path(), &target)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 校验用户填的数据/资源目录：必须是绝对路径、不能是盘符根、不能是网络共享。
+/// 否则把 resource_dir 设成 `C:\` 等于放开全盘读，把 data_dir 设成网络共享等于整库外带。
+fn validate_target_dir(dir: &Path, label: &str) -> CommandResult<()> {
+    if !dir.is_absolute() {
+        return Err(CommandError::new(format!("{label}必须是绝对路径")));
+    }
+    if dir.parent().is_none() || dir.file_name().is_none() {
+        return Err(CommandError::new(format!("不能把整个盘根当作{label}")));
+    }
+    if dir.to_string_lossy().starts_with(r"\\") {
+        return Err(CommandError::new(format!("{label}不支持网络路径")));
+    }
+    Ok(())
+}
+
+/// 设置 dataDir / resourceDir 覆盖值，**即时热替换，无需重启**。
+///
+/// - dataDir 变化：迁移数据（数据库一致快照 + imports/backups/extensions）后
+///   直接 `DbConnection::reopen` 到新库、更新 `AppPaths.data_dir`，前端随后刷新。
+/// - resourceDir 变化：即时生效。
+/// - 传入空字符串表示清除该覆盖（回默认），不传表示不修改该项。
+/// 覆盖值写进默认数据目录的 `paths.json`，下次启动也沿用。
+#[tauri::command]
+pub fn file_set_app_paths(
+    paths: State<'_, AppPaths>,
+    db: State<'_, DbConnection>,
+    data_dir: Option<String>,
+    resource_dir: Option<String>,
+    migrate: Option<bool>,
+) -> CommandResult<SetPathsResult> {
+    let current_data = paths.data_dir();
+    let current_res = paths.resource_dir();
+
+    let want_data: PathBuf = match data_dir.as_deref().map(str::trim) {
+        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+        _ => current_data.clone(),
+    };
+    let want_res: PathBuf = match resource_dir.as_deref().map(str::trim) {
+        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+        _ => current_res.clone(),
+    };
+
+    if want_data != current_data {
+        validate_target_dir(&want_data, "存储地址")?;
+        std::fs::create_dir_all(&want_data)?;
+        // 可写性探测：网络盘/只读目录在迁移前就暴露
+        let probe = want_data.join(".nativemind-write-test");
+        std::fs::write(&probe, b"x")?;
+        std::fs::remove_file(&probe)?;
+        if migrate != Some(false) {
+            migrate_data(&db, &current_data, &want_data)?;
+        }
+        // 热替换：直接切到新库，无需重启
+        db.reopen(want_data.join("nativemind.db"))?;
+        paths.set_data_dir(want_data.clone());
+    }
+    if want_res != current_res {
+        validate_target_dir(&want_res, "资源目录")?;
+        std::fs::create_dir_all(&want_res)?;
+        *paths
+            .resource_dir
+            .write()
+            .map_err(|_| CommandError::new("路径状态锁被占用"))? = want_res.clone();
+    }
+
+    let mut overrides = load_path_overrides(&paths.default_data_dir);
+    if let Some(dir) = data_dir {
+        let trimmed = dir.trim().to_string();
+        overrides.data_dir = if trimmed.is_empty() { None } else { Some(trimmed) };
+    }
+    if let Some(dir) = resource_dir {
+        let trimmed = dir.trim().to_string();
+        overrides.resource_dir = if trimmed.is_empty() { None } else { Some(trimmed) };
+    }
+    save_path_overrides(&paths.default_data_dir, &overrides)?;
+
+    Ok(SetPathsResult {
+        data_dir: display_path(&want_data),
+        resource_dir: display_path(&want_res),
+    })
+}
+
+/// 自愈自定义背景音频路径。
+///
+/// 存储地址迁移后，settings 表 `ambient.filesByWeather` 里可能残留指向旧目录的
+/// 路径（旧版本迁移没重写）。这里对每个不可读的路径，按文件名在
+/// `data_dir/imports` 下找回同名文件并重写；返回改写条数。找不到就保持原样，
+/// 由前端给出「文件不可读」的提示。
+#[tauri::command]
+pub fn file_repair_custom_audio_paths(
+    paths: State<'_, AppPaths>,
+    db: State<'_, DbConnection>,
+) -> CommandResult<u32> {
+    repair_custom_audio_paths(&paths, &db)
+}
+
+fn repair_custom_audio_paths(paths: &AppPaths, db: &DbConnection) -> CommandResult<u32> {
+    use serde_json::{Map, Value as JsonValue};
+
+    let rows = db.select(
+        "SELECT value FROM settings WHERE key = 'ambient.filesByWeather'",
+        &[],
+    )?;
+    let Some(row) = rows.first() else {
+        return Ok(0);
+    };
+    let Some(value_str) = row["value"].as_str() else {
+        return Ok(0);
+    };
+    let Ok(mut map) = serde_json::from_str::<Map<String, JsonValue>>(value_str) else {
+        return Ok(0);
+    };
+
+    let imports = paths.data_dir().join("imports");
+    let mut changed = 0u32;
+    for value in map.values_mut() {
+        let Some(path_str) = value.as_str() else { continue };
+        let candidate_path = Path::new(path_str);
+        if paths.check_readable(candidate_path).is_ok() {
+            continue;
+        }
+        let Some(file_name) = candidate_path.file_name() else { continue };
+        let healed = imports.join(file_name);
+        if healed.is_file() {
+            *value = JsonValue::String(display_path(&healed));
+            changed += 1;
+        }
+    }
+
+    if changed > 0 {
+        let new_value = serde_json::to_string(&map)?;
+        db.execute(
+            "UPDATE settings SET value = ?1, updated_at = ?2 \
+             WHERE key = 'ambient.filesByWeather'",
+            &[
+                crate::db::SqlParam::Text(new_value),
+                crate::db::SqlParam::Text(chrono::Utc::now().to_rfc3339()),
+            ],
+        )?;
+    }
+    Ok(changed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_readable_respects_configured_read_roots() {
+        let root = std::env::temp_dir().join("nativemind_paths_test");
+        let data = root.join("data");
+        let extra = root.join("extra");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::create_dir_all(&extra).unwrap();
+        let file = extra.join("book.epub");
+        std::fs::write(&file, b"x").unwrap();
+
+        let paths = AppPaths::new(
+            root.join("default"),
+            data,
+            root.join("ext"),
+            root.join("res"),
+        );
+        assert_eq!(paths.default_data_dir, root.join("default"));
+
+        // 未配置额外目录时，extra 下的文件不可读
+        assert!(paths.check_readable(&file).is_err());
+
+        // 配置读取目录后放行
+        *paths.read_roots.write().unwrap() = vec![extra];
+        assert!(paths.check_readable(&file).is_ok());
+
+        // 配置目录之外的仍拒绝
+        let outside = root.join("outside.txt");
+        std::fs::write(&outside, b"x").unwrap();
+        assert!(paths.check_readable(&outside).is_err());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn migrate_data_copies_db_imports_and_rewrites_ambient_paths() {
+        let root = std::env::temp_dir().join("nativemind_migrate_test");
+        // 上一次失败可能留下脏目录，先清干净
+        std::fs::remove_dir_all(&root).ok();
+        let src = root.join("src");
+        let dst = root.join("dst");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::create_dir_all(src.join("imports")).unwrap();
+        std::fs::write(src.join("imports").join("song.flac"), b"data").unwrap();
+
+        // 源库：一张 settings 表，custom 背景音频指向 src/imports
+        let db = DbConnection::open(src.join("nativemind.db")).unwrap();
+        db.with(|connection| {
+            connection
+                .execute_batch(
+                    "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)",
+                )
+                .map_err(crate::utils::CommandError::from)
+        })
+        .unwrap();
+        let payload =
+            serde_json::json!({ "clear": format!("{}\\imports\\song.flac", src.display()) })
+                .to_string();
+        db.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES ('ambient.filesByWeather', ?, ?)",
+            &[crate::db::SqlParam::Text(payload), crate::db::SqlParam::Text("x".into())],
+        )
+        .unwrap();
+
+        migrate_data(&db, &src, &dst).unwrap();
+
+        // 新库存在，且自定义音频路径被改写为新目录
+        let new_db = DbConnection::open(dst.join("nativemind.db")).unwrap();
+        let rows = new_db
+            .select(
+                "SELECT value FROM settings WHERE key = 'ambient.filesByWeather'",
+                &[],
+            )
+            .unwrap();
+        let value = rows[0]["value"].as_str().unwrap().to_string();
+        let parsed: serde_json::Value = serde_json::from_str(&value).unwrap();
+        let clear = parsed["clear"].as_str().unwrap();
+        assert!(
+            clear.contains(&format!("{}\\imports\\song.flac", dst.display())),
+            "自定义音频路径应指向新目录，实际: {clear}"
+        );
+        // imports 文件被复制
+        assert!(dst.join("imports").join("song.flac").exists());
+        // 重复迁移不覆盖目标已有数据
+        migrate_data(&db, &src, &dst).unwrap();
+        assert!(dst.join("nativemind.db").exists());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn repair_rewrites_stale_ambient_paths_by_filename() {
+        let root = std::env::temp_dir().join("nativemind_repair_test");
+        std::fs::remove_dir_all(&root).ok();
+        let data = root.join("data");
+        std::fs::create_dir_all(data.join("imports")).unwrap();
+        // 目标文件按文件名可找回
+        std::fs::write(data.join("imports").join("song.flac"), b"data").unwrap();
+
+        let db = DbConnection::open(data.join("nativemind.db")).unwrap();
+        db.with(|connection| {
+            connection
+                .execute_batch(
+                    "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)",
+                )
+                .map_err(crate::utils::CommandError::from)
+        })
+        .unwrap();
+        // 残留旧路径（指向不存在的目录）
+        let stale = serde_json::json!({
+            "clear": r"C:\gone\imports\song.flac",
+            "rain": r"E:\agent_workspace\NativeMind\download\imports\My Soul - July.flac"
+        })
+        .to_string();
+        db.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES ('ambient.filesByWeather', ?, ?)",
+            &[crate::db::SqlParam::Text(stale), crate::db::SqlParam::Text("x".into())],
+        )
+        .unwrap();
+
+        let paths = AppPaths::new(
+            root.join("default"),
+            data.clone(),
+            root.join("ext"),
+            root.join("res"),
+        );
+        let changed = repair_custom_audio_paths(&paths, &db).unwrap();
+        assert_eq!(changed, 1, "只有 clear 那条按文件名可找回");
+
+        let rows = db
+            .select("SELECT value FROM settings WHERE key = 'ambient.filesByWeather'", &[])
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(rows[0]["value"].as_str().unwrap()).unwrap();
+        let clear = parsed["clear"].as_str().unwrap();
+        assert!(
+            clear.contains(&display_path(&data.join("imports").join("song.flac"))),
+            "clear 应指向新 data/imports：{clear}"
+        );
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn validate_target_dir_rejects_root_unc_and_relative() {
+        // 合法目录
+        assert!(validate_target_dir(Path::new(r"E:\appdata\data"), "存储地址").is_ok());
+        // 盘符根：拒绝（否则 resource_dir=C:\ 放开全盘读）
+        assert!(validate_target_dir(Path::new(r"C:\"), "资源目录").is_err());
+        // 网络共享：拒绝（否则整库外带）
+        assert!(validate_target_dir(Path::new(r"\\server\share\data"), "存储地址").is_err());
+        // 相对路径：拒绝
+        assert!(validate_target_dir(Path::new("data"), "存储地址").is_err());
+    }
+}

@@ -1,0 +1,53 @@
+[package]
+name = "nativemind"
+version = "0.1.0"
+description = "NativeMind desktop application"
+authors = ["NativeMind"]
+edition = "2021"
+# lib-epub(EPUB 解析) 需要 ≥1.85；本机工具链 1.97
+rust-version = "1.85"
+default-run = "nativemind"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
+# bundled：不依赖用户机器上的 SQLite，避免版本不一致
+# load_extension：sqlite-vec 是可选扩展，要能运行时加载（C3 降级）
+rusqlite = { version = "0.32.1", features = ["bundled", "load_extension"] }
+sha2 = "0.10.8"
+# 只连本机 Ollama，不需要 TLS，去掉默认 features 少拉一半依赖树（C6）
+reqwest = { version = "0.12.9", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1.40", features = ["fs", "rt", "time", "net"] }
+# 托盘倒计时解析 started_at（ISO8601）用
+chrono = "0.4"
+# PDF 文本抽取（按页）。0.12 的 extract_text_by_pages 直接返回逐页文本
+pdf-extract = "0.12"
+# 文件选择对话框（前端 @tauri-apps/plugin-dialog 对应）
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+lib-epub = "0.3.1"
+mobi = "0.8.0"
+html2text = "0.17.1"
+tauri-plugin-notification = "2.3.3"
+
+
+[lib]
+name = "nativemind_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "nativemind"
+path = "src/main.rs"
+
+[dev-dependencies]
+zip = "4.2.0"
+
+[profile.release]
+# 内嵌了数百 MB 音乐资源，opt-level=3 编译该巨大静态数组会让 LLVM 内存爆掉
+opt-level = 1
+codegen-units = 16
+lto = false

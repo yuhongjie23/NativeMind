@@ -53,6 +53,8 @@ interface NoteState {
   importNote: (source: ImportSource) => Promise<void>;
   /** 把外部搜索结果存为新笔记 */
   importExternalResult: (result: RankedResult) => Promise<void>;
+  /** 导入后自动尝试建立知识关联（后台跑，不阻塞导入；普通导入与外部搜索导入共用） */
+  suggestLinksForNote: (noteId: string) => Promise<void>;
 
   update: (noteId: string, patch: UpdateNotePatch) => Promise<void>;
   /** 删除笔记（用户主动删除，直接写库；顺带清理向量） */
@@ -254,33 +256,7 @@ export const useNoteStore = create<NoteState>((set, get) => {
       // 关键：这里不能 await——关联判断要调本地模型（14B，最长可超时）+ 弹确认框等用户，
       // 同步等待会让「导入」按钮卡到模型跑完和用户确认完才恢复。落库即返回，
       // 关联建议在后台跑，有建议时确认框会随后弹出（全局 Modal，不依赖导入按钮）。
-      if (note) {
-        set({ linking: true });
-        void (async () => {
-          try {
-            const result = await useKnowledgeLinkStore.getState().suggestForNote(note.id);
-            if (result.created.length > 0) {
-              useToastStore.getState().show(
-                `已建立 ${result.created.length} 条知识关联，可在「知识图谱」查看`,
-                'ok'
-              );
-            } else if (result.suggested === 0) {
-              // 演示模式（无本地模型）下 AI 无法判断关系：明确告诉用户「没能力」而不是「没关联」，
-              // 否则模板模式下永远静默失败，用户会以为自动关联功能是坏的
-              if (aiMode === 'template') {
-                useToastStore.getState().show('演示模式无本地模型，无法自动关联笔记；可在「知识图谱」手动连接', 'info');
-              } else {
-                useToastStore.getState().show('未找到与现有笔记的关联，之后可在「知识图谱」手动连接', 'info');
-              }
-            }
-            // suggested > 0 但 created 为空：用户拒绝了建议，不打扰
-          } catch {
-            // 关联建议失败不影响导入本身；linking 标记也要复位
-          } finally {
-            set({ linking: false });
-          }
-        })();
-      }
+      if (note) void get().suggestLinksForNote(note.id);
     } catch (error) {
       set({ error: describeError(error) });
     }
@@ -300,14 +276,45 @@ export const useNoteStore = create<NoteState>((set, get) => {
         .filter(Boolean)
         .join('\n');
 
-      await useCases.importNote.execute({
+      const note = await useCases.importNote.execute({
         kind: 'text',
         content,
         title: result.title.slice(0, 120),
       });
       await get().refresh();
+
+      // 与普通导入一致：外部搜索保存的笔记同样自动尝试关联，落图才会出现节点
+      if (note) void get().suggestLinksForNote(note.id);
     } catch (error) {
       set({ error: describeError(error) });
+    }
+  },
+
+  /** 导入后自动尝试与已有知识建立关联（后台跑，不阻塞导入） */
+  suggestLinksForNote: async (noteId) => {
+    set({ linking: true });
+    try {
+      const result = await useKnowledgeLinkStore.getState().suggestForNote(noteId);
+      if (result.created.length > 0) {
+        useToastStore.getState().show(
+          `已建立 ${result.created.length} 条知识关联`,
+          'ok'
+        );
+      } else if (result.suggested === 0) {
+        // 演示模式（无本地模型）下 AI 无法判断关系：明确告诉用户「没能力」而不是「没关联」。
+        // 桌面端模型不可用时，adapter 已把检索到的候选降级为「人工确认」建议（suggested>0），
+        // 不会走到这里——走到这里说明模型正常但确实没有相关旧笔记。
+        if (aiMode === 'template') {
+          useToastStore.getState().show('演示模式无本地模型，无法自动关联笔记', 'info');
+        } else {
+          useToastStore.getState().show('未找到与现有笔记的关联', 'info');
+        }
+      }
+      // suggested > 0 但 created 为空：用户拒绝了建议，不打扰
+    } catch {
+      // 关联建议失败不影响导入本身；linking 标记也要复位
+    } finally {
+      set({ linking: false });
     }
   },
 

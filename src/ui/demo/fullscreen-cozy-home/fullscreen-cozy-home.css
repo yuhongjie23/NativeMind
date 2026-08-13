@@ -4723,6 +4723,18 @@ select.cozy-focus-task {
   border-top: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.12));
 }
 
+/* 「查找关联」按钮行：标题在左，按钮在右 */
+.cozy-relate-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cozy-relate-actions .panel-section-title {
+  margin: 0;
+}
+
 .cozy-related-notes__list {
   list-style: none;
   margin: 8px 0 0;
@@ -4812,7 +4824,7 @@ select.cozy-focus-task {
   height: 34px;
 }
 
-/* 链接徽章：笔记有已确认关联时显示「N 关联」，点击进图谱 */
+/* 链接徽章：笔记有已确认关联时显示「N 关联」 */
 .cozy-link-badge {
   display: inline-flex;
   align-items: center;
@@ -4824,91 +4836,12 @@ select.cozy-focus-task {
   color: var(--text-dark, #29332f);
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 140ms ease;
-}
-
-.cozy-link-badge:hover {
-  background: var(--accent, #4a6b57);
-  color: #fff;
+  cursor: default;
 }
 
 .cozy-link-badge--inline {
   margin-left: 8px;
   vertical-align: middle;
-}
-
-/* 知识图谱 */
-.cozy-graph {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.cozy-graph__toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.cozy-graph__filter-label {
-  font-size: 12px;
-  color: var(--text-muted-dark);
-}
-
-.cozy-graph__chip {
-  padding: 4px 10px;
-  border: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.18));
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-dark, #29332f);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 140ms ease;
-}
-
-.cozy-graph__chip[data-active='true'] {
-  background: var(--accent-soft, rgba(233, 196, 132, 0.4));
-  border-color: transparent;
-}
-
-.cozy-graph__archived {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-  font-size: 12px;
-  color: var(--text-muted-dark);
-}
-
-.cozy-graph__canvas {
-  width: 100%;
-  max-width: 540px;
-  margin: 0 auto;
-  border: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.12));
-  border-radius: 12px;
-  background: var(--hud-light, rgba(251, 250, 246, 0.6));
-}
-
-.cozy-graph__node-label {
-  font-size: 10px;
-  fill: var(--text-dark, #29332f);
-  pointer-events: none;
-}
-
-.cozy-graph__edge-label {
-  font-size: 9px;
-  fill: var(--text-muted-dark, #68716c);
-  pointer-events: none;
-}
-
-/* 图谱节点详情弹窗 */
-.cozy-graph__todo-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px 0;
 }
 
 .cozy-hit-list {
@@ -5037,6 +4970,50 @@ select.cozy-focus-task {
   gap: 10px;
   border-top: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.16));
   padding-top: 16px;
+}
+
+/* 笔记整理双栏：左列表右预览 */
+.cozy-notes-split {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.cozy-notes-split__list {
+  flex: 0 0 300px;
+  max-width: 340px;
+  overflow-y: auto;
+  max-height: 62vh;
+  padding-right: 4px;
+  border-right: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.12));
+}
+
+/* 左栏时间线里的选中态：当前预览的笔记高亮 */
+.cozy-notes-split__list .cozy-link[data-active='true'] {
+  color: var(--accent, #4a6b57);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.cozy-notes-split__detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  max-height: 62vh;
+  padding: 0 6px;
+}
+
+.cozy-notes-split__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cozy-notes-split__head .panel-section-title {
+  margin: 0;
 }
 
 .cozy-chip-row {

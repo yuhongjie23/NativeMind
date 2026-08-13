@@ -50,6 +50,7 @@ import { useFocusMode } from '../../hooks/use-focus-mode';
 import { useMusicStore } from '../../stores/music-store';
 import { useNoteStore } from '../../stores/note-store';
 import { useReviewStore } from '../../stores/review-store';
+import { backfillMissingReviews } from '../../stores/review-auto';
 import { useSettingsStore } from '../../stores/settings-store';
 import { useToastStore } from '../../stores/toast-store';
 import { useTodoStore } from '../../stores/todo-store';
@@ -327,6 +328,9 @@ export function FullscreenCozyHome() {
         // 这里不再重复弹窗；web 演示模式无持久化草稿，无需恢复。
         // 每日维护（备份+清理）：原来挂在死掉的 App.tsx 里从未执行，搬进真实启动流程
         void runMaintenance();
+        // 复盘自动补生成：昨天/上周/上月缺失且当日有学习数据时触发（确认框决定是否写入）。
+        // 放启动流程末尾：等各 store refresh 完成、确认门可用后再跑，避免和引导弹窗抢。
+        void backfillMissingReviews().catch(() => undefined);
         // 确保本机 Ollama 在运行：未运行则后台拉起，保证模型可用（不阻塞启动）
         void ensureOllamaRunning().then((status) => {
           if (status === 'started') {

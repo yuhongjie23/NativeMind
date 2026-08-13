@@ -1,4 +1,4 @@
-﻿# NativeMind — 工作指南（极简，控制上下文占用）
+# NativeMind — 工作指南（极简，控制上下文占用）
 
 本地优先的 AI 学习节律工具。Tauri v2 + React 19 + Zustand + SQLite + sqlite-vec + Ollama。
 
@@ -20,7 +20,7 @@
 - 数据库：`docs/DATABASE_SCHEMA.md`
 - 事件：`docs/EVENT_SYSTEM.md`
 - 已知问题/在修：`docs/exec-plans/tech-debt-tracker.md`
-- 过时/归档（设计稿、一次性 prompt）：（一次性设计稿已移出公开仓库）
+- 过时/归档（设计稿、一次性 prompt）：`docs/archive/`，默认不读
 
 ## 约定
 - 保持干净架构：`domain` 不 import 其它层；`application` 不 import infrastructure。

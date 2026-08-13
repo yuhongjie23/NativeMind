@@ -93,7 +93,7 @@ const TYPE_LABELS: Record<LinkEntityType, string> = {
 };
 
 /**
- * 给节点补标签。
+ * 给节点补标签，并过滤悬空节点。
  *
  * 只查 note 和 todo：chunk / concept / review_item 目前没有独立的
  * 展示名来源，用「类型 + 短 id」已经够区分，不值得为此加仓储方法。
@@ -101,15 +101,21 @@ const TYPE_LABELS: Record<LinkEntityType, string> = {
  * 用 findByIds 而不是 listAll：listAll 默认只取前 100 条，笔记一多
  * 图上的节点就落进「笔记 xxxx…」兜底，看不出是哪篇。精确按图上
  * 的节点 id 查，笔记再多标签也对得上。
+ *
+ * 顺带把「指向已删除笔记」的悬空节点和边过滤掉：删除笔记时虽然会
+ * 清理它的链接，但历史残留仍在——图上显示「笔记 xxxx…」既看不出是
+ * 哪篇，点击也没有内容，不如直接不显示。
  */
-const labelNodes = async (nodes: GraphNode[]): Promise<LabeledGraphNode[]> => {
+const labelNodes = async (nodes: GraphNode[], links: KnowledgeLink[]): Promise<LinkGraph> => {
   const noteIds = nodes.filter((node) => node.type === 'note').map((node) => node.id);
   const todoIds = nodes.filter((node) => node.type === 'todo').map((node) => node.id);
 
   const titles = new Map<string, string>();
 
   if (noteIds.length > 0) {
-    const notes = await repositories.note.findByIds(noteIds);
+    // 图节点可能很多：findByIds 默认 limit=100，节点一多后面的就查不到标题。
+    // 这里按图上实际数量分页拉，保证每个节点都拿到标题。
+    const notes = await repositories.note.findByIds(noteIds, Math.max(noteIds.length, 100));
     notes.forEach((note) => titles.set(`note:${note.id}`, note.title));
   }
   if (todoIds.length > 0) {
@@ -117,12 +123,30 @@ const labelNodes = async (nodes: GraphNode[]): Promise<LabeledGraphNode[]> => {
     todos.forEach((todo) => titles.set(`todo:${todo.id}`, todo.title));
   }
 
-  return nodes.map((node) => ({
-    ...node,
-    label:
-      titles.get(`${node.type}:${node.id}`) ??
-      `${TYPE_LABELS[node.type]} ${shortId(node.id)}`,
-  }));
+  // 存在性判定：note/todo 类型查得到标题才算存在；其他类型（chunk 等）视为存在
+  const exists = (node: GraphNode): boolean =>
+    (node.type === 'note' || node.type === 'todo')
+      ? titles.has(`${node.type}:${node.id}`)
+      : true;
+
+  // 过滤悬空节点 + 关联它们的边
+  const alive = nodes.filter(exists);
+  const aliveKeys = new Set(alive.map((node) => `${node.type}:${node.id}`));
+  const aliveLinks = links.filter(
+    (link) =>
+      aliveKeys.has(`${link.fromType}:${link.fromId}`) &&
+      aliveKeys.has(`${link.toType}:${link.toId}`)
+  );
+
+  return {
+    nodes: alive.map((node) => ({
+      ...node,
+      label:
+        titles.get(`${node.type}:${node.id}`) ??
+        `${TYPE_LABELS[node.type]} ${shortId(node.id)}`,
+    })),
+    links: aliveLinks,
+  };
 };
 
 /**
@@ -172,7 +196,7 @@ export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => ({
         if (link.toType === 'note') counts[link.toId] = (counts[link.toId] ?? 0) + 1;
       }
       set({
-        graph: { nodes: await labelNodes(graph.nodes), links: graph.links },
+        graph: await labelNodes(graph.nodes, graph.links),
         linkCounts: counts,
         entityOptions: await loadEntityOptions(),
         loading: false,

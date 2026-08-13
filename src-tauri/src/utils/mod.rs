@@ -136,7 +136,6 @@ mod tests {
     fn display_path_strips_extended_prefix() {
         assert_eq!(display_path(Path::new(r"\\?\C:\foo\bar")), r"C:\foo\bar");
         assert_eq!(display_path(Path::new(r"C:\foo\bar")), r"C:\foo\bar");
-        assert_eq!(display_path(Path::new(r"E:\agent_workspace")), r"E:\agent_workspace");
     }
 
     #[test]

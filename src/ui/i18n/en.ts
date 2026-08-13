@@ -96,7 +96,6 @@ export const EN: Record<string, string> = {
 
   // ---- 知识 / 检索 ----
   检索: 'Search',
-  知识图谱: 'Knowledge graph',
   含已归档: 'Include archived',
   '加载中…': 'Loading…',
   '还没有知识关联。导入笔记并确认「相关旧笔记」建议后，关系会显示在这里。':

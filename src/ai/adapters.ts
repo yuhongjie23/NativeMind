@@ -502,15 +502,54 @@ export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPo
     excludeNoteIds: UUID[],
     limit = 3
   ): Promise<LinkSuggestionCandidate[]> {
-    const { suggestions, relationJudged } = await this.rag.findConnections({
+    const { candidates, suggestions, relationJudged } = await this.rag.findConnections({
       text: content,
       excludeNoteIds,
     });
-    // 模型不可用（relationJudged=false）时不出建议，UI 不做无声降级
-    if (!relationJudged) return [];
 
-    // 关系判断的端点是 chunk，落到知识图上用「笔记」更直观。
-    // 同一篇旧笔记只保留置信度最高的一条，避免给用户刷屏。
+    // 模型判断成功（无论有没有关系）→ 以模型结论为准：
+    // 有关系用模型的关系类型；模型认为无关系就返回空，不硬凑
+    if (relationJudged) {
+      return this.toNoteCandidates(suggestions, limit);
+    }
+
+    // relationJudged=false：模型不可用 / 判断失败（调用异常、超时、解析失败）。
+    // 这时不静默返回空——但只对「真正被检索命中的候选」降级为 review_later 建议
+    // （score > 0，规则/向量层确认过相关）。score=0 的兜底候选（listFallback 拉来的
+    // 「最近笔记」，只是最近的、未必相关）绝不能降级成建议——否则「秋收起义」会建议
+    // 关联「agent」，把无关笔记硬凑在一起。
+    const hitCandidates = candidates.filter((c) => c.score > 0);
+    if (hitCandidates.length > 0) {
+      return this.toNoteCandidates(
+        hitCandidates.map((c) => ({
+          toId: c.chunkId,
+          toType: 'chunk' as const,
+          relationType: 'review_later' as const,
+          reason: '本地模型暂不可用，这是检索到的最相关旧笔记，请人工判断是否关联',
+          confidence: Math.min(0.4 + c.score, 0.85),
+          toNoteId: c.noteId,
+          excerpt: c.text.slice(0, 120),
+        })),
+        limit
+      );
+    }
+
+    return [];
+  }
+
+  /** 关系判断的端点是 chunk，落到知识图上用「笔记」更直观。同一篇旧笔记只保留置信度最高的一条 */
+  private toNoteCandidates(
+    suggestions: Array<{
+      toId: string;
+      toType: string;
+      relationType: string;
+      reason: string;
+      confidence: number;
+      toNoteId: string;
+      excerpt: string;
+    }>,
+    limit: number
+  ): LinkSuggestionCandidate[] {
     const byNote = new Map<string, LinkSuggestionCandidate>();
     for (const suggestion of suggestions) {
       const existing = byNote.get(suggestion.toNoteId);
@@ -518,7 +557,7 @@ export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPo
         byNote.set(suggestion.toNoteId, {
           toType: 'note',
           toId: suggestion.toNoteId,
-          relationType: suggestion.relationType,
+          relationType: suggestion.relationType as LinkSuggestionCandidate['relationType'],
           reason: suggestion.reason,
           confidence: suggestion.confidence,
           excerpt: suggestion.excerpt,

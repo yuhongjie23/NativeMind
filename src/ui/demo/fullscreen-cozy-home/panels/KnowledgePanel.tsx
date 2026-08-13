@@ -12,7 +12,7 @@ import { Modal } from '../../../components/common/Modal';
 import { NoteViewer } from '../../../components/features/NoteViewer';
 import { useNoteStore } from '../../../stores/note-store';
 import { useKnowledgeLinkStore, RELATION_LABELS } from '../../../stores/knowledge-link-store';
-import { KnowledgeGraphView } from '../components/KnowledgeGraphView';
+import { useToastStore } from '../../../stores/toast-store';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { listReadableDocs, openExternal, type ReadableDoc } from '@infrastructure/paths/paths-api';
 import { describeError } from '../../../stores/runtime';
@@ -47,8 +47,6 @@ export function KnowledgePanel() {
   const askHistory = useNoteStore((state) => state.askHistory);
   const askHistoryLoading = useNoteStore((state) => state.askHistoryLoading);
   const deleteAskHistory = useNoteStore((state) => state.deleteAskHistory);
-  const digests = useNoteStore((state) => state.digests);
-  const summarizeMonth = useNoteStore((state) => state.summarizeMonth);
   const confirmExternalSearch = useNoteStore((state) => state.confirmExternalSearch);
   const importNote = useNoteStore((state) => state.importNote);
   const importExternalResult = useNoteStore((state) => state.importExternalResult);
@@ -57,10 +55,12 @@ export function KnowledgePanel() {
   // 每篇笔记的已确认关联数（链接徽章用）；打开面板时拉一次
   const linkCounts = useKnowledgeLinkStore((state) => state.linkCounts);
 
-  const [viewMode, setViewMode] = useState<'search' | 'notes' | 'import' | 'graph'>('search');
+  const [viewMode, setViewMode] = useState<'search' | 'notes' | 'import'>('search');
   const [keyword, setKeyword] = useState('');
   const [title, setTitle] = useState('');
   const [draft, setDraft] = useState('');
+  // 手动「查找关联」进行中（按钮禁用 + 进度提示）
+  const [linking, setLinking] = useState(false);
   // 导入标签：逗号/空格分隔，提交时解析成数组（标签是检索的重要依据）
   const [importTags, setImportTags] = useState('');
   // 解析导入标签输入：按中文/英文逗号与空白切分，去重去空
@@ -85,6 +85,16 @@ export function KnowledgePanel() {
   >([]);
   // 笔记详情里编辑标签的草稿（新增标签输入框的值）
   const [tagDraft, setTagDraft] = useState('');
+  // 笔记整理双栏：左栏选中的笔记（默认选中第一篇，无则空）
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  // 右栏展示的笔记：优先选中项；选中项被删/不存在时回退到列表第一篇
+  const selectedNote = useMemo(
+    () =>
+      notes.find((note) => note.id === selectedNoteId) ??
+      notes[0] ??
+      null,
+    [notes, selectedNoteId],
+  );
 
   const openHit = (noteId: string, charStart?: number, hitText?: string) => {
     setViewingNote(notes.find((note) => note.id === noteId) ?? null);
@@ -93,6 +103,29 @@ export function KnowledgePanel() {
     // 打开笔记时拉取已确认的知识关联
     setRelated([]);
     void useKnowledgeLinkStore.getState().relatedNotes(noteId).then(setRelated);
+  };
+
+  // 手动触发 AI 关联建议（导入时没建、或当时模型不可用的笔记，补一次机会）
+  const relinkNote = async (noteId: string) => {
+    setLinking(true);
+    try {
+      const result = await useKnowledgeLinkStore.getState().suggestForNote(noteId);
+      // 刷新已确认关联列表（确认写入后图谱与这里都会更新）
+      const fresh = await useKnowledgeLinkStore.getState().relatedNotes(noteId);
+      setRelated(fresh);
+      if (result.created.length > 0) {
+        useToastStore.getState().show(
+          `已建立 ${result.created.length} 条知识关联`,
+          'ok'
+        );
+      } else if (result.suggested > 0) {
+        // 用户拒绝了建议，不打扰（确认框已给过反馈）
+      } else {
+        useToastStore.getState().show('未找到与现有笔记的关联', 'info');
+      }
+    } finally {
+      setLinking(false);
+    }
   };
 
   // 猜你还想搜索：根据检索词从已有笔记标题与最近搜索里推荐
@@ -109,7 +142,7 @@ export function KnowledgePanel() {
     return [...set].slice(0, 5);
   }, [query, notes, history]);
 
-  // 时间线：按月 → 按日 分组，最近在前
+  // 时间线：按月 → 按日 分组，最近在前（左栏简洁列表用）
   interface DayGroup {
     dayLabel: string;
     notes: Note[];
@@ -264,120 +297,71 @@ export function KnowledgePanel() {
         >
           {t('快速导入')}
         </button>
-        <button
-          type="button"
-          className="cozy-mode-toggle__item"
-          data-active={viewMode === 'graph'}
-          aria-pressed={viewMode === 'graph'}
-          onClick={() => setViewMode('graph')}
-        >
-          {t('知识图谱')}
-        </button>
       </div>
 
-      {viewMode === 'graph' ? <KnowledgeGraphView /> : null}
-
       {viewMode === 'notes' ? (
-        <>
-        <div className="cozy-timeline">
-          {timeline.length === 0 ? (
-            <p className="cozy-today-empty">{t('还没有笔记。去「快速导入」添加一条。')}</p>
-          ) : (
-            timeline.map((month) => {
-              const digest = digests[month.yearMonth];
-              const monthNotes = month.days.flatMap((day) => day.notes);
-              return (
-              <section key={month.monthLabel} className="cozy-timeline__month">
-                <h4 className="cozy-timeline__month-title">
-                  {month.monthLabel}
-                  <span className="cozy-timeline__count">{t('{0} 条', month.count)}</span>
+        <div className="cozy-notes-split">
+          {/* 左栏：时间线（按月 → 按日分组，标题链接），点击在右栏预览 */}
+          <div className="cozy-notes-split__list">
+            <h3 className="panel-section-title">{t('笔记（{0}）', notes.length)}</h3>
+            {notes.length === 0 ? (
+              <p className="cozy-today-empty">{t('还没有笔记。去「快速导入」添加一条。')}</p>
+            ) : (
+              timeline.map((month) => (
+                <section key={month.yearMonth} className="cozy-timeline__month">
+                  <h4 className="cozy-timeline__month-title">
+                    {month.monthLabel}
+                    <span className="cozy-timeline__count">{t('{0} 条', month.count)}</span>
+                  </h4>
+                  {month.days.map((day) => (
+                    <div key={day.dayLabel} className="cozy-timeline__day">
+                      <span className="cozy-timeline__day-label">{day.dayLabel}</span>
+                      <ul className="cozy-timeline__notes">
+                        {day.notes.map((note) => (
+                          <li key={note.id}>
+                            <button
+                              type="button"
+                              className="cozy-link"
+                              data-active={note.id === selectedNoteId}
+                              onClick={() => setSelectedNoteId(note.id)}
+                            >
+                              {note.title || '（无标题笔记）'}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </section>
+              ))
+            )}
+          </div>
+
+          {/* 右栏：选中笔记的正文预览 */}
+          <div className="cozy-notes-split__detail">
+            {selectedNote ? (
+              <>
+                <div className="cozy-notes-split__head">
+                  <h3 className="panel-section-title">{selectedNote.title}</h3>
                   <button
                     type="button"
                     className="cozy-btn-ghost"
-                    disabled={digest?.loading}
-                    onClick={() => void summarizeMonth(month.yearMonth, monthNotes)}
+                    onClick={() => void deleteNote(selectedNote.id)}
                   >
-                    {digest?.loading
-                      ? t('生成中…')
-                      : digest?.text
-                        ? t('重新归纳')
-                        : t('归纳本月')}
+                    {t('删除')}
                   </button>
-                </h4>
-                {digest?.text ? (
-                  <p className="cozy-timeline__digest">{digest.text}</p>
-                ) : null}
-                {month.days.map((day) => (
-                  <div key={day.dayLabel} className="cozy-timeline__day">
-                    <span className="cozy-timeline__day-label">{day.dayLabel}</span>
-                    <ul className="cozy-timeline__notes">
-                      {day.notes.map((note) => (
-                        <li key={note.id}>
-                          <button
-                            type="button"
-                            className="cozy-link"
-                            onClick={() => openHit(note.id)}
-                          >
-                            {note.title || '（无标题笔记）'}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </section>
-              );
-            })
-          )}
+                </div>
+                <NoteViewer
+                  key={selectedNote.id}
+                  content={selectedNote.content}
+                  pageRanges={selectedNote.pageRanges}
+                />
+              </>
+            ) : (
+              <p className="cozy-today-empty">{t('从左侧选择一篇笔记查看内容。')}</p>
+            )}
+          </div>
         </div>
-
-        {/* 笔记列表：整理视图里查看 / 删除全部笔记 */}
-        <div className="cozy-knowledge-notes">
-          <h3 className="panel-section-title">{t('笔记（{0}）', notes.length)}</h3>
-          {notes.length === 0 ? (
-            <p className="cozy-today-empty">{t('还没有笔记。去「快速导入」添加一条。')}</p>
-          ) : (
-            <ul className="cozy-hit-list">
-              {notes.map((note) => (
-                <li key={note.id} className="cozy-note-card">
-                  <p className="cozy-note-card__title">{note.title}</p>
-                  <p className="cozy-note-card__excerpt">{note.content.slice(0, 100)}</p>
-                  {note.tags.length > 0 ? (
-                    <div className="cozy-tag-row">
-                      {note.tags.map((tag) => (
-                        <span key={tag} className="cozy-tag-chip">{tag}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="cozy-note-card__actions">
-                    <span className="cozy-note-card__source">
-                      {note.indexStatus === 'indexed' ? t('已索引') : note.indexStatus}
-                    </span>
-                    {(linkCounts[note.id] ?? 0) > 0 ? (
-                      <button
-                        type="button"
-                        className="cozy-link-badge"
-                        title={t('这篇笔记与 {0} 篇内容有关联，点开查看知识图谱', linkCounts[note.id])}
-                        onClick={() => setViewMode('graph')}
-                      >
-                        <Link2 size={12} strokeWidth={2} aria-hidden={true} />
-                        {t('{0} 关联', linkCounts[note.id])}
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="cozy-btn-ghost"
-                      onClick={() => void deleteNote(note.id)}
-                    >
-                      {t('删除')}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        </>
       ) : viewMode === 'import' ? (
         <div className="cozy-knowledge-import">
           <h3 className="panel-section-title">{t('快速导入')}</h3>
@@ -708,15 +692,13 @@ export function KnowledgePanel() {
                       <p className="cozy-note-card__hint">
                         {t('相关度 {0} · 点击段落查看所属笔记', hit.score.toFixed(2))}
                         {(linkCounts[hit.noteId] ?? 0) > 0 ? (
-                          <button
-                            type="button"
+                          <span
                             className="cozy-link-badge cozy-link-badge--inline"
-                            title={t('这篇笔记与 {0} 篇内容有关联，点开查看知识图谱', linkCounts[hit.noteId])}
-                            onClick={() => setViewMode('graph')}
+                            title={t('这篇笔记与 {0} 篇内容有关联', linkCounts[hit.noteId])}
                           >
                             <Link2 size={12} strokeWidth={2} aria-hidden={true} />
                             {t('{0} 关联', linkCounts[hit.noteId])}
-                          </button>
+                          </span>
                         ) : null}
                       </p>
                     </li>
@@ -892,10 +874,21 @@ export function KnowledgePanel() {
                 />
               </div>
             </div>
-            {/* 相关笔记：已确认的知识关联，点击跳转 */}
-            {related.length > 0 ? (
-              <div className="cozy-related-notes">
-                <h4 className="panel-section-title">{t('相关笔记')}</h4>
+            {/* 查找关联：对已有笔记手动触发 AI 关联建议（导入时没建或错过确认的补回来） */}
+            <div className="cozy-related-notes">
+              <div className="cozy-relate-actions">
+                <h4 className="panel-section-title">{t('知识关联')}</h4>
+                <button
+                  type="button"
+                  className="cozy-btn-secondary"
+                  disabled={linking}
+                  title={t('用本地模型检索相关旧笔记并建议建链')}
+                  onClick={() => void relinkNote(viewingNote.id)}
+                >
+                  {linking ? t('查找中…') : t('查找关联笔记')}
+                </button>
+              </div>
+              {related.length > 0 ? (
                 <ul className="cozy-related-notes__list">
                   {related.map((item) => (
                     <li key={item.noteId}>
@@ -912,8 +905,12 @@ export function KnowledgePanel() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            ) : null}
+              ) : (
+                <p className="cozy-knowledge-hint">
+                  {t('还没有已确认的关联。点「查找关联笔记」让 AI 检索相关旧笔记。')}
+                </p>
+              )}
+            </div>
           </>
         ) : null}
       </Modal>

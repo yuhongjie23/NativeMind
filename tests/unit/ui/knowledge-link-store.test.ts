@@ -30,6 +30,10 @@ const NOTE_A = {
 
 const store = () => useKnowledgeLinkStore.getState();
 
+/** 测试用例里反复引用的笔记端点，beforeEach 统一建好（真实存在，不会被悬空过滤掉） */
+const NOTE_B = { ...NOTE_A, id: 'note-b', title: '线性代数进阶', contentHash: 'hash-b' };
+const NOTE_C = { ...NOTE_A, id: 'note-c', title: '矩阵论', contentHash: 'hash-c' };
+
 describe('useKnowledgeLinkStore', () => {
   beforeEach(async () => {
     // 每个用例从干净状态开始：store 是模块级单例，会跨用例串味
@@ -49,6 +53,11 @@ describe('useKnowledgeLinkStore', () => {
     for (const link of existing) {
       await repositories.knowledgeLink.archive(link.id, '2026-01-01T00:00:00.000Z');
     }
+
+    // 建好常用的笔记端点；不存在的端点会被图谱悬空过滤掉（见悬空用例）
+    await repositories.note.save(NOTE_A);
+    await repositories.note.save(NOTE_B);
+    await repositories.note.save(NOTE_C);
   });
 
 
@@ -68,20 +77,21 @@ describe('useKnowledgeLinkStore', () => {
     expect(labels).toContain('线性代数基础');
   });
 
-  it('指向已删除实体时退化为类型 + 短 id，不影响其余节点', async () => {
+  it('指向已删除实体时过滤悬空节点，不显示「笔记+短id」假节点', async () => {
     await store().createLink({
       fromType: 'note',
       fromId: 'ffffffff-dead-beef-0000-000000000000',
-      toType: 'todo',
-      toId: 'gone',
+      toType: 'note',
+      toId: 'note-b',
       relationType: 'review_later',
       reason: '目标笔记已被删除',
     });
 
+    // 悬空节点（笔记不存在）被过滤掉：图上不显示「笔记 ffffffff…」这种看不出是哪篇的假节点
     const labels = store().graph.nodes.map((node) => node.label);
-    // 超过 8 字符的 id 截断，短的原样保留 —— 全长 uuid 铺在图上没法看
-    expect(labels).toContain('笔记 ffffffff…');
-    expect(labels).toContain('任务 gone');
+    expect(labels).not.toContain('笔记 ffffffff…');
+    // 悬空边（两端都查不到实体的边）也不出现在图上
+    expect(store().graph.links).toHaveLength(0);
   });
 
 

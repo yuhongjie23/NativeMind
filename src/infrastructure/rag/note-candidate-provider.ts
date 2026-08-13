@@ -52,13 +52,30 @@ export class NoteCandidateProvider implements CandidateProvider {
   }
 
   /**
-   * 检索零命中时的兜底：拉最近一批笔记的 chunk 当候选（含标题）。
-   * 用户导入一篇「记忆模块(Memory)」时，旧笔记正文可能一字不重叠——字面检索必然落空，
-   * 但模型看标题 + 首段就能判断「记忆是 Agent 核心组件」这类语义关联。
+   * 检索零命中时的兜底：只收「标题或标签与查询相关」的笔记（含标题），
+   * 让模型在字面检索落空时仍能判断语义关联（如「记忆模块(Memory)」与「Agent 核心组件」）。
+   *
+   * 绝不拉「最近笔记」：最近的 ≠ 相关的，把无关笔记喂给模型会让它硬凑关联
+   * （如把「秋收起义」建议关联「agent」）。标题/标签命中是用户自己打的摘要，
+   * 相关性有保证，模型判断才有意义。
    */
   async listFallback(query: RetrievalQuery, limit: number): Promise<RuleCandidateSource[]> {
     const excluded = new Set(query.excludeNoteIds ?? []);
-    const chunks = await this.notes.listChunksForRetrieval(Math.min(limit * 3, FALLBACK_SCAN_LIMIT));
+    const terms = searchTerms(query.text);
+
+    // 标题命中：按关键词查标题 LIKE；标签命中：复用 findByTags
+    const byTitle = terms.length > 0
+      ? await Promise.all(terms.map((term) => this.notes.findByTitleKeyword(term, 10)))
+      : [];
+    const byTag = await this.notes.findByTags(terms, 20);
+
+    const noteIds = new Set<string>([
+      ...byTitle.flat().map((note) => note.id),
+      ...byTag.map((note) => note.id),
+    ]);
+    if (noteIds.size === 0) return [];
+
+    const chunks = await this.notes.listChunksForNotes([...noteIds], Math.min(limit * 3, FALLBACK_SCAN_LIMIT));
     const titleById = await this.loadTitles(chunks.map((chunk) => chunk.noteId));
 
     return chunks

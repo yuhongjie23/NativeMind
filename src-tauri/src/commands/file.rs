@@ -846,7 +846,7 @@ mod tests {
         // 残留旧路径（指向不存在的目录）
         let stale = serde_json::json!({
             "clear": r"C:\gone\imports\song.flac",
-            "rain": r"E:\agent_workspace\NativeMind\download\imports\My Soul - July.flac"
+            "rain": r"D:\somewhere\imports\ambient.flac"
         })
         .to_string();
         db.execute(

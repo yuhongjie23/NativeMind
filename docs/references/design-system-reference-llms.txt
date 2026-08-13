@@ -1,0 +1,98 @@
+# Design System Reference for LLMs
+
+## Tailwind CSS Conventions
+
+### Color Tokens (semantic)
+```css
+/* Primary actions, active states */
+primary: blue-600 (light) / blue-400 (dark)
+primary-hover: blue-700 / blue-300
+primary-bg: blue-50 / blue-950
+
+/* Secondary elements */
+secondary: slate-600 / slate-400
+secondary-bg: slate-100 / slate-800
+
+/* Destructive actions */
+destructive: red-600 / red-400
+destructive-bg: red-50 / red-950
+
+/* Success states */
+success: green-600 / green-400
+success-bg: green-50 / green-950
+
+/* Muted / disabled */
+muted: slate-400 / slate-600
+muted-bg: slate-50 / slate-900
+
+/* Surfaces */
+surface: white / slate-950
+surface-secondary: slate-50 / slate-900
+border: slate-200 / slate-800
+```
+
+### Typography
+```css
+font-family: system-ui, -apple-system, sans-serif;
+font-mono: ui-monospace, 'Cascadia Code', monospace;
+
+/* Scale */
+text-xs: 0.75rem    /* Labels, badges */
+text-sm: 0.875rem   /* Secondary text, captions */
+text-base: 1rem     /* Body */
+text-lg: 1.125rem   /* Card titles */
+text-xl: 1.25rem    /* Section headers */
+text-2xl: 1.5rem    /* Page titles */
+```
+
+### Spacing
+Uses Tailwind default 4px grid (p-1=4px, p-2=8px, ..., p-8=32px).
+
+### Border Radius
+```css
+rounded-sm: 0.125rem  /* Inputs */
+rounded-md: 0.375rem  /* Cards, buttons */
+rounded-lg: 0.5rem    /* Modals */
+rounded-full: 9999px  /* Avatars, pills, timer ring */
+```
+
+### Shadows
+```css
+shadow-sm  /* Subtle elevation (cards) */
+shadow-md  /* Dropdowns, hover states */
+shadow-lg  /* Modals */
+shadow-none /* Focus mode (flat) */
+```
+
+## shadcn/ui Patterns
+
+Components are copied into `src/ui/components/ui/`, not imported from a library.
+Use `npx shadcn-ui@latest add <component>` to add new ones.
+
+### Component Variants (cva)
+```typescript
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-white hover:bg-primary-hover",
+        secondary: "bg-secondary-bg text-secondary hover:bg-secondary-bg/80",
+        destructive: "bg-destructive text-white hover:bg-destructive/90",
+        ghost: "hover:bg-muted-bg",
+        outline: "border border-border bg-transparent hover:bg-muted-bg",
+      },
+      size: {
+        sm: "h-8 px-3 text-xs",
+        md: "h-10 px-4",
+        lg: "h-12 px-6 text-lg",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: { variant: "default", size: "md" },
+  }
+);
+```
+
+### Dark Mode
+Uses Tailwind `dark:` prefix. Toggle via `class` strategy on `<html>`.

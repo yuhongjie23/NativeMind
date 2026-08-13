@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "letter-verify.v1",
+  "title": "回信质检",
+  "description": "低级模型验证回信：语气是否贴合来信情绪、是否回应了来信内容、是否使用了目标语言。",
+  "type": "object",
+  "required": ["appropriate", "critique"],
+  "additionalProperties": false,
+  "properties": {
+    "appropriate": { "type": "boolean" },
+    "critique": { "type": "string", "maxLength": 300 }
+  }
+}

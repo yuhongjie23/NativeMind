@@ -1,0 +1,11 @@
+{
+  "id": "gugu-gaga",
+  "name": "咕咕嘎嘎",
+  "description": "安静待着的低饱和像素小鸭，专注时陪你走完每一段。",
+  "tone": "平实、简短，像旁边安静待着的小玩偶。不吹捧，不打鸡血，不用感叹号。",
+  "animations": {
+    "idle": "idle",
+    "greet": "greet",
+    "cheer": "cheer"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "review-log.v1",
+  "title": "复盘草稿",
+  "type": "object",
+  "required": ["content", "insights", "nextTodos"],
+  "additionalProperties": false,
+  "properties": {
+    "content": { "type": "string", "minLength": 20, "maxLength": 4000 },
+    "summary": { "type": "string", "maxLength": 200 },
+    "insights": {
+      "description": "基于数据的观察，允许为空数组，不要凑数",
+      "type": "array",
+      "maxItems": 5,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    },
+    "nextTodos": {
+      "description": "任务草稿建议，确认后才写入",
+      "type": "array",
+      "maxItems": 3,
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    }
+  }
+}

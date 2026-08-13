@@ -1,0 +1,39 @@
+[package]
+name = "lib-epub"
+description = "A Rust library for reading and manipulating EPUB files."
+documentation = "https://docs.rs/lib-epub"
+repository = "https://github.com/KikkiZ/lib-epub.git"
+license = "MIT"
+keywords = ["ebook", "epub", "library"]
+exclude = ["/test_case"]
+
+version = "0.3.1"
+edition = "2024"
+rust-version = "1.85"
+
+[package.metadata]
+authors = ["KikkiZ <zhangyozh@foxmail.com>"]
+docs.rs = { features = ["builder", "content-builder"] }
+
+[dependencies]
+chrono = { version = "0.4.43", optional = true }
+indexmap = { version = "2.13.0", optional = true }
+infer = { version = "0.19.0", optional = true }
+log = "0.4.29"
+quick-xml = "0.39.0"
+sha1 = "0.10.6"
+# sha2 = "0.10.9"
+thiserror = "2.0.18"
+walkdir = { version = "2.5.0", optional = true }
+zip = { version = "8.0.0", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+flate2 = "1.1.9"
+# kiss_xml = "1.0.2"
+
+[features]
+default = ["indexmap"]
+
+builder = ["chrono", "infer", "walkdir"]
+content-builder = ["builder"]
+no-indexmap = []

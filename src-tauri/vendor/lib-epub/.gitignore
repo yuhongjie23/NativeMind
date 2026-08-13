@@ -1,0 +1,5 @@
+/target
+tarpaulin-report.html
+epub.code-workspace
+/.zed
+/.vscode

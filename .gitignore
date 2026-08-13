@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+src-tauri/target/
+
+# Tauri / Rust
+src-tauri/target/
+
+# Local data (user data dir may point here)
+download/
+musics/
+ollama-models/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Agent workspace files
+.omo/
+.codegraph/
+.claude/
+.idea/
+
+# AI 生成素材 / 个人设计稿（不入库）
+即梦AI/
+不要上传的部分/
+
+# 背景音乐（版权不明 + 体积大，1.2GB）：从 GitHub Release 下载 background-music.zip 放入
+# src-tauri/resources/audio/（保持 vec0.dll 等运行时依赖入库）
+src-tauri/resources/audio/
+
+# Screenshot source (already copied to docs/screenshots)
+src-tauri/screen_shot/

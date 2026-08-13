@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "qa-critic.v1",
+  "title": "深度问答自我评判",
+  "description": "对生成草稿的自我评判：资料相关性、答案是否有据、幻觉风险、质量分、实际用到的片段 id。只读建议，不落库（C1）。",
+  "type": "object",
+  "required": ["relevance", "grounded", "hallucination_risk", "quality", "used_chunk_ids", "critique"],
+  "additionalProperties": false,
+  "properties": {
+    "relevance": {
+      "description": "检索到的资料与问题的相关程度，0-1",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "grounded": {
+      "description": "答案是否严格基于给定资料（未引用资料却断言的内容应判 false）",
+      "type": "boolean"
+    },
+    "hallucination_risk": {
+      "description": "是否存在编造、超出资料的内容",
+      "type": "boolean"
+    },
+    "quality": {
+      "description": "答案质量分 0-10",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "used_chunk_ids": {
+      "description": "实际用于作答的资料片段 id（必须来自候选集，调用方会再校验）",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "maxItems": 12
+    },
+    "critique": {
+      "description": "给重生成的一句改进意见；评判通过可为空串",
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}

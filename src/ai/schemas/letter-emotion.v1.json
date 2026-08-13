@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "letter-emotion.v1",
+  "title": "来信情感分析",
+  "description": "通读来信后输出情绪、摘要与回信语气建议。summary/tone 按目标语言输出。",
+  "type": "object",
+  "required": ["emotion", "summary", "tone"],
+  "additionalProperties": false,
+  "properties": {
+    "emotion": { "type": "string", "minLength": 1, "maxLength": 20 },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "tone": { "type": "string", "minLength": 1, "maxLength": 200 }
+  }
+}

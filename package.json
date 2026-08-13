@@ -1,0 +1,63 @@
+{
+  "name": "nativemind",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "一个本地优先的 AI 学习节律工具",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "icon:placeholder": "node scripts/generate-placeholder-icon.mjs",
+    "audio:placeholder": "node scripts/generate-placeholder-audio.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "db:migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tauri-apps/plugin-notification": "^2.3.3",
+    "@tauri-apps/plugin-shell": "^2.3.5",
+    "codemirror": "^6.0.0",
+    "d3": "^7.9.0",
+    "d3-force": "3.0.0",
+    "lottie-web": "^5.12.0",
+    "lucide-react": "^1.28.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.12.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/d3": "^7.4.0",
+    "@types/d3-force": "3.0.10",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vitest": "3.2.4"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}

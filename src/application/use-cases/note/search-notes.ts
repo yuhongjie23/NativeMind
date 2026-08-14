@@ -189,7 +189,14 @@ export class SearchNotesUseCase {
       externalQueries: outcome.queries,
       externalSearchAttempted: outcome.allowed,
       externalSearchAvailable: true,
-      externalBlockedReason: outcome.allowed ? undefined : outcome.reason,
+      // allowed=false（被拦）或「外部搜索发出但无结果且有原因」都提示用户；
+      // 有结果时不打扰（reason 可能是「部分查询被拦」之类的次要信息）
+      externalBlockedReason:
+        outcome.allowed === false
+          ? outcome.reason
+          : outcome.results.length === 0 && outcome.reason
+            ? outcome.reason
+            : undefined,
       keywordFallback: outcome.keywordFallback,
       confirmationRequired: false,
     };

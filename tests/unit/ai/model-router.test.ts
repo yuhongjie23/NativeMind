@@ -236,3 +236,44 @@ describe('ModelRouter 调用日志', () => {
     warn.mockRestore();
   });
 });
+
+describe('ModelRouter 双 provider 路由（本地 + DeepSeek）', () => {
+  it('fast 走本地 provider，coach 走云端 provider', async () => {
+    const local = fakeProvider({ respond: () => '本地响应' });
+    const cloud = fakeProvider({ respond: () => '云端响应' });
+    const router = new ModelRouter(local, {}, (tier) => (tier === 'fast' ? null : cloud));
+
+    // 两个自由文本任务（无 JSON 校验，fakeProvider 的文本响应合法）：
+    // socratic（coach）→ 云端；query_rewrite（fast，有 prompt 模板）→ 本地
+    await router.run({ taskType: 'socratic_question', input: {} }); // coach → 云端
+    await router.run({ taskType: 'query_rewrite', input: {} }); // fast → 本地
+
+    expect(cloud.calls).toHaveLength(1);
+    expect(local.calls).toHaveLength(1);
+  });
+
+  it('云端 provider 不可用（未配 key）时 coach 降级到本地', async () => {
+    const local = fakeProvider({ respond: () => '本地响应' });
+    const cloudDown: ModelProvider = {
+      isAvailable: async () => false,
+      complete: async () => '',
+    };
+    const router = new ModelRouter(local, {}, (tier) => (tier === 'fast' ? null : cloudDown));
+
+    const result = await router.run({ taskType: 'socratic_question', input: {} });
+
+    // cloudDown 不可用 → 降级 fast → 本地
+    expect(result.ok).toBe(true);
+    expect(result.degraded).toBe(true);
+    expect(local.calls.length).toBeGreaterThan(0);
+  });
+
+  it('selector 返回 null（无云端）时回退默认 provider', async () => {
+    const local = fakeProvider({ respond: () => '本地响应' });
+    const router = new ModelRouter(local, {}, () => null);
+
+    await router.run({ taskType: 'socratic_question', input: {} });
+
+    expect(local.calls).toHaveLength(1);
+  });
+});

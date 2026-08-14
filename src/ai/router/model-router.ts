@@ -36,6 +36,12 @@ export interface RouterOptions {
   recorder?: ModelRunRecorder;
 }
 
+/**
+ * 按 tier 选 provider：支持「快档走本地、教练档走云端」的混合部署。
+ * 返回 null 表示该 tier 无可用 provider（ModelRouter 降级到 TIER_FALLBACK）。
+ */
+export type ProviderSelector = (tier: ModelTier) => ModelProvider | null;
+
 /** 供各能力模块使用的请求扩展：带上 prompt 变量，router 负责渲染 */
 export interface RoutedRequest<I = unknown> extends AIRequest<I> {
   promptVars?: PromptVars;
@@ -50,16 +56,25 @@ export class ModelRouter {
   private readonly recorder?: ModelRunRecorder;
 
   constructor(
+    /** 默认 provider；同时支持按 tier 精确路由（ProviderSelector 优先） */
     private readonly provider: ModelProvider,
-    options: RouterOptions = {}
+    options: RouterOptions = {},
+    private readonly providerFor?: ProviderSelector
   ) {
     this.tiers = { ...defaultTierConfigs, ...options.tierConfigs } as Record<ModelTier, TierConfig>;
     this.recorder = options.recorder;
   }
 
+  /** 当前 tier 实际用的 provider（精确路由优先，回退默认） */
+  private providerOf(tier: ModelTier): ModelProvider | null {
+    return this.providerFor ? this.providerFor(tier) ?? this.provider : this.provider;
+  }
+
   /** 供设置页展示「当前功能需要本地模型」提示（§16.1） */
   async isTierAvailable(tier: ModelTier): Promise<boolean> {
-    return this.provider.isAvailable(resolveModel(tier));
+    const selected = this.providerOf(tier);
+    if (!selected) return false;
+    return selected.isAvailable(resolveModel(tier));
   }
 
   async run<I, O>(request: RoutedRequest<I>): Promise<AIResult<O>> {
@@ -78,8 +93,17 @@ export class ModelRouter {
       visited.add(tier);
       const config = this.tiers[tier];
       const model = resolveModel(tier);
+      const selected = this.providerOf(tier);
 
-      if (!(await this.provider.isAvailable(model))) {
+      // 该 tier 没有可用 provider（如云端未配 key）→ 直接降级
+      if (!selected) {
+        lastError = { kind: 'model_unavailable', message: `该档位无可用模型: ${model}` };
+        if (request.modelPolicy?.noFallback) break;
+        tier = TIER_FALLBACK[tier];
+        continue;
+      }
+
+      if (!(await selected.isAvailable(model))) {
         lastError = { kind: 'model_unavailable', message: `模型不可用: ${model}` };
         // noFallback：一次失败直接结束，不升级（宠物气泡等延迟敏感场景）
         if (request.modelPolicy?.noFallback) break;
@@ -97,6 +121,7 @@ export class ModelRouter {
           promptId,
           schemaId,
           requiresJson,
+          provider: selected,
           // 重试时把上一轮的错误回灌给模型，比原样再问一次更可能修好格式
           retryHint: i > 0 ? lastError.message : undefined,
         });
@@ -143,10 +168,11 @@ export class ModelRouter {
       promptId?: PromptId;
       schemaId?: SchemaId;
       requiresJson: boolean;
+      provider: ModelProvider;
       retryHint?: string;
     }
   ): Promise<{ ok: true; result: AIResult<O> } | { ok: false; error: AIFailure }> {
-    const { tier, config, promptId, schemaId, requiresJson, retryHint } = ctx;
+    const { tier, config, promptId, schemaId, requiresJson, provider, retryHint } = ctx;
 
     const base = promptId
       ? renderPrompt(promptId, request.promptVars)
@@ -162,7 +188,7 @@ export class ModelRouter {
 
     let raw: string;
     try {
-      raw = await this.provider.complete({
+      raw = await provider.complete({
         model: resolveModel(tier),
         system: base.system || undefined,
         prompt: user,

@@ -209,3 +209,15 @@ export const openExternal = async (url: string): Promise<void> => {
   }
   window.open(url, '_blank', 'noopener');
 };
+
+/** 导出数据到指定目录：生成 nativemind-backup-{时间戳}/ 自包含目录，返回该目录路径 */
+export const exportData = async (targetDir: string): Promise<string> => {
+  if (!isTauri()) throw new Error('导出仅桌面端可用');
+  return invoke<string>('data_export', { targetDir });
+};
+
+/** 从导出的目录恢复数据（恢复到 data_dir，恢复前自动备份当前状态），返回数据库路径 */
+export const importData = async (sourceDir: string): Promise<string> => {
+  if (!isTauri()) throw new Error('恢复仅桌面端可用');
+  return invoke<string>('data_import', { sourceDir });
+};

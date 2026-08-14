@@ -1,4 +1,5 @@
 import { createApplication, type Application } from '@application/bootstrap';
+import { DeepSeekProvider } from './model-runtime/deepseek-provider';
 import { isSameLocalDay, splitPlainIntoParagraphs } from '@application/shared/utils';
 import type { ActionProposal, ActionProposalRepository, ProposalStatus } from '@application/confirmation/action-proposal';
 import type { ConfirmPrompt, ConfirmationPrompt } from '@application/confirmation/confirmation-service';
@@ -993,6 +994,8 @@ export interface LocalDemoRuntime {
   aiMode: 'template';
   /** 与 Tauri AILayer 同形（ports 是模板实现），UI 统一经 ai.ports.noteDigest 访问 */
   ai: { ports: { noteDigest: TemplateMonthlyDigestPort } };
+  /** 与 Tauri 同形：web 演示模式不接云端，占位空实例 */
+  deepseek: DeepSeekProvider;
   repositories: {
     todo: InMemoryTodoRepository;
     focus: InMemoryFocusRepository;
@@ -1108,6 +1111,7 @@ export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDem
     aiMode: 'template',
     // 与 Tauri 的 AILayer 同形：UI 通过 ai.ports.noteDigest 访问
     ai: { ports: aiPorts },
+    deepseek: new DeepSeekProvider({}),
     repositories: {
       todo,
       focus,

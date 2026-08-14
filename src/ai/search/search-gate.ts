@@ -18,9 +18,16 @@ export type SearchTrigger =
   | 'local_insufficient_confirmed'
   | 'review_supplement';
 
+/** Provider 搜索结果 + 可选失败/拦截原因（供 UI 展示，不静默空结果） */
+export interface ProviderResult {
+  results: RawSearchResult[];
+  /** 无结果时的原因（反爬拦截/网络失败/解析失败），供 UI 提示用户 */
+  reason?: string;
+}
+
 export interface SearchProvider {
   /** 只接收关键词。实现方不得附带任何本地内容 */
-  search(query: string, limit: number): Promise<RawSearchResult[]>;
+  search(query: string, limit: number): Promise<ProviderResult>;
 }
 
 /**
@@ -117,11 +124,20 @@ export class SearchGate {
       queries.map((query) => provider.search(query, this.options.perQueryLimit))
     );
 
-    const raw = settled.flatMap((outcome) => (outcome.status === 'fulfilled' ? outcome.value : []));
+    const raw = settled.flatMap((outcome) =>
+      outcome.status === 'fulfilled' ? outcome.value.results : []
+    );
+    // 收集失败原因（第一个非空）：反爬拦截 / 网络失败，让 UI 明确告知而非「没有结果」
+    const providerReason = settled
+      .map((outcome) => (outcome.status === 'fulfilled' ? outcome.value.reason : undefined))
+      .find((reason) => Boolean(reason));
+
     if (raw.length === 0) {
       return {
         allowed: true,
-        reason: '外部搜索没有返回结果',
+        reason:
+          providerReason ??
+          '外部搜索没有返回结果（引擎可能反爬拦截，可尝试切换引擎）',
         results: [],
         queries,
         keywordFallback: fallback,

@@ -7,14 +7,14 @@
  */
 import { useEffect, useState } from 'react';
 import { t as globalT, useT } from '../../../i18n';
-import { checkModelAvailable, checkPath, ensureOllamaRunning, getAppPaths, isModelReady, listInstalledModels, type AppPathsInfo, type PathCheckResult } from '@infrastructure/paths/paths-api';
+import { checkModelAvailable, checkPath, ensureOllamaRunning, exportData, getAppPaths, importData, isModelReady, listInstalledModels, type AppPathsInfo, type PathCheckResult } from '@infrastructure/paths/paths-api';
 import type { AppLanguage, ThemeMode } from '@shared-types/config';
 import { ENGINE_LIST } from '@shared-types/search-config';
 import type { SearchEngineConfig } from '@shared-types/search-config';
 import type { SceneControls } from '../components/DemoSheet';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { useToastStore } from '../../../stores/toast-store';
-import { aiMode } from '../../../stores/runtime';
+import { aiMode, deepseek, describeError } from '../../../stores/runtime';
 import type { AmbientMode, TimeMode, WeatherType } from '../types';
 
 const weatherRows: { weather: WeatherType; label: string }[] = [
@@ -312,6 +312,52 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
     setModelStatus({ small: small ? 'ok' : 'missing', big: big ? 'ok' : 'missing' });
   };
 
+  // ---- DeepSeek 云端：key 输入 + 测试 ----
+  const [deepseekStatus, setDeepseekStatus] = useState<'idle' | 'checking' | 'ok' | 'invalid'>('idle');
+  // 输入框草稿：不直接改 store（key 是敏感信息，显式「保存」才落库）
+  const [apiKeyDraft, setApiKeyDraft] = useState(models.apiKey ?? '');
+  useEffect(() => {
+    setApiKeyDraft(models.apiKey ?? '');
+  }, [models.apiKey]);
+
+  /** 测试 DeepSeek key：真实打一次 /models */
+  const testDeepseek = async () => {
+    if (!apiKeyDraft.trim()) {
+      setDeepseekStatus('invalid');
+      return;
+    }
+    setDeepseekStatus('checking');
+    // 先热配置（不落库），验证通过后由「启用云端」按钮持久化
+    deepseek.configure({
+      apiKey: apiKeyDraft.trim(),
+      model: models.deepseekModel,
+      thinking: models.deepseekThinking,
+    });
+    const ok = await deepseek.isReady();
+    setDeepseekStatus(ok ? 'ok' : 'invalid');
+    return ok;
+  };
+
+  /** 保存 DeepSeek 配置并切换教练档到云端 */
+  const saveDeepseek = async () => {
+    const ok = await testDeepseek();
+    if (!ok) return;
+    await updateModels({
+      apiKey: apiKeyDraft.trim(),
+      providerMode: 'deepseek',
+      deepseekModel: models.deepseekModel,
+      deepseekThinking: models.deepseekThinking,
+    });
+    useToastStore.getState().show(t('DeepSeek 已启用，教练档走云端'), 'ok');
+  };
+
+  /** 切回本地模型（教练档回退本地大模型，key 保留但不使用） */
+  const disableDeepseek = async () => {
+    await updateModels({ providerMode: 'local' });
+    setDeepseekStatus('idle');
+    useToastStore.getState().show(t('已切回本地模型'), 'info');
+  };
+
   // 设置读完后把已配置的音乐目录回填到输入框
   useEffect(() => {
     if (loaded) setMusicDraft(paths.musicDir ?? '');
@@ -408,6 +454,48 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
 
   const removeFocusMusic = async () => {
     await updateFocusMusic(undefined);
+  };
+
+  /** ---- 数据备份与恢复 ---- */
+  const [dataBusy, setDataBusy] = useState<'export' | 'import' | null>(null);
+  const [dataResult, setDataResult] = useState('');
+
+  /** 导出：选目标目录 → 生成 nativemind-backup-{时间戳}/ */
+  const handleExport = async () => {
+    if (!canPickDirectory) return;
+    setDataResult('');
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({ directory: true, title: t('选择导出位置') });
+      const dir = Array.isArray(selected) ? selected[0] : selected;
+      if (!dir) return;
+      setDataBusy('export');
+      const backupDir = await exportData(dir);
+      setDataResult(t('已导出到：{0}。拷贝整个目录到新电脑即可恢复。', backupDir));
+    } catch (error) {
+      setDataResult(`${t('导出失败')}：${describeError(error)}`);
+    } finally {
+      setDataBusy(null);
+    }
+  };
+
+  /** 恢复：选备份目录 → 恢复到当前数据目录（恢复前自动备份当前状态） */
+  const handleImport = async () => {
+    if (!canPickDirectory) return;
+    setDataResult('');
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({ directory: true, title: t('选择备份目录（含 nativemind.db）') });
+      const dir = Array.isArray(selected) ? selected[0] : selected;
+      if (!dir) return;
+      setDataBusy('import');
+      const dbPath = await importData(dir);
+      setDataResult(t('已恢复数据库：{0}。请重启应用使更改生效。', dbPath));
+    } catch (error) {
+      setDataResult(`${t('恢复失败')}：${describeError(error)}`);
+    } finally {
+      setDataBusy(null);
+    }
   };
 
   return (
@@ -854,6 +942,43 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
         </div>
       </section>
 
+      {/* ---- 数据备份与恢复：换电脑迁移用 ---- */}
+      <section className="cozy-settings__group">
+        <h3 className="cozy-settings__group-title">{t('数据备份与恢复')}</h3>
+        <p className="cozy-companion-panel__hint">
+          {t('换电脑 / 防丢失：导出会把数据库、导入的原始文件、路径配置打包成自包含目录，拷贝到新机器即可恢复。')}
+        </p>
+        <div className="cozy-settings-row">
+          <span className="cozy-settings-row__label">{t('导出数据')}</span>
+          <span className="cozy-settings-row__value">
+            {dataBusy === 'export' ? t('导出中…') : t('生成备份目录')}
+          </span>
+          <button
+            type="button"
+            className="cozy-btn-secondary"
+            disabled={dataBusy !== null || !canPickDirectory}
+            onClick={() => void handleExport()}
+          >
+            {t('导出…')}
+          </button>
+        </div>
+        <div className="cozy-settings-row">
+          <span className="cozy-settings-row__label">{t('恢复数据')}</span>
+          <span className="cozy-settings-row__value">
+            {dataBusy === 'import' ? t('恢复中…') : t('从备份目录恢复')}
+          </span>
+          <button
+            type="button"
+            className="cozy-btn-secondary"
+            disabled={dataBusy !== null || !canPickDirectory}
+            onClick={() => void handleImport()}
+          >
+            {t('恢复…')}
+          </button>
+        </div>
+        {dataResult ? <p className="cozy-knowledge-hint">{dataResult}</p> : null}
+      </section>
+
       {/* ---- 隐私（真实） ---- */}
       <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('隐私')}</h3>
@@ -893,40 +1018,46 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
             ))}
           </select>
         </div>
-        {search.id === 'custom' ? (
+        {search.id === 'google' ? (
           <>
             <div className="cozy-settings-row">
-              <span className="cozy-settings-row__label">{t('搜索 URL')}</span>
+              <span className="cozy-settings-row__label">{t('Google API Key')}</span>
               <input
                 className="cozy-model-field__input"
-                value={search.customUrl ?? ''}
-                placeholder="https://www.baidu.com/s?wd={query}"
-                onChange={(event) => void updateSearch({ customUrl: event.target.value })}
+                type="password"
+                value={search.googleApiKey ?? ''}
+                placeholder={t('Google Cloud 控制台获取')}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => void updateSearch({ googleApiKey: event.target.value })}
               />
             </div>
             <div className="cozy-settings-row">
-              <span className="cozy-settings-row__label">{t('引擎名称')}</span>
+              <span className="cozy-settings-row__label">{t('搜索引擎 ID (CX)')}</span>
               <input
                 className="cozy-model-field__input"
-                value={search.customLabel ?? ''}
-                placeholder={t('我的搜索')}
-                onChange={(event) =>
-                  void updateSearch({ customLabel: event.target.value || undefined })
-                }
+                type="text"
+                value={search.googleCx ?? ''}
+                placeholder={t('Programmable Search Engine 控制台获取')}
+                onChange={(event) => void updateSearch({ googleCx: event.target.value })}
               />
             </div>
+            <p className="cozy-companion-panel__hint">
+              {t('Google 走官方 API（稳定无反爬），免费额度 100 次/天。获取：Google Cloud 建 API key → Programmable Search Engine 建引擎拿 CX。')}
+            </p>
           </>
-        ) : null}
-        <p className="cozy-companion-panel__hint">
-          {t('URL 里用 {0} 代替检索词。外部搜索需要打开「允许外部搜索」开关。', '{query}')}
-        </p>
+        ) : (
+          <p className="cozy-companion-panel__hint">
+            {t('Bing 直接抓取结果页，无需配置。外部搜索需要打开「允许外部搜索」开关。')}
+          </p>
+        )}
       </section>
 
       {/* ---- 模型 / 主题（真实） ---- */}
       <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('模型与外观')}</h3>
 
-        {/* Ollama 状态与配置指引：用户第一次进来就知道怎么装模型 */}
+        {/* Ollama 状态与配置指引：本地模型负责快速任务，未配 DeepSeek 时也兜底教练档 */}
         <div className="cozy-model-guide">
           <div className="cozy-settings-row">
             <span className="cozy-settings-row__label">{t('本地模型服务 (Ollama)')}</span>
@@ -949,43 +1080,33 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
             ) : null}
           </div>
           <p className="cozy-companion-panel__hint">
-            {t('NativeMind 的所有 AI 功能都跑在本地模型上，需要先安装 Ollama 并下载模型：')}
+            {t('本地模型负责所有基础任务（检索、专注、陪伴快响应等），也是未配置云端时的默认路径：')}
           </p>
           <ol className="cozy-model-guide__steps">
             <li>{t('安装 Ollama：访问 https://ollama.com/download 下载安装，或双击项目里的 setup_ollama.bat 自动完成')}</li>
-            <li>{t('下载模型：打开终端执行 ollama pull qwen2.5:1.5b（约 1GB，快速模型）和 ollama pull qwen2.5:14b（约 9GB，教练模型）')}</li>
-            <li>{t('配置模型名：在上方「快速模型」「教练模型」输入框里填模型名（可点检查可用性验证），如 qwen2.5:1.5b / qwen2.5:14b')}</li>
+            <li>{t('下载模型：打开终端执行 ollama pull qwen2.5:1.5b（约 1GB）和 ollama pull qwen2.5:14b（约 9GB）')}</li>
+            <li>{t('配置模型名：在下方「本地模型」输入框里填模型名（可点检查可用性验证），如 qwen2.5:1.5b')}</li>
           </ol>
           <p className="cozy-companion-panel__hint">
-            {t('显存建议：4GB 用 1.5b，8GB 用 7b，16GB 用 14b。模型越多越准，但越慢。')}
+            {t('显存建议：4GB 用 1.5b，8GB 用 7b，16GB 用 14b。')}
           </p>
         </div>
 
         <ModelPicker
           id="quick-model"
-          label={t('快速模型')}
+          label={t('本地模型')}
           models={availableModels}
           value={models.small}
           placeholder={t('输入模型名，如 qwen2.5:1.5b')}
           onChange={(value) => void updateModels({ small: value })}
         />
-        <ModelPicker
-          id="coach-model"
-          label={t('教练模型')}
-          models={availableModels}
-          value={models.big}
-          placeholder={t('输入模型名，如 qwen2.5:14b')}
-          onChange={(value) => void updateModels({ big: value })}
-        />
         <div className="cozy-settings-row">
-          <span className="cozy-settings-row__label">{t('测试模型')}</span>
-          <span className="cozy-settings-row__value">
-            {t('快速 {0} · 教练 {1}', modelStatusText(modelStatus.small), modelStatusText(modelStatus.big))}
-          </span>
+          <span className="cozy-settings-row__label">{t('测试本地模型')}</span>
+          <span className="cozy-settings-row__value">{modelStatusText(modelStatus.small)}</span>
           <button
             type="button"
             className="cozy-btn-secondary"
-            disabled={modelStatus.small === 'checking' || modelStatus.big === 'checking'}
+            disabled={modelStatus.small === 'checking'}
             onClick={() => void checkModels()}
           >
             {t('检查可用性')}
@@ -1009,6 +1130,114 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
             </ul>
           </div>
         ) : null}
+
+        {/* ---- DeepSeek 云端：教练档（任务拆解/复盘/知识关联/陪伴） ---- */}
+        <div className="cozy-model-deepseek">
+          <div className="cozy-settings-row">
+            <span className="cozy-settings-row__label">{t('教练模型 (DeepSeek)')}</span>
+            <span className="cozy-settings-row__value">
+              {models.providerMode === 'deepseek'
+                ? t('云端已启用 · {0}', models.deepseekModel)
+                : t('未启用（本地兜底）')}
+            </span>
+            {models.providerMode === 'deepseek' ? (
+              <button
+                type="button"
+                className="cozy-btn-secondary"
+                onClick={() => void disableDeepseek()}
+              >
+                {t('切回本地')}
+              </button>
+            ) : null}
+          </div>
+          <p className="cozy-companion-panel__hint">
+            {t('DeepSeek 负责需要理解与判断的教练任务（任务拆解、复盘生成、知识关联、陪伴对话、深度问答）。')}
+            {t('启用后相关内容的上下文会发送到 DeepSeek 服务器——数据出本机，请确认你接受这一点。')}
+          </p>
+          <div className="cozy-settings-row">
+            <span className="cozy-settings-row__label">{t('API Key')}</span>
+            <input
+              className="cozy-model-field__input"
+              type="password"
+              value={apiKeyDraft}
+              placeholder={t('sk-…（deepseek.com 控制台获取）')}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => setApiKeyDraft(event.target.value)}
+            />
+          </div>
+          <div className="cozy-settings-row">
+            <span className="cozy-settings-row__label">{t('档位')}</span>
+            <select
+              className="cozy-model-field__input"
+              value={models.deepseekModel}
+              onChange={(event) => void updateModels({ deepseekModel: event.target.value })}
+            >
+              <option value="deepseek-v4-flash">deepseek-v4-flash（快 · 便宜）</option>
+              <option value="deepseek-v4-pro">deepseek-v4-pro（强 · 贵）</option>
+            </select>
+          </div>
+          <div className="cozy-settings-row">
+            <span className="cozy-settings-row__label">{t('思考模式')}</span>
+            <span className="cozy-settings-row__value">
+              {models.deepseekThinking ? t('开启（更强更慢）') : t('关闭（更快）')}
+            </span>
+            <input
+              type="checkbox"
+              checked={models.deepseekThinking}
+              onChange={(event) => void updateModels({ deepseekThinking: event.target.checked })}
+              style={{ width: 18, height: 18, accentColor: 'var(--accent, #4a6b57)' }}
+            />
+          </div>
+          <div className="cozy-settings-row">
+            <span className="cozy-settings-row__label">{t('测试')}</span>
+            <span className="cozy-settings-row__value">
+              {deepseekStatus === 'checking'
+                ? t('验证中…')
+                : deepseekStatus === 'ok'
+                  ? t('Key 有效 ✓')
+                  : deepseekStatus === 'invalid'
+                    ? t('Key 无效或网络不可达')
+                    : t('未测试')}
+            </span>
+            <button
+              type="button"
+              className="cozy-btn-secondary"
+              disabled={deepseekStatus === 'checking' || !apiKeyDraft.trim()}
+              onClick={() => void testDeepseek()}
+            >
+              {t('测试')}
+            </button>
+            <button
+              type="button"
+              className="cozy-btn-primary"
+              disabled={deepseekStatus === 'checking' || !apiKeyDraft.trim()}
+              onClick={() => void saveDeepseek()}
+            >
+              {t('保存并启用')}
+            </button>
+          </div>
+        </div>
+        <div className="cozy-settings-row">
+          <span className="cozy-settings-row__label">{t('本地大模型（教练档兜底）')}</span>
+          <ModelPicker
+            id="coach-model"
+            label=""
+            models={availableModels}
+            value={models.big}
+            placeholder={t('输入模型名，如 qwen2.5:14b')}
+            onChange={(value) => void updateModels({ big: value })}
+          />
+          <span className="cozy-settings-row__value">{modelStatusText(modelStatus.big)}</span>
+          <button
+            type="button"
+            className="cozy-btn-secondary"
+            disabled={modelStatus.big === 'checking'}
+            onClick={() => void checkModels()}
+          >
+            {t('检查')}
+          </button>
+        </div>
         <div className="cozy-settings-row">
           <span className="cozy-settings-row__label">{t('主题')}</span>
           <select

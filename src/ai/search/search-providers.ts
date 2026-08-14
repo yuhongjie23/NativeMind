@@ -1,14 +1,15 @@
 /**
  * 外部搜索引擎 Provider 实现
  *
- * 每个引擎对应一个类，实现 SearchProvider 接口。
- * HTML 解析用纯函数，不去引 DOM parser（在 WebView 外可能不存在），
- * 正则足够应付搜索结果页的结构化提取。
+ * 只保留两个能稳定工作的引擎：
+ * - Bing：抓 HTML 结果页（对无 JS 客户端最宽容，无 key 可用）
+ * - Google：Custom Search JSON API（稳定无反爬，但需要 API key + 搜索引擎 ID）
  *
+ * 其余引擎（DuckDuckGo / 百度 / 自定义 URL）对纯 HTTP 客户端反爬严重已移除。
  * C6：只发关键词，不带笔记原文。结果临时保留，用户选中的才落库。
  */
 import type { RawSearchResult } from './result-filter';
-import type { SearchProvider } from './search-gate';
+import type { ProviderResult, SearchProvider } from './search-gate';
 import type { SearchEngineConfig } from '@shared-types/search-config';
 
 /* ---------- HTTP 抓取端口 ---------- */
@@ -38,7 +39,6 @@ const stripTags = (html: string): string =>
 /** 尝试从相对路径或跳转链接中还原绝对 URL */
 const resolveUrl = (raw: string, baseHost: string): string => {
   let trimmed = raw.trim();
-  // 去掉搜索引擎的跳转包装
   const urlMatch = trimmed.match(/[?&](?:url|u|q|to)=([^&]+)/i);
   if (urlMatch) {
     try {
@@ -52,78 +52,26 @@ const resolveUrl = (raw: string, baseHost: string): string => {
   return `https://${baseHost}/${trimmed}`;
 };
 
-/* ---------- DuckDuckGo Provider ---------- */
-
-/**
- * DuckDuckGo HTML 版（非 JS 版）。
- * 语义化 class 名，解析最稳定。
- */
-class DuckDuckGoProvider implements SearchProvider {
-  constructor(private readonly http: HttpFetcher) {}
-
-  async search(query: string, limit: number): Promise<RawSearchResult[]> {
-    try {
-      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-      const html = await this.http.fetchText(url);
-      if (isBlockedPage(html, ['anomaly', 'challenge'])) {
-        console.warn('[DuckDuckGo] 返回了反爬挑战页，无法解析结果');
-        return [];
-      }
-      return parseDuckDuckGoHtml(html, limit);
-    } catch (error) {
-      console.warn('[DuckDuckGo] 搜索失败:', error);
-      return [];
-    }
-  }
-}
-
-/** DuckDuckGo HTML 版的搜索结果块匹配 */
-const DUCK_RESULT_RE = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?class="result__snippet"[^>]*>([\s\S]*?)<\/td>/gi;
-const DUCK_URL_RE = /uddg=([^&"']+)/;
-
-function parseDuckDuckGoHtml(html: string, limit: number): RawSearchResult[] {
-  const results: RawSearchResult[] = [];
-  const matches = html.matchAll(DUCK_RESULT_RE);
-
-  for (const match of matches) {
-    if (results.length >= limit) break;
-
-    let rawUrl = match[1];
-    // DuckDuckGo 用 uddg= 包装真实 URL
-    const realMatch = rawUrl.match(DUCK_URL_RE);
-    if (realMatch) {
-      try { rawUrl = decodeURIComponent(realMatch[1]); } catch { /* keep raw */ }
-    }
-
-    const title = stripTags(match[2]);
-    const snippet = stripTags(match[3]);
-
-    if (!title || !rawUrl) continue;
-
-    results.push({
-      title,
-      url: rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`,
-      snippet: snippet || undefined,
-      site: extractHost(rawUrl),
-    });
-  }
-
-  return results;
-}
-
 /* ---------- Bing Provider ---------- */
 
 class BingProvider implements SearchProvider {
   constructor(private readonly http: HttpFetcher) {}
 
-  async search(query: string, limit: number): Promise<RawSearchResult[]> {
+  async search(query: string, limit: number): Promise<ProviderResult> {
     try {
       const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=zh-Hans`;
       const html = await this.http.fetchText(url);
-      return parseBingHtml(html, limit);
+      if (isBlockedPage(html, ['challenge', 'captcha'])) {
+        return { results: [], reason: 'Bing 返回了反爬验证页，可能被限流' };
+      }
+      const results = parseBingHtml(html, limit);
+      return {
+        results,
+        reason: results.length === 0 ? 'Bing 没有返回可解析的结果（结构变化或反爬）' : undefined,
+      };
     } catch (error) {
       console.warn('[Bing] 搜索失败:', error);
-      return [];
+      return { results: [], reason: 'Bing 搜索请求失败' };
     }
   }
 }
@@ -157,157 +105,80 @@ function parseBingHtml(html: string, limit: number): RawSearchResult[] {
   return results;
 }
 
-/* ---------- Google Provider ---------- */
-
-class GoogleProvider implements SearchProvider {
-  constructor(private readonly http: HttpFetcher) {}
-
-  async search(query: string, limit: number): Promise<RawSearchResult[]> {
-    try {
-      const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=zh-CN`;
-      const html = await this.http.fetchText(url);
-      if (isBlockedPage(html, ['enablejs', 'sorry', 'consent.google'])) {
-        console.warn('[Google] 返回了 JS/拦截页，无法解析结果（Google 反爬严格，建议换 Bing）');
-        return [];
-      }
-      return parseGoogleHtml(html, limit);
-    } catch (error) {
-      console.warn('[Google] 搜索失败:', error);
-      return [];
-    }
-  }
-}
-
-/** Google 结果在 <a> 里有 h3 标题，摘要跟着在后面的 div */
-const GOOGLE_RESULT_RE = /<a[^>]*href="\/url\?q=([^"&]+)[^"]*"[^>]*>[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>/gi;
-const GOOGLE_SNIPPET_RE = /<span class="[^"]*st[^"]*"[^>]*>([\s\S]*?)<\/span>/gi;
-
-function parseGoogleHtml(html: string, limit: number): RawSearchResult[] {
-  const results: RawSearchResult[] = [];
-  const matches = html.matchAll(GOOGLE_RESULT_RE);
-
-  for (const match of matches) {
-    if (results.length >= limit) break;
-
-    const rawUrl = match[1];
-    const title = stripTags(match[2]);
-    if (!title || !rawUrl) continue;
-
-    const url = decodeURIComponent(rawUrl);
-    // 从标题周围找摘要
-    const afterTitle = html.slice(match.index! + match[0].length, match.index! + match[0].length + 800);
-    const snippetMatch = afterTitle.match(GOOGLE_SNIPPET_RE);
-    const snippet = snippetMatch ? stripTags(snippetMatch[1]) : undefined;
-
-    results.push({ title, url, snippet, site: extractHost(url) });
-  }
-
-  return results;
-}
-
-/* ---------- Baidu Provider ---------- */
-
-class BaiduProvider implements SearchProvider {
-  constructor(private readonly http: HttpFetcher) {}
-
-  async search(query: string, limit: number): Promise<RawSearchResult[]> {
-    try {
-      const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`;
-      const html = await this.http.fetchText(url);
-      if (isBlockedPage(html, ['captcha', 'verify', 'passport.baidu'])) {
-        console.warn('[Baidu] 返回了验证码页，无法解析结果（建议换 Bing）');
-        return [];
-      }
-      return parseBaiduHtml(html, limit);
-    } catch (error) {
-      console.warn('[Baidu] 搜索失败:', error);
-      return [];
-    }
-  }
-}
-
-/** 百度结果：h3 标题 + c-abstract 摘要 */
-const BAIDU_RESULT_RE = /<div[^>]*class="[^"]*result[^"]*c-container[^"]*"[^>]*>([\s\S]*?)<\/div>\s*(?=<div[^>]*class="[^"]*result|$)/gi;
-const BAIDU_TITLE_RE = /<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i;
-const BAIDU_SNIPPET_RE = /class="c-abstract"[^>]*>([\s\S]*?)<\/span>/i;
-
-function parseBaiduHtml(html: string, limit: number): RawSearchResult[] {
-  const results: RawSearchResult[] = [];
-  const blocks = html.matchAll(BAIDU_RESULT_RE);
-
-  for (const block of blocks) {
-    if (results.length >= limit) break;
-
-    const body = block[1];
-    const titleMatch = body.match(BAIDU_TITLE_RE);
-    if (!titleMatch) continue;
-
-    const url = resolveUrl(titleMatch[1], 'www.baidu.com');
-    const title = stripTags(titleMatch[2]);
-    if (!title) continue;
-
-    const snippetMatch = body.match(BAIDU_SNIPPET_RE);
-    const snippet = snippetMatch ? stripTags(snippetMatch[1]) : undefined;
-
-    results.push({ title, url, snippet, site: extractHost(url) });
-  }
-
-  return results;
-}
-
-/* ---------- Custom URL Provider ---------- */
-
-class CustomUrlProvider implements SearchProvider {
-  constructor(
-    private readonly http: HttpFetcher,
-    private readonly urlTemplate: string
-  ) {}
-
-  async search(query: string, limit: number): Promise<RawSearchResult[]> {
-    try {
-      const url = this.urlTemplate.replace(/\{query\}/g, encodeURIComponent(query));
-      const html = await this.http.fetchText(url);
-      return parseGenericHtml(html, limit);
-    } catch (error) {
-      console.warn('[Custom] 搜索失败:', error);
-      return [];
-    }
-  }
-}
+/* ---------- Google Custom Search JSON API Provider ---------- */
 
 /**
- * 通用 HTML 解析 —— 用于自定义 URL。
- * 退化策略：提取所有 <a> 里有文本的链接，按文本长度排序，
- * 去重后作为结果返回。没有 snippet 但至少能看到链接和标题。
+ * Google Custom Search JSON API：官方接口，稳定无反爬。
+ * 需要用户配置：API key（Google Cloud）+ 搜索引擎 ID（CX，Programmable Search Engine）。
+ * 免费额度 100 次/天，个人学习够用。
  */
-const GENERIC_LINK_RE = /<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+class GoogleApiProvider implements SearchProvider {
+  constructor(
+    private readonly http: HttpFetcher,
+    private readonly apiKey: string,
+    private readonly cx: string
+  ) {}
 
-function parseGenericHtml(html: string, limit: number): RawSearchResult[] {
-  const seen = new Set<string>();
-  const candidates: RawSearchResult[] = [];
-
-  const matches = html.matchAll(GENERIC_LINK_RE);
-  for (const match of matches) {
-    const rawUrl = match[1];
-    const text = stripTags(match[2]);
-
-    // 跳过明显的导航链接
-    if (!text || text.length < 4) continue;
-    if (rawUrl.startsWith('#') || rawUrl.startsWith('javascript:')) continue;
-    if (seen.has(rawUrl)) continue;
-
-    seen.add(rawUrl);
-    candidates.push({
-      title: text.slice(0, 120),
-      url: resolveUrl(rawUrl, ''),
-      site: extractHost(rawUrl),
-    });
+  async search(query: string, limit: number): Promise<ProviderResult> {
+    try {
+      const url =
+        `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(this.apiKey)}` +
+        `&cx=${encodeURIComponent(this.cx)}&q=${encodeURIComponent(query)}&num=${Math.min(limit, 10)}`;
+      const json = await this.http.fetchText(url);
+      return parseGoogleApiJson(json, limit);
+    } catch (error) {
+      console.warn('[Google API] 搜索失败:', error);
+      return {
+        results: [],
+        reason: error instanceof Error && error.message.includes('429')
+          ? 'Google API 超出免费额度（100 次/天）'
+          : 'Google API 请求失败（检查 key/CX 是否正确）',
+      };
+    }
   }
+}
 
-  // 按标题长度排序：长标题通常更有信息量
-  return candidates
-    .sort((a, b) => b.title.length - a.title.length)
-    .slice(0, limit);
+/** 解析 Google Custom Search API 返回的 JSON */
+function parseGoogleApiJson(json: string, limit: number): ProviderResult {
+  try {
+    const data = JSON.parse(json) as {
+      items?: Array<{
+        title?: string;
+        link?: string;
+        snippet?: string;
+        displayLink?: string;
+      }>;
+      error?: { code?: number; message?: string };
+    };
+
+    if (data.error) {
+      const message = data.error.message ?? '';
+      return {
+        results: [],
+        reason: message.includes('API key') || message.includes('key')
+          ? 'Google API key 无效'
+          : `Google API 返回错误：${message}`,
+      };
+    }
+
+    const results = (data.items ?? [])
+      .filter((item) => item.title && item.link)
+      .slice(0, limit)
+      .map<RawSearchResult>((item) => ({
+        title: item.title!,
+        url: item.link!,
+        snippet: item.snippet || undefined,
+        site: item.displayLink || extractHost(item.link!),
+      }));
+
+    return {
+      results,
+      reason: results.length === 0 ? 'Google 没有返回结果' : undefined,
+    };
+  } catch (error) {
+    console.warn('[Google API] JSON 解析失败:', error);
+    return { results: [], reason: 'Google API 返回了无法解析的数据' };
+  }
 }
 
 /* ---------- 工具函数 ---------- */
@@ -328,20 +199,14 @@ export function createSearchProvider(
   http: HttpFetcher
 ): SearchProvider {
   switch (config.id) {
-    case 'duckduckgo':
-      return new DuckDuckGoProvider(http);
     case 'bing':
       return new BingProvider(http);
     case 'google':
-      return new GoogleProvider(http);
-    case 'baidu':
-      return new BaiduProvider(http);
-    case 'custom':
-      if (!config.customUrl) {
-        throw new Error('自定义搜索引擎需要填 URL');
+      if (!config.googleApiKey || !config.googleCx) {
+        throw new Error('Google 搜索需要配置 API key 和搜索引擎 ID（设置 → 搜索）');
       }
-      return new CustomUrlProvider(http, config.customUrl);
+      return new GoogleApiProvider(http, config.googleApiKey, config.googleCx);
     default:
-      return new DuckDuckGoProvider(http);
+      return new BingProvider(http);
   }
 }

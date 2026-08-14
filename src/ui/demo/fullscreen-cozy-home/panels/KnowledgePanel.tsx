@@ -9,9 +9,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Note } from '@shared-types/domain';
 import { useT } from '../../../i18n';
 import { Modal } from '../../../components/common/Modal';
+import { ErrorBoundary } from '../../../components/common/ErrorBoundary';
 import { NoteViewer } from '../../../components/features/NoteViewer';
 import { useNoteStore } from '../../../stores/note-store';
 import { useKnowledgeLinkStore, RELATION_LABELS } from '../../../stores/knowledge-link-store';
+import { KnowledgeGraphView } from '../components/KnowledgeGraphView';
 import { useToastStore } from '../../../stores/toast-store';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { listReadableDocs, openExternal, type ReadableDoc } from '@infrastructure/paths/paths-api';
@@ -33,7 +35,6 @@ export function KnowledgePanel() {
   const confirmationRequired = useNoteStore((state) => state.confirmationRequired);
   const localLowConfidence = useNoteStore((state) => state.localLowConfidence);
   const externalSearchAttempted = useNoteStore((state) => state.externalSearchAttempted);
-  const externalSearchAvailable = useNoteStore((state) => state.externalSearchAvailable);
   const blockedReason = useNoteStore((state) => state.externalBlockedReason);
   const refresh = useNoteStore((state) => state.refresh);
   const search = useNoteStore((state) => state.search);
@@ -55,7 +56,7 @@ export function KnowledgePanel() {
   // 每篇笔记的已确认关联数（链接徽章用）；打开面板时拉一次
   const linkCounts = useKnowledgeLinkStore((state) => state.linkCounts);
 
-  const [viewMode, setViewMode] = useState<'search' | 'notes' | 'import'>('search');
+  const [viewMode, setViewMode] = useState<'search' | 'notes' | 'import' | 'graph'>('search');
   const [keyword, setKeyword] = useState('');
   const [title, setTitle] = useState('');
   const [draft, setDraft] = useState('');
@@ -81,7 +82,7 @@ export function KnowledgePanel() {
   const [viewingNoteAnchor, setViewingNoteAnchor] = useState<string | undefined>(undefined);
   // 当前打开笔记的已确认关联（相关笔记区块）
   const [related, setRelated] = useState<
-    Array<{ noteId: string; title: string; relationType: string }>
+    Array<{ id: string; noteId: string; title: string; relationType: string }>
   >([]);
   // 笔记详情里编辑标签的草稿（新增标签输入框的值）
   const [tagDraft, setTagDraft] = useState('');
@@ -297,7 +298,22 @@ export function KnowledgePanel() {
         >
           {t('快速导入')}
         </button>
+        <button
+          type="button"
+          className="cozy-mode-toggle__item"
+          data-active={viewMode === 'graph'}
+          aria-pressed={viewMode === 'graph'}
+          onClick={() => setViewMode('graph')}
+        >
+          {t('知识图谱')}
+        </button>
       </div>
+
+      {viewMode === 'graph' ? (
+        <ErrorBoundary>
+          <KnowledgeGraphView />
+        </ErrorBoundary>
+      ) : null}
 
       {viewMode === 'notes' ? (
         <div className="cozy-notes-split">
@@ -318,7 +334,7 @@ export function KnowledgePanel() {
                       <span className="cozy-timeline__day-label">{day.dayLabel}</span>
                       <ul className="cozy-timeline__notes">
                         {day.notes.map((note) => (
-                          <li key={note.id}>
+                          <li key={note.id} className="cozy-timeline__note-item">
                             <button
                               type="button"
                               className="cozy-link"
@@ -326,6 +342,14 @@ export function KnowledgePanel() {
                               onClick={() => setSelectedNoteId(note.id)}
                             >
                               {note.title || '（无标题笔记）'}
+                            </button>
+                            <button
+                              type="button"
+                              className="cozy-btn-ghost cozy-timeline__note-delete"
+                              title={t('删除这篇笔记')}
+                              onClick={() => void deleteNote(note.id)}
+                            >
+                              {t('删除')}
                             </button>
                           </li>
                         ))}
@@ -500,6 +524,15 @@ export function KnowledgePanel() {
         >
           {asking ? t('回答中…') : t('深度回答')}
         </button>
+        <button
+          type="button"
+          className="cozy-btn-secondary"
+          disabled={!keyword.trim() || searching}
+          title={t('搜索网络：只发送关键词，不发送笔记原文')}
+          onClick={() => void confirmExternalSearch()}
+        >
+          {t('搜索网络')}
+        </button>
       </div>
 
       {localLowConfidence && hits.length > 0 ? (
@@ -552,7 +585,7 @@ export function KnowledgePanel() {
       ) : null}
 
       {blockedReason ? (
-        <p className="cozy-knowledge-hint">{t('只搜了本地：{0}', blockedReason)}</p>
+        <p className="cozy-knowledge-hint">{t('{0}', blockedReason)}</p>
       ) : null}
       {searching ? <p className="cozy-knowledge-hint">{t('正在检索…')}</p> : null}
       {savedHint ? <p className="cozy-knowledge-hint">{savedHint}</p> : null}
@@ -642,12 +675,7 @@ export function KnowledgePanel() {
       {query && !searching ? (
         hits.length === 0 && !confirmationRequired && !externalSearchAttempted ? (
           <div className="cozy-knowledge-empty">
-            <p>{t('本地没找到相关内容。')}</p>
-            {externalSearchAvailable ? (
-              <button type="button" className="cozy-btn-primary" onClick={() => void confirmExternalSearch()}>
-                {t('搜索网络')}
-              </button>
-            ) : null}
+            <p>{t('本地没找到相关内容。可点上方「搜索网络」或换关键词。')}</p>
           </div>
         ) : (
           <>

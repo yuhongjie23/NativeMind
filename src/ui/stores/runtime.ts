@@ -53,6 +53,7 @@ export const repositories = runtime.repositories;
 export const infrastructure = runtime.infrastructure;
 export const audioPlayer = runtime.infrastructure.audioPlayer;
 export const ai = runtime.ai;
+export const deepseek = runtime.deepseek;
 
 /**
  * 'template' = 规则拆分 + 模板填空，没有模型参与

@@ -23,7 +23,7 @@ import { defaultPrivacySettings } from '@application/policies/privacy-policy';
 import { getModelConfig, setModelConfig } from '@ai/router/model-config';
 import { setSearchConfig } from '@ai/search/search-config';
 import { setAppPaths, updateAppPaths } from '@infrastructure/paths/paths-api';
-import { describeError, policies, repositories } from './runtime';
+import { describeError, policies, repositories, runtime } from './runtime';
 
 /** 扁平化的存储键。改名等于丢用户配置，别随手改 */
 const KEYS = {
@@ -43,12 +43,18 @@ const KEYS = {
   searchEngineId: 'search.engineId',
   searchCustomUrl: 'search.customUrl',
   searchCustomLabel: 'search.customLabel',
+  searchGoogleApiKey: 'search.googleApiKey',
+  searchGoogleCx: 'search.googleCx',
   pathsReadDirs: 'paths.readDirs',
   pathsMusicDir: 'paths.musicDir',
   pathsDataDir: 'paths.dataDir',
   pathsResourceDir: 'paths.resourceDir',
   modelsSmall: 'models.small',
   modelsBig: 'models.big',
+  modelsProviderMode: 'models.providerMode',
+  modelsApiKey: 'models.apiKey',
+  modelsDeepseekModel: 'models.deepseekModel',
+  modelsDeepseekThinking: 'models.deepseekThinking',
   ambientFilesByWeather: 'ambient.filesByWeather',
   ambientModeByWeather: 'ambient.modeByWeather',
   /** 专注模式专属背景音乐文件路径（与天气环境音分开配置） */
@@ -104,8 +110,18 @@ export interface PathsConfig {
 
 /** 双模型配置：大模型跑复盘/教练类，小模型跑快速任务（Ollama 模型名） */
 export interface ModelsConfig {
+  /** 快速任务的本地小模型（Ollama 模型名） */
   small: string;
+  /** 本地大模型（未配 DeepSeek 时 coach/deep 的兜底） */
   big: string;
+  /** 教练档用本地还是 DeepSeek 云端 */
+  providerMode: 'local' | 'deepseek';
+  /** DeepSeek API key（明文存本地 SQLite；配了才启用云端） */
+  apiKey?: string;
+  /** DeepSeek 档位：deepseek-v4-flash / deepseek-v4-pro */
+  deepseekModel: string;
+  /** DeepSeek 思考模式：true 走 thinking（更强但更慢更贵） */
+  deepseekThinking: boolean;
 }
 
 interface SettingsState {
@@ -167,7 +183,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     theme: defaultAppConfig.appearance.theme,
     search: defaultSearchEngineConfig,
     paths: { readDirs: [] },
-    models: { small: getModelConfig().small, big: getModelConfig().big },
+    models: { small: getModelConfig().small, big: getModelConfig().big, providerMode: 'local', deepseekModel: 'deepseek-v4-flash', deepseekThinking: false },
     ambientFilesByWeather: {},
     ambientModeByWeather: {},
     focusMusicFile: undefined,
@@ -237,13 +253,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           theme: (stored[KEYS.appearanceTheme] as ThemeMode) || defaultAppConfig.appearance.theme,
           search: {
             id: (stored[KEYS.searchEngineId] as SearchEngineConfig['id']) || defaultSearchEngineConfig.id,
-            customUrl: stored[KEYS.searchCustomUrl] || undefined,
-            customLabel: stored[KEYS.searchCustomLabel] || undefined,
+            googleApiKey: stored[KEYS.searchGoogleApiKey] || undefined,
+            googleCx: stored[KEYS.searchGoogleCx] || undefined,
           },
           paths,
           models: {
             small: stored[KEYS.modelsSmall] || getModelConfig().small,
             big: stored[KEYS.modelsBig] || getModelConfig().big,
+            providerMode: (stored[KEYS.modelsProviderMode] as 'local' | 'deepseek') || getModelConfig().providerMode,
+            apiKey: stored[KEYS.modelsApiKey] || undefined,
+            deepseekModel: stored[KEYS.modelsDeepseekModel] || getModelConfig().deepseekModel,
+            deepseekThinking: stored[KEYS.modelsDeepseekThinking] === 'true' || getModelConfig().deepseekThinking,
           },
           ambientFilesByWeather: asStringRecord(stored[KEYS.ambientFilesByWeather]),
           ambientModeByWeather: asStringRecord(stored[KEYS.ambientModeByWeather]),
@@ -254,7 +274,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         // 搜索引擎配置是 SearchGate 的模块单例，启动加载后回灌一次
         setSearchConfig(get().search);
         // 双模型配置是 ModelRouter 的模块单例，同样回灌一次
-        setModelConfig({ small: get().models.small, big: get().models.big });
+        setModelConfig(get().models);
+        // DeepSeek provider 热配置：key 注入后教练档自动走云端（无需重启）
+        runtime.deepseek.configure({
+          apiKey: get().models.apiKey,
+          model: get().models.deepseekModel,
+          thinking: get().models.deepseekThinking,
+        });
         // 主题真正落到 <html data-theme>
         applyTheme(get().theme);
       } catch (error) {
@@ -350,8 +376,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       try {
         await persist({
           [KEYS.searchEngineId]: next.id,
-          [KEYS.searchCustomUrl]: next.customUrl ?? '',
-          [KEYS.searchCustomLabel]: next.customLabel ?? '',
+          [KEYS.searchGoogleApiKey]: next.googleApiKey ?? '',
+          [KEYS.searchGoogleCx]: next.googleCx ?? '',
         });
       } catch (error) {
         set({ error: describeError(error) });
@@ -415,11 +441,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       set({ models: next, error: undefined });
       // ModelRouter 模块单例同步更新，换模型无需重启
       setModelConfig(next);
+      // DeepSeek provider 热配置：key/档位变化立即生效
+      runtime.deepseek.configure({
+        apiKey: next.apiKey,
+        model: next.deepseekModel,
+        thinking: next.deepseekThinking,
+      });
 
       try {
         await persist({
           [KEYS.modelsSmall]: next.small,
           [KEYS.modelsBig]: next.big,
+          [KEYS.modelsProviderMode]: next.providerMode,
+          [KEYS.modelsApiKey]: next.apiKey ?? '',
+          [KEYS.modelsDeepseekModel]: next.deepseekModel,
+          [KEYS.modelsDeepseekThinking]: String(next.deepseekThinking),
         });
       } catch (error) {
         set({ error: describeError(error) });

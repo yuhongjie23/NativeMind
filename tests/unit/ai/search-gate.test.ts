@@ -88,7 +88,10 @@ const unavailableProvider: ModelProvider = {
 
 const fakeSearchProvider = (results: RawSearchResult[]): SearchProvider & { queries: string[] } => {
   const queries: string[] = [];
-  return { queries, search: async (query) => (queries.push(query), results) };
+  return {
+    queries,
+    search: async (query) => (queries.push(query), { results }),
+  };
 };
 
 const sampleResults: RawSearchResult[] = [
@@ -162,7 +165,7 @@ describe('SearchGate 出站行为', () => {
       search: async () => {
         call += 1;
         if (call === 1) throw new Error('网络超时');
-        return sampleResults;
+        return { results: sampleResults };
       },
     };
     const gate = buildGate(

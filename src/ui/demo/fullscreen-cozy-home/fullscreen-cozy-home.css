@@ -4735,6 +4735,53 @@ select.cozy-focus-task {
   margin: 0;
 }
 
+/* 关联列表项：关联按钮 + 删除链接按钮（hover 显示） */
+.cozy-related-notes__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cozy-related-notes__row .cozy-related-notes__item {
+  flex: 1;
+}
+
+.cozy-related-notes__remove {
+  opacity: 0;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  transition: opacity 120ms ease;
+}
+
+.cozy-related-notes__row:hover .cozy-related-notes__remove,
+.cozy-related-notes__row:focus-within .cozy-related-notes__remove {
+  opacity: 1;
+}
+
+/* 手动连接表单：目标笔记 + 关系类型 + 建立 */
+.cozy-relate-manual {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--hud-border-dark, rgba(41, 51, 47, 0.14));
+}
+
+.cozy-relate-manual .cozy-model-field__input {
+  flex: 1;
+  min-width: 140px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.16));
+  border-radius: 8px;
+  background: var(--wall, #f0eee5);
+  color: var(--text-dark, #29332f);
+  font: inherit;
+  font-size: 13px;
+}
+
 .cozy-related-notes__list {
   list-style: none;
   margin: 8px 0 0;
@@ -4842,6 +4889,79 @@ select.cozy-focus-task {
 .cozy-link-badge--inline {
   margin-left: 8px;
   vertical-align: middle;
+}
+
+/* 知识图谱 */
+.cozy-graph {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cozy-graph__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cozy-graph__filter-label {
+  font-size: 12px;
+  color: var(--text-muted-dark);
+}
+
+.cozy-graph__chip {
+  padding: 4px 10px;
+  border: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.18));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dark, #29332f);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.cozy-graph__chip[data-active='true'] {
+  background: var(--accent-soft, rgba(233, 196, 132, 0.4));
+  border-color: transparent;
+}
+
+.cozy-graph__archived {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-muted-dark);
+}
+
+.cozy-graph__canvas {
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  border: 1px solid var(--hud-border-dark, rgba(41, 51, 47, 0.12));
+  border-radius: 12px;
+  background: var(--hud-light, rgba(251, 250, 246, 0.6));
+}
+
+.cozy-graph__node-label {
+  font-size: 10px;
+  fill: var(--text-dark, #29332f);
+  pointer-events: none;
+}
+
+.cozy-graph__edge-label {
+  font-size: 9px;
+  fill: var(--text-muted-dark, #68716c);
+  pointer-events: none;
+}
+
+/* 图谱节点详情弹窗 */
+.cozy-graph__todo-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
 }
 
 .cozy-hit-list {
@@ -4994,6 +5114,27 @@ select.cozy-focus-task {
   color: var(--accent, #4a6b57);
   font-weight: 600;
   text-decoration: underline;
+}
+
+/* 左栏时间线笔记项：标题 + 删除按钮（hover 显示） */
+.cozy-timeline__note-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cozy-timeline__note-delete {
+  opacity: 0;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 1px 6px;
+  transition: opacity 120ms ease;
+}
+
+.cozy-timeline__note-item:hover .cozy-timeline__note-delete,
+.cozy-timeline__note-item:focus-within .cozy-timeline__note-delete {
+  opacity: 1;
 }
 
 .cozy-notes-split__detail {

@@ -83,6 +83,6 @@ export const defaultAppConfig: AppConfig = {
     dailyGoalMinutes: 50,
   },
   privacy: {},
-  search: { id: 'duckduckgo' },
+  search: { id: 'bing' },
   language: 'zh',
 };

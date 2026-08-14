@@ -1,21 +1,26 @@
 /**
  * 搜索引擎配置类型
  *
- * 本地优先，联网只是补充。默认用 DuckDuckGo（最尊重隐私）。
- * 自定义 URL 用 {query} 占位，搜索时替换为编码后的检索词。
+ * 本地优先，联网只是补充。
+ * 只保留两个能稳定工作的选项：
+ * - Bing：HTML 抓取，无反爬（默认）
+ * - Google：Custom Search JSON API（需要 API key + 搜索引擎 ID），稳定无反爬
+ *
+ * 其余引擎（DuckDuckGo / 百度 / 自定义 URL）对纯 HTTP 客户端反爬严重，
+ * 已移除——与其让用户面对「无结果」，不如只提供真正能用的。
  */
-export type SearchEngineId = 'duckduckgo' | 'bing' | 'google' | 'baidu' | 'custom';
+export type SearchEngineId = 'bing' | 'google';
 
 export interface SearchEngineConfig {
   id: SearchEngineId;
-  /** 自定义搜索引擎的 URL 模板，{query} 会被替换为 URL 编码后的检索词 */
-  customUrl?: string;
-  /** 自定义引擎的显示名，留空显示为「自定义」 */
-  customLabel?: string;
+  /** Google Custom Search JSON API key（google 引擎用，与 DeepSeek key 同模式） */
+  googleApiKey?: string;
+  /** Google Custom Search Engine ID（google 引擎用，Google Cloud 控制台获取） */
+  googleCx?: string;
 }
 
 export const defaultSearchEngineConfig: SearchEngineConfig = {
-  // DuckDuckGo HTML 版现在对纯 HTTP 客户端返回 202 反爬页，默认改用 Bing
+  // Bing HTML 版对纯 HTTP 客户端最宽容，作为默认
   id: 'bing',
 };
 
@@ -23,14 +28,11 @@ export const defaultSearchEngineConfig: SearchEngineConfig = {
 export interface SearchEngineMeta {
   id: SearchEngineId;
   label: string;
-  /** 默认搜索 URL 模板 */
-  defaultUrl?: string;
+  /** 是否需要配置（google 需要 key+CX） */
+  needsConfig?: boolean;
 }
 
 export const ENGINE_LIST: SearchEngineMeta[] = [
-  { id: 'duckduckgo', label: 'DuckDuckGo', defaultUrl: 'https://html.duckduckgo.com/html/?q={query}' },
-  { id: 'bing', label: 'Bing', defaultUrl: 'https://www.bing.com/search?q={query}' },
-  { id: 'google', label: 'Google', defaultUrl: 'https://www.google.com/search?q={query}' },
-  { id: 'baidu', label: '百度', defaultUrl: 'https://www.baidu.com/s?wd={query}' },
-  { id: 'custom', label: '自定义', defaultUrl: undefined },
+  { id: 'bing', label: 'Bing' },
+  { id: 'google', label: 'Google（官方 API）', needsConfig: true },
 ];

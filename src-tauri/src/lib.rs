@@ -229,6 +229,8 @@ pub fn run() {
             commands::file::file_set_app_paths,
             commands::file::file_repair_custom_audio_paths,
             commands::file::file_import_into_data_dir,
+            commands::file::data_export,
+            commands::file::data_import,
             // model
             commands::model::model_is_ready,
             commands::model::ollama_ensure_running,

@@ -25,6 +25,7 @@ import { defaultSearchEngineConfig } from '@shared-types/search-config';
 import { TauriSqlDriver, type TauriInvoke } from './db/tauri-driver';
 import type { EbookDocument, PdfDocument } from './file-import';
 import { createInfrastructure, type Infrastructure } from './index';
+import { DeepSeekProvider } from './model-runtime/deepseek-provider';
 import { TauriModelProvider } from './model-runtime/tauri-model-provider';
 import { NoteCandidateProvider } from './rag/note-candidate-provider';
 
@@ -49,6 +50,8 @@ export interface TauriRuntime {
   /** 与 LocalDemoRuntime.aiMode 对齐：这条路径上是真模型 */
   aiMode: 'model';
   repositories: Infrastructure['repositories'];
+  /** DeepSeek 云端 provider：设置页配置 key 后热切换（settings-store 调 configure） */
+  deepseek: DeepSeekProvider;
 
   /** 建表 → 恢复中断任务 → 起轮询。返回停止轮询的函数 */
   start(): Promise<() => void>;
@@ -60,6 +63,8 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
   const modelProvider = new TauriModelProvider(options.invoke, {
     embeddingModel: options.embeddingModel,
   });
+  // DeepSeek 云端：初始无 key（不可用），settings 加载后由 settings-store.configure 注入
+  const deepseek = new DeepSeekProvider({});
 
   const infrastructure = createInfrastructure({
     driver,
@@ -101,6 +106,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
 
   const ai = createAILayer({
     modelProvider,
+    deepseekProvider: deepseek,
     embeddingProvider: modelProvider,
     vectorStore: infra.vectorStore,
       candidateProvider: new NoteCandidateProvider(
@@ -137,7 +143,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
       searchBrief: async (query) => {
         try {
           const provider = searchProvider();
-          const results = await provider.search(query, 3);
+          const { results } = await provider.search(query, 3);
           const first = results[0];
           return first?.title ?? first?.snippet ?? null;
         } catch {
@@ -272,6 +278,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
     ai,
     aiMode: 'model',
     repositories: infra.repositories,
+    deepseek,
     start,
   };
 }

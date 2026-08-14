@@ -61,6 +61,7 @@ import { QueryRewriter } from './rag/query-rewriter';
 import { ReRanker } from './rag/rerank';
 import { SelfRag } from './rag/self-rag';
 import { ModelRouter, type RouterOptions } from './router/model-router';
+import { getModelConfig } from './router/model-config';
 import { KeywordGenerator } from './search/keyword-generator';
 import { ResultFilter } from './search/result-filter';
 import { SearchGate, type SearchProvider } from './search/search-gate';
@@ -69,6 +70,8 @@ import type { EmbeddingProvider, ModelProvider, ModelRunRecorder, RerankProvider
 export interface AILayerDeps {
   /** 本地模型运行时（Ollama / llama.cpp），由 infrastructure 提供 */
   modelProvider: ModelProvider;
+  /** 云端 DeepSeek provider（可选）：配置 API key 后教练档走它，未配则全部走本地 */
+  deepseekProvider?: ModelProvider;
   embeddingProvider: EmbeddingProvider;
   vectorStore: VectorStorePort;
   /** 规则层候选来源，由 application 层查 SQLite 实现 */
@@ -113,10 +116,36 @@ export interface AILayer {
 }
 
 export function createAILayer(deps: AILayerDeps): AILayer {
-  const router = new ModelRouter(deps.modelProvider, {
-    ...deps.options?.router,
-    recorder: deps.modelRunRecorder ?? deps.options?.router?.recorder,
-  });
+  const deepseek = deps.deepseekProvider;
+  const local = deps.modelProvider;
+
+  // 组合 provider：本地优先，DeepSeek 兜底。
+  // 用于 fast 档——本地小模型不可用（Ollama 没装/模型没拉）但配了 DeepSeek key 时，
+  // fast 任务自动走云端，而不是整条链路挂掉。
+  const fastWithCloudFallback: ModelProvider = {
+    isAvailable: async (model) =>
+      (await local.isAvailable(model)) || (deepseek ? await deepseek.isAvailable(model) : false),
+    complete: async (request) => {
+      if (await local.isAvailable(request.model)) return local.complete(request);
+      if (deepseek) return deepseek.complete(request);
+      throw new Error('本地模型不可用且未配置 DeepSeek');
+    },
+  };
+
+  const router = new ModelRouter(
+    deps.modelProvider,
+    {
+      ...deps.options?.router,
+      recorder: deps.modelRunRecorder ?? deps.options?.router?.recorder,
+    },
+    (tier) => {
+      if (!deepseek) return null; // 没配 DeepSeek → 全部回退默认（本地）
+      // 用户切回本地模式（providerMode='local'）→ 教练档也走本地
+      if (getModelConfig().providerMode !== 'deepseek') return null;
+      // DeepSeek 模式：coach/deep 走 DeepSeek；fast 本地优先 + DeepSeek 兜底
+      return tier === 'fast' ? fastWithCloudFallback : deepseek;
+    }
+  );
 
   const retrieval = new RetrievalStrategy(
     deps.embeddingProvider,

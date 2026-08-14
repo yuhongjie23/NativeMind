@@ -75,7 +75,7 @@ interface KnowledgeLinkState {
   undoArchive: () => Promise<void>;
   /** 某篇笔记的已确认关联（笔记详情「相关笔记」区块用） */
   relatedNotes: (noteId: string) => Promise<
-    Array<{ noteId: string; title: string; relationType: LinkRelationType }>
+    Array<{ id: string; noteId: string; title: string; relationType: LinkRelationType }>
   >;
 }
 
@@ -300,14 +300,19 @@ export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => ({
       const notes = await repositories.note.listAll();
       const titleById = new Map(notes.map((note) => [note.id, note.title]));
 
-      const result: Array<{ noteId: string; title: string; relationType: LinkRelationType }> = [];
+      const result: Array<{
+        id: string;
+        noteId: string;
+        title: string;
+        relationType: LinkRelationType;
+      }> = [];
       for (const link of confirmed) {
         const otherId = link.fromId === noteId ? link.toId : link.fromId;
         const otherType = link.fromId === noteId ? link.toType : link.fromType;
         if (otherType !== 'note') continue;
         const title = titleById.get(otherId);
         if (!title) continue; // 对端笔记已删：跳过
-        result.push({ noteId: otherId, title, relationType: link.relationType });
+        result.push({ id: link.id, noteId: otherId, title, relationType: link.relationType });
       }
       return result;
     } catch {

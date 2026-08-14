@@ -88,9 +88,27 @@ npm run dev
 
 ## 从 Release 获取完整版
 
-- **安装包**：到 [GitHub Releases](../../releases) 下载 NSIS 安装包（含背景音乐资源）
-- **背景音乐**：`background-music.zip`（约 1.2GB，版权素材不入库）。开发构建时解压到
-  `src-tauri/resources/audio/`，否则环境音/专注音乐不可用
+- **安装包**：到 [GitHub Releases](../../releases) 下载 NSIS 安装包（应用本体，约 59MB，不含背景音乐）
+- **背景音乐**：`background-music.zip`（约 1.2GB，版权素材不入库，作为独立 Release 资产）
+
+### 如何配置背景音乐
+
+安装包为了保持体积（<2GB，NSIS 打包限制）**不内嵌背景音乐**。两种方式启用：
+
+**方式一：解压到资源目录（推荐，覆盖所有场景）**
+1. 下载 `background-music.zip` 并解压
+2. 把解压出的 `audio/backgrounds/` 文件夹放到应用的**资源目录**下，即
+   `资源目录/audio/backgrounds/*.mp3`（Windows 默认资源目录见 设置 → 路径）
+3. 重启应用，场景环境音 / 专注音乐即生效
+
+**方式二：逐个场景配置自定义音频**
+1. 设置 → 路径 → 为每个场景（天气 × 时段）配置一首本地音频文件
+2. 无需下载音乐包，适合只想用几首的情况
+
+**开发版**（`npm run desktop`）：把 `background-music.zip` 解压到 `src-tauri/resources/audio/`，
+构建/运行时随 bundle 资源加载。
+
+> 不配置背景音乐不影响任何功能：应用正常运行，只是没有环境音效。
 
 ## 换电脑迁移
 

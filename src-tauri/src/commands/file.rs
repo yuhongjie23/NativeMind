@@ -1033,6 +1033,7 @@ pub async fn data_export(
 #[tauri::command]
 pub async fn data_import(
     paths: State<'_, AppPaths>,
+    db: State<'_, DbConnection>,
     source_dir: String,
 ) -> CommandResult<String> {
     let source = Path::new(&source_dir);
@@ -1061,15 +1062,21 @@ pub async fn data_import(
         std::fs::rename(&tmp, &bak)?;
     }
 
-    // 数据库：先复制到 .tmp 再原子替换（避免半截文件）
+    // 数据库：先复制到 .tmp 再原子替换（避免半截文件）。
+    // 关键：Windows 上 nativemind.db 正被主连接占用，直接覆盖/改名会报
+    // 「拒绝访问 (os error 5)」。必须先关闭主连接释放句柄，替换后再重新打开。
     let db_file = data_dir.join("nativemind.db");
     let tmp = data_dir.join("nativemind.db.restore.tmp");
     tokio::fs::copy(&source_db, &tmp).await?;
+    db.close_for_restore()?;
     tokio::fs::rename(&tmp, &db_file).await?;
 
     // 清理 WAL/SHM（快照已是完整库，残留的 WAL 会冲突）
     let _ = std::fs::remove_file(data_dir.join("nativemind.db-wal"));
     let _ = std::fs::remove_file(data_dir.join("nativemind.db-shm"));
+
+    // 主连接重新指向恢复后的库（前端随后会重载，这里先恢复可用状态）
+    db.reopen(&db_file)?;
 
     // imports/：合并，跳过已存在（不覆盖用户当前导入的文件）
     let imports_src = source.join("imports");

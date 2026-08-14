@@ -21,9 +21,25 @@ export interface HttpFetcher {
 
 /* ---------- HTML 解析工具 ---------- */
 
-/** 搜索引擎反爬/JS 墙的常见标记。命中时说明拿到的不是结果页，直接判空并告警 */
-const isBlockedPage = (html: string, markers: string[]): boolean =>
-  markers.some((marker) => html.includes(marker));
+/**
+ * 验证页强标记。普通结果页里也可能出现 `challenge`/`captcha` 字样（脚本、
+ * 文案），单独命中会误判成反爬；只有命中这些**结构性**标记才算验证页。
+ */
+const BLOCKED_PAGE_MARKERS = [
+  // Bing 验证码页的特征容器 / 表单
+  'id="b_pole"',
+  'id="PuzzleChannel"',
+  'class="captcha"',
+  // 明确的人机验证标题
+  '<title>验证码',
+  '<title>Captcha',
+  // CAPTCHA 表单按钮
+  'name="Captcha"',
+];
+
+/** 反爬验证页：命中强标记才判定（结果页里偶发的 challenge 字样不算） */
+const isBlockedPage = (html: string): boolean =>
+  BLOCKED_PAGE_MARKERS.some((marker) => html.includes(marker));
 
 /** 去掉 HTML 标签，保留文本 */
 const stripTags = (html: string): string =>
@@ -61,14 +77,13 @@ class BingProvider implements SearchProvider {
     try {
       const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=zh-Hans`;
       const html = await this.http.fetchText(url);
-      if (isBlockedPage(html, ['challenge', 'captcha'])) {
+      const results = parseBingHtml(html, limit);
+      // 有结果直接返回；没结果再判断是否验证页（避免误报）或纯结构变化
+      if (results.length > 0) return { results };
+      if (isBlockedPage(html)) {
         return { results: [], reason: 'Bing 返回了反爬验证页，可能被限流' };
       }
-      const results = parseBingHtml(html, limit);
-      return {
-        results,
-        reason: results.length === 0 ? 'Bing 没有返回可解析的结果（结构变化或反爬）' : undefined,
-      };
+      return { results, reason: 'Bing 没有返回可解析的结果（结构变化或反爬）' };
     } catch (error) {
       console.warn('[Bing] 搜索失败:', error);
       return { results: [], reason: 'Bing 搜索请求失败' };

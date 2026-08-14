@@ -168,6 +168,38 @@ impl DbConnection {
         work(&guard)
     }
 
+    /// 关闭连接，释放数据库文件句柄（数据恢复覆盖 nativemind.db 前必须调用，
+    /// 否则 Windows 上文件被占用，覆盖/改名会报「拒绝访问」）。
+    ///
+    /// 换成内存库占位：连接本身仍是可用的（后续 reopen 重新指向真实文件），
+    /// 且不会影响 path() 的返回值。期间发来的 SQL 会作用在空内存库上 ——
+    /// 调用方（data_import）应保证此时没有并发查询。
+    pub fn close_for_restore(&self) -> CommandResult<()> {
+        // 等正在进行的 SQLite 事务结束（与 reopen 相同的等待窗口）
+        for _ in 0..50 {
+            let in_transaction = self
+                .with(|connection| Ok(!connection.is_autocommit()))?;
+            if !in_transaction {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+
+        let mut guard = self
+            .connection
+            .lock()
+            .map_err(|_| CommandError::new("数据库连接状态异常，请重启应用"))?;
+        if !guard.is_autocommit() {
+            return Err(CommandError::new(
+                "有事务正在进行，请稍后再恢复数据",
+            ));
+        }
+        let placeholder = Connection::open_in_memory()
+            .map_err(|error| CommandError::new(format!("无法创建临时连接：{error}")))?;
+        *guard = placeholder;
+        Ok(())
+    }
+
     pub fn select(&self, sql: &str, params: &[SqlParam]) -> CommandResult<Vec<SqlRow>> {
         self.with(|connection| {
             let mut statement = connection.prepare(sql)?;

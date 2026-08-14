@@ -90,25 +90,48 @@ pub struct MusicAsset {
     pub size_bytes: u64,
 }
 
-/// 扫描一个目录下的音频文件（命令与测试共用）
+/// 扫描一个目录下的音频文件（命令与测试共用）。
+///
+/// 递归扫描子目录：用户设置的音乐目录可能只到外层（如选了包含若干歌手
+/// 子目录的根目录），只扫一层会漏掉全部音乐。限制扫描深度与数量，防止
+/// 误配到巨大目录（如整个磁盘）时卡死。
 fn scan_music_dir(dir: &Path) -> Vec<MusicAsset> {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Vec::new();
-    };
+    const MAX_DEPTH: usize = 8;
+    const MAX_FILES: usize = 2_000;
 
-    entries
-        .filter_map(Result::ok)
-        .filter(|entry| entry.metadata().map(|meta| meta.is_file()).unwrap_or(false))
-        .filter(|entry| is_audio(&entry.path()))
-        .filter_map(|entry| {
-            let metadata = entry.metadata().ok()?;
-            Some(MusicAsset {
-                path: display_path(&entry.path()),
-                name: entry.file_name().to_string_lossy().into_owned(),
-                size_bytes: metadata.len(),
-            })
-        })
-        .collect()
+    fn walk(dir: &Path, depth: usize, out: &mut Vec<MusicAsset>, budget: &mut usize) {
+        if depth > MAX_DEPTH || *budget == 0 {
+            return;
+        }
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            if *budget == 0 {
+                break;
+            }
+            let path = entry.path();
+            if let Ok(meta) = entry.metadata() {
+                if meta.is_dir() {
+                    walk(&path, depth + 1, out, budget);
+                    continue;
+                }
+                if meta.is_file() && is_audio(&path) {
+                    *budget -= 1;
+                    out.push(MusicAsset {
+                        path: display_path(&path),
+                        name: entry.file_name().to_string_lossy().into_owned(),
+                        size_bytes: meta.len(),
+                    });
+                }
+            }
+        }
+    }
+
+    let mut assets = Vec::new();
+    let mut budget = MAX_FILES;
+    walk(dir, 0, &mut assets, &mut budget);
+    assets
 }
 
 /// 列出音乐目录下的音频文件
@@ -218,6 +241,22 @@ mod tests {
     #[test]
     fn scan_missing_dir_returns_empty() {
         assert!(scan_music_dir(&Path::new("no_such_dir_nativemind")).is_empty());
+    }
+
+    #[test]
+    fn scan_recurses_into_subdirectories() {
+        let dir = temp_dir("scan_nested");
+        std::fs::write(dir.join("root.mp3"), b"a").unwrap();
+        std::fs::create_dir_all(dir.join("artist/album")).unwrap();
+        std::fs::write(dir.join("artist/album/song1.mp3"), b"b").unwrap();
+        std::fs::write(dir.join("artist/album/song2.flac"), b"c").unwrap();
+
+        let assets = scan_music_dir(&dir);
+        std::fs::remove_dir_all(&dir).ok();
+
+        let mut names: Vec<_> = assets.iter().map(|a| a.name.clone()).collect();
+        names.sort();
+        assert_eq!(names, vec!["root.mp3", "song1.mp3", "song2.flac"]);
     }
 
     #[test]

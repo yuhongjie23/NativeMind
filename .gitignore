@@ -42,3 +42,22 @@ src-tauri/resources/audio/
 
 # Screenshot source (already copied to docs/screenshots)
 src-tauri/screen_shot/
+
+# ---- 敏感信息 / 用户数据（绝不入库）----
+# 用户设置、路径配置、数据库、备份：这些会含 API key / 私人笔记 / 本地路径
+**/settings.json
+**/paths.json
+**/nativemind.db
+**/*.db
+**/*.sqlite
+**/*.db-wal
+**/*.db-shm
+backups/
+# 环境变量 / 密钥文件
+.env
+.env.*
+*.pem
+*.key
+# 冗余压缩包（docs/ 目录已入库，zip 只是打包产物）
+docs.zip
+*.zip

@@ -135,6 +135,16 @@ pub fn run() {
             let extension_dir = data_dir.join("extensions");
             std::fs::create_dir_all(&extension_dir)?;
 
+            // 音频目录骨架：安装包体积限制（<2GB NSIS）不内嵌背景音乐，
+            // 但安装后要有一个明确的「默认背景音乐路径」让用户放置文件。
+            // 这里自动创建 audio/backgrounds（场景环境音/背景音乐）与 audio/songs
+            // （音乐库兜底）等目录，创建失败静默 —— 资源目录不可写只影响背景音乐，
+            // 不应因此中断启动（与 audio 缺失静默播放的既有逻辑一致）。
+            for sub in ["backgrounds", "ambient", "cue", "companion"] {
+                let _ = std::fs::create_dir_all(resource_dir.join("audio").join(sub));
+            }
+            let _ = std::fs::create_dir_all(resource_dir.join("songs"));
+
             // 把随包分发的 vec0 动态库放进 extensions 目录（若还没有），
             // 否则 sqlite-vec 加载不到、RAG 只能降级关键词检索。
             // 安全：vec0.dll 只会从应用自带的捆绑资源目录取，绝不从用户可改的

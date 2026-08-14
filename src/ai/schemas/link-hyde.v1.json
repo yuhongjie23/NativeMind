@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "link-hyde.v1",
+  "title": "知识关联 HyDE 标签生成",
+  "description": "给定一篇新笔记的内容，假设性地生成「可能与它相似的旧笔记会用什么标签/主题」。产出只用于检索召回，不落库。",
+  "type": "object",
+  "required": ["tags", "topics"],
+  "additionalProperties": false,
+  "properties": {
+    "tags": {
+      "description": "可能的相似标签（2-6 字为主，贴近用户打标签的习惯），用于按标签精确匹配旧笔记",
+      "type": "array",
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1, "maxLength": 20 }
+    },
+    "topics": {
+      "description": "相关主题/概念关键词（可含英文术语），用于按正文关键词召回语义相近的旧笔记",
+      "type": "array",
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1, "maxLength": 30 }
+    }
+  }
+}

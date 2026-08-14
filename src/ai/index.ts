@@ -60,6 +60,7 @@ import {
 import { QueryRewriter } from './rag/query-rewriter';
 import { ReRanker } from './rag/rerank';
 import { SelfRag } from './rag/self-rag';
+import { LinkHydeGenerator } from './rag/link-hyde';
 import { ModelRouter, type RouterOptions } from './router/model-router';
 import { getModelConfig } from './router/model-config';
 import { KeywordGenerator } from './search/keyword-generator';
@@ -185,7 +186,7 @@ export function createAILayer(deps: AILayerDeps): AILayer {
       companionQuestion: new CompanionQuestionAdapter(companion),
       socraticQuestion: new SocraticQuestionAdapter(router, rag),
       noteSearch: new NoteSearchAdapter(rag),
-      suggestionPort: new KnowledgeLinkSuggestionAdapter(rag),
+      suggestionPort: new KnowledgeLinkSuggestionAdapter(rag, new LinkHydeGenerator(router)),
       searchResultEnhancer: new SearchResultEnhancerAdapter(router),
       noteDigest: new MonthlyDigestAdapter(router),
       deepQA: new DeepQAAdapter(new SelfRag(router, rag)),

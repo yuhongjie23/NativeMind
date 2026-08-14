@@ -267,8 +267,19 @@ export class SqliteNoteRepository implements NoteRepository {
     const clean = keyword.trim();
     if (!clean) return [];
 
-    // trigram 分词至少匹配 3 字符；把关键词拆成词/短语，用 OR 组合
+    // trigram 分词至少匹配 3 字符；把关键词拆成词/短语，用 OR 组合。
+    // 关键：中文长句不能整体加引号做短语查询 —— trigram 要求短语的 3 字
+    // n-gram 连续按序出现，完整问题句（如「什么是离散数学」）在文档里
+    // 不可能连续出现，会永远 0 命中。按 3 字滑窗拆成短词再 OR，任意短词
+    // 命中即可召回（「离散数学」文档含「离散数」「散数学」等 3 字子串）。
     const ftsQuery = (clean.match(/[一-龥]+|[a-z0-9+#.-]+/gi) ?? [])
+      .flatMap((token) => {
+        if (/^[一-龥]+$/.test(token) && token.length > 3) {
+          // 中文长串 → 3 字滑窗（与 trigram 分词索引对齐）
+          return Array.from({ length: token.length - 2 }, (_, i) => token.slice(i, i + 3));
+        }
+        return [token];
+      })
       .filter((token) => token.length >= 3)
       .map((token) => `"${token.replace(/"/g, '""')}"`)
       .join(' OR ');
@@ -290,7 +301,30 @@ export class SqliteNoteRepository implements NoteRepository {
       }
     }
 
-    // LIKE 兜底：转义 % _ \，否则用户输入的通配符会扩大匹配
+    // LIKE 兜底：转义 % _ \，否则用户输入的通配符会扩大匹配。
+    // 中文长句整串 LIKE 同样会落空（原文不含连续整句），按 3 字滑窗拆开 OR。
+    // 只收集 ≥3 字的 token：2 字及以下（如「离散」）FTS 无法匹配，直接整串 LIKE。
+    const tokens = (clean.match(/[一-龥]+|[a-z0-9+#.-]+/gi) ?? [])
+      .flatMap((token) => {
+        if (/^[一-龥]+$/.test(token) && token.length > 3) {
+          return Array.from({ length: token.length - 2 }, (_, i) => token.slice(i, i + 3));
+        }
+        return [token];
+      })
+      .filter((token) => token.length >= 3)
+      .slice(0, 12);
+    if (tokens.length > 0) {
+      const clauses = tokens.map(() => `text LIKE ? ESCAPE '\\'`).join(' OR ');
+      const escaped = tokens.map((token) => token.replace(/[\\%_]/g, (ch) => `\\${ch}`));
+      const rows = await this.db.select(
+        `SELECT ${CHUNK_COLUMNS} FROM note_chunks
+         WHERE ${clauses} ORDER BY created_at DESC LIMIT ?`,
+        [...escaped.map((token) => `%${token}%`), limit]
+      );
+      if (rows.length > 0) return rows.map(toChunk);
+    }
+
+    // 最后整串 LIKE：2 字以内的短词 / 无 ≥3 字 token 时兜底
     const escaped = clean.replace(/[\\%_]/g, (ch) => `\\${ch}`);
     const rows = await this.db.select(
       `SELECT ${CHUNK_COLUMNS} FROM note_chunks WHERE text LIKE ? ESCAPE '\\' ORDER BY created_at DESC LIMIT ?`,

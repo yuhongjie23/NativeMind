@@ -291,7 +291,9 @@ export interface KnowledgeLinkSuggestionPort {
   suggestForNote(
     content: string,
     excludeNoteIds: UUID[],
-    limit?: number
+    limit?: number,
+    /** 新笔记已有的标签：并入 HyDE 假设标签一起检索（标签是用户打的摘要，相关性有保证） */
+    existingTags?: string[]
   ): Promise<LinkSuggestionCandidate[]>;
 }
 

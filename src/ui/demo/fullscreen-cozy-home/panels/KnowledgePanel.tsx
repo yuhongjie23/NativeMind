@@ -529,7 +529,7 @@ export function KnowledgePanel() {
           className="cozy-btn-secondary"
           disabled={!keyword.trim() || searching}
           title={t('搜索网络：只发送关键词，不发送笔记原文')}
-          onClick={() => void confirmExternalSearch()}
+          onClick={() => void confirmExternalSearch(keyword)}
         >
           {t('搜索网络')}
         </button>
@@ -742,9 +742,9 @@ export function KnowledgePanel() {
           <p className="cozy-knowledge-hint">
             {t('本地结果不足，需要联网搜索补充。只会发送关键词，不会上传笔记原文。')}
           </p>
-          <button type="button" className="cozy-btn-primary" onClick={() => void confirmExternalSearch()}>
-            {t('确认搜索网络')}
-          </button>
+        <button type="button" className="cozy-btn-primary" onClick={() => void confirmExternalSearch(keyword)}>
+          {t('确认搜索网络')}
+        </button>
         </div>
       ) : null}
 

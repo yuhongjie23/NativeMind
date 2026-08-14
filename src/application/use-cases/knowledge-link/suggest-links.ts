@@ -32,7 +32,9 @@ export class SuggestKnowledgeLinksUseCase {
     const note = await this.noteRepo.findById(noteId);
     if (!note) throw new Error(`笔记不存在: ${noteId}`);
 
-    const candidates = await this.suggestionPort.suggestForNote(note.content, [noteId]);
+    // 把笔记已有的标签一并传给检索层：标签是用户自己打的内容摘要，
+    // 比正文关键词更可靠，HyDE 生成时也会把它们纳入假设（LinkHydeGenerator 合并）。
+    const candidates = await this.suggestionPort.suggestForNote(note.content, [noteId], undefined, note.tags);
 
     // 过滤已存在的关系：含已归档的也要跳过，否则同一条关系会被反复建议、反复被否
     const fresh: LinkSuggestion[] = [];

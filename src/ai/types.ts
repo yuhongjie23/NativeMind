@@ -64,6 +64,7 @@ export type SchemaId =
   | 'todo.v1'
   | 'review-log.v1'
   | 'knowledge-link.v1'
+  | 'link-hyde.v1'
   | 'qa-critic.v1'
   | 'letter-emotion.v1'
   | 'letter-verify.v1';

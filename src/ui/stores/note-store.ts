@@ -60,8 +60,8 @@ interface NoteState {
   /** 删除笔记（用户主动删除，直接写库；顺带清理向量） */
   delete: (noteId: string) => Promise<void>;
   search: (query: string) => Promise<void>;
-  /** 用户确认后，重新发起带外部搜索的查询 */
-  confirmExternalSearch: () => Promise<void>;
+  /** 用户确认后，重新发起带外部搜索的查询。query 为空时用 store 里最近一次搜索词 */
+  confirmExternalSearch: (query?: string) => Promise<void>;
   clearSearch: () => void;
   /** 深度检索开关（LLM Multi-Query + HyDE，慢但更准） */
   deep: boolean;
@@ -377,11 +377,13 @@ export const useNoteStore = create<NoteState>((set, get) => {
     }
   },
 
-  confirmExternalSearch: async () => {
-    const query = get().query;
+  confirmExternalSearch: async (queryArg) => {
+    // 输入框的关键词未必同步进了 store.query（用户可能直接点「搜索网络」）。
+    // 优先用传入的关键词；没有再退回 store 里最近一次搜索词。
+    const query = (queryArg ?? get().query ?? '').trim();
     if (!query) return;
 
-    set({ searching: true, error: undefined, confirmationRequired: false });
+    set({ query, searching: true, error: undefined, confirmationRequired: false });
     try {
       const result = await useCases.searchNotes.executeWithConfirmation(query);
       const hits =

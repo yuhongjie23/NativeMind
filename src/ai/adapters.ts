@@ -40,6 +40,7 @@ import { InteractionGenerator, type CompanionScene } from './companion/interacti
 import type { FloraAgent } from './flora/flora-agent';
 import type { RAGOrchestrator } from './rag/rag-orchestrator';
 import type { SelfRag } from './rag/self-rag';
+import { LinkHydeGenerator } from './rag/link-hyde';
 import { buildReviewEvidence } from './rag/review-evidence';
 import type { ModelRouter } from './router/model-router';
 import { truncate } from './shared/utils';
@@ -495,15 +496,23 @@ export class MonthlyDigestAdapter implements MonthlyDigestPort {
 /* ---------- 知识关联建议 ---------- */
 
 export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPort {
-  constructor(private readonly rag: RAGOrchestrator) {}
+  constructor(
+    private readonly rag: RAGOrchestrator,
+    private readonly hyde: LinkHydeGenerator
+  ) {}
 
   async suggestForNote(
     content: string,
     excludeNoteIds: UUID[],
-    limit = 3
+    limit = 3,
+    existingTags: string[] = []
   ): Promise<LinkSuggestionCandidate[]> {
+    // HyDE 召回：先让模型假设「相似的旧笔记会有什么标签/主题」，
+    // 再用假设标签 + 原文一起检索，字面不重叠但语义相近的笔记也能被召回。
+    const hyde = await this.hyde.generate(content, existingTags);
     const { candidates, suggestions, relationJudged } = await this.rag.findConnections({
       text: content,
+      tags: hyde.tags,
       excludeNoteIds,
     });
 

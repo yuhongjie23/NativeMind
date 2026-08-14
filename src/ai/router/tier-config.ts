@@ -36,7 +36,7 @@ export interface TaskRoute {
 export const TASK_ROUTES: Record<TaskType, TaskRoute> = {
   // 快速执行层：格式稳定优先，低创造性
   intent: { tier: 'fast', promptVersion: 'intent.v1', schemaId: 'intent.v1', requiresJson: true },
-  tag_generation: { tier: 'fast', requiresJson: true },
+  tag_generation: { tier: 'fast', schemaId: 'link-hyde.v1', requiresJson: true },
   light_summary: { tier: 'fast', requiresJson: false },
   search_keywords: { tier: 'fast', requiresJson: true },
   search_result_filter: { tier: 'fast', requiresJson: true },

@@ -11,6 +11,7 @@ import intentV1 from './intent.v1.json';
 import knowledgeLinkV1 from './knowledge-link.v1.json';
 import letterEmotionV1 from './letter-emotion.v1.json';
 import letterVerifyV1 from './letter-verify.v1.json';
+import linkHydeV1 from './link-hyde.v1.json';
 import qaCriticV1 from './qa-critic.v1.json';
 import reviewLogV1 from './review-log.v1.json';
 import todoV1 from './todo.v1.json';
@@ -20,6 +21,7 @@ export const SCHEMAS: Record<SchemaId, JsonSchema> = {
   'todo.v1': todoV1 as JsonSchema,
   'review-log.v1': reviewLogV1 as JsonSchema,
   'knowledge-link.v1': knowledgeLinkV1 as JsonSchema,
+  'link-hyde.v1': linkHydeV1 as JsonSchema,
   'qa-critic.v1': qaCriticV1 as JsonSchema,
   'letter-emotion.v1': letterEmotionV1 as JsonSchema,
   'letter-verify.v1': letterVerifyV1 as JsonSchema,

@@ -33,9 +33,7 @@
     "shortDescription": "本地优先的 AI 学习节律工具",
     "longDescription": "NativeMind 把任务、专注、笔记与复盘放在一起，数据留在本机，默认不联网。",
     "resources": {
-      "resources/audio": "audio",
-      "resources/vec0.dll": "vec0.dll",
-      "../musics/lx_musics_download": "songs"
+      "resources/vec0.dll": "vec0.dll"
     },
 
     "windows": {

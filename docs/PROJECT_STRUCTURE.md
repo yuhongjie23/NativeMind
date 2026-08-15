@@ -286,7 +286,7 @@ src-tauri/
 ```
 docs/
 ├── PROJECT_STRUCTURE.md          # 本文件
-├── DEVELOPMENT_GUIDE.md          # 开发规范
+├── DEVELOPMENT.md          # 开发规范
 ├── API_DESIGN.md                 # API 设计文档
 ├── DATABASE_SCHEMA.md            # 数据库表结构
 ├── EVENT_SYSTEM.md               # 领域事件系统设计
@@ -386,7 +386,7 @@ UI → application → domain
 
 ## 下一步
 
-1. 阅读 `docs/DEVELOPMENT_GUIDE.md` 了解开发规范
+1. 阅读 `docs/DEVELOPMENT.md` 了解开发规范
 2. 阅读 `docs/DATABASE_SCHEMA.md` 了解数据模型
 3. 阅读 `docs/EVENT_SYSTEM.md` 了解事件系统
 4. 开始填充核心模块代码

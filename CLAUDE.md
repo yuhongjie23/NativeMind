@@ -16,7 +16,7 @@
 
 ## 文档索引（需要细节时按需读，别一次全读）
 - 架构/使用：`docs/使用文档.md`（功能+实现，最全）
-- 分层约束：`docs/ARCHITECTURE.md`、根 `AGENTS.md`
+- 分层约束：根 `ARCHITECTURE.md`、根 `AGENTS.md`
 - 数据库：`docs/DATABASE_SCHEMA.md`
 - 事件：`docs/EVENT_SYSTEM.md`
 - 已知问题/在修：`docs/exec-plans/tech-debt-tracker.md`

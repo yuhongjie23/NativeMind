@@ -20,7 +20,7 @@
 - 数据库：`docs/DATABASE_SCHEMA.md`
 - 事件：`docs/EVENT_SYSTEM.md`
 - 已知问题/在修：`docs/exec-plans/tech-debt-tracker.md`
-- 过时/归档（设计稿、一次性 prompt）：`docs/archive/`，默认不读
+- 过时文档：`docs/PROJECT_STRUCTURE.md`（设计期结构稿），默认不读
 
 ## 约定
 - 保持干净架构：`domain` 不 import 其它层；`application` 不 import infrastructure。

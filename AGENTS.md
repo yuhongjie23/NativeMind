@@ -99,7 +99,7 @@ The same frontend code runs in two modes, switched by `src/ui/stores/runtime.ts`
 
 1. **根 CLAUDE.md（~600 token，极简）** — 每次会话启动只自动加载它：项目一句话、入口/分层/写库铁律等关键事实、命令、文档索引。开局就有骨架，不花几千 token 探索已删的死代码或架构。
 2. **docs/INDEX.md** — 全文档索引 + 「什么时候读」提示，标注过时文档（PROJECT_STRUCTURE.md）。
-3. **归档设计稿** — COZY_HOME_* prompt + SEEDANCE2_AI_VIDEO_WORKFLOW_GUIDE + demo 截图移到 docs/archive/（~210KB，约 5 万 token 从默认视野拿掉）。一次性设计输入，不是实现文档。
+3. **文档索引** — 用 docs/INDEX.md 按需读文档；一次性设计稿不入仓库。
 
 协作省 token 规矩（照此执行）:
 - 别整段贴审计报告/大文件 → 写进文件让用户读，只贴「新增/变化」几行。

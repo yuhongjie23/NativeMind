@@ -300,7 +300,7 @@ Windows → NSIS 安装器，macOS → dmg，Linux → AppImage / deb。
 
 | 文件 | 说明 |
 |---|---|
-| `App.tsx` | 根组件。管当前页面、把领域事件接到 store 刷新上；等 `startRuntime()` 完成（建表 + 读设置）才渲染页面 |
+| main.tsx | 入口 → FullscreenCozyHome（主场景：HUD + 7 面板），等 startRuntime() 完成才渲染 |
 | `styles/globals.css` | 全局样式。当前是手写 CSS，未启用 Tailwind |
 
 **stores/**（Zustand）
@@ -480,7 +480,7 @@ taskkill /PID <上一步得到的 PID> /F
 |---|---|
 | 新增业务规则 | `domain/`，写纯函数并加测试 |
 | 新增用户流程 | `application/use-cases/`，记得发事件 |
-| 新增页面 | `ui/pages/` + `Sidebar.tsx` 的 `PageKey` + `App.tsx` 的 pages 映射 |
+| 页面路由 | FullscreenCozyHome + FeatureDock 打开面板（DemoSheet 承载 Today/Focus/Knowledge/Review/Companion/Letter/Settings） |
 | 新增持久化数据 | 加迁移 SQL → 加仓储 → 在 `ports.ts` 声明接口 → 两个 runtime 都注入 |
 | 新增设置项 | `types/config.ts` → `settings-store.ts` → `SettingsPage.tsx` |
 | 新增 Rust 能力 | `commands/` 加函数 → `lib.rs` 注册 → 必要时在 `capabilities/default.json` 加权限 |

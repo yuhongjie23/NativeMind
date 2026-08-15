@@ -45,12 +45,12 @@ src/
 │   ├── search/              # Keyword gen, result filter, search gate
 │   └── evaluation/          # JSON validator, quality metrics
 └── ui/                      # React UI layer
-    ├── App.tsx              # Root component
-    ├── pages/               # 8 page components
+    ├── main.tsx            # Entry → FullscreenCozyHome
+    ├── demo/fullscreen-cozy-home/  # Main scene (HUD + panels)
+    │   └── panels/          # Today/Focus/Knowledge/Review/Companion/Letter/Settings
     ├── components/
     │   ├── features/        # Domain-specific components
-    │   ├── common/          # Shared UI primitives
-    │   └── layout/          # AppShell, Sidebar
+    │   └── common/          # Shared UI primitives
     ├── stores/              # Zustand stores
     ├── hooks/               # Custom hooks
     └── styles/              # globals.css

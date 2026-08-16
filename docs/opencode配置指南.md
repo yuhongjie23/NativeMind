@@ -1,6 +1,31 @@
 # OpenCode CLI 新机配置指南
 
 > 在新电脑上从零配置 OpenCode（AI 编码代理），用于开发 NativeMind。
+> **形态说明**：OpenCode 就是**终端（cmd / PowerShell）窗口里的交互式工具**——在命令行里打字对话，不是网页也不是桌面应用。
+
+## 〇、cmd 窗口里的样子
+
+在 cmd / PowerShell 中运行 `opencode` 后，直接进入全屏交互界面：
+
+```
+┌─────────────────────────────────────────────┐
+│ opencode                                    │
+│                                             │
+│  > 输入你的需求……                           │
+│    [Tab] 切换工具  [Esc] 菜单  [Ctrl+C] 退出 │
+└─────────────────────────────────────────────┘
+```
+
+常用 cmd 用法：
+
+| 命令 | 效果 |
+|---|---|
+| `opencode` | 进入交互界面（在 cmd 里打字对话） |
+| `opencode run "把 README 加一段说明"` | 一次性执行（不进交互界面） |
+| `opencode --continue` | 继续上次会话 |
+| `Ctrl+C` | 退出 |
+
+> Windows 提示：用 **PowerShell 或 Windows Terminal** 体验更好（cmd 对彩色界面支持稍弱，但也能用）。
 
 ## 一、安装
 

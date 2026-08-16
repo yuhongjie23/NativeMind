@@ -34,7 +34,7 @@
 
 | | |
 |---|---|
-| 今日（学习计划与节律） | 主场景（心流小筑） |
+| 今日（学习计划与节律） | 主场景） |
 | ![今日](docs/screenshots/today.png) | ![主场景](docs/screenshots/main-scene.png) |
 | 知识检索（本地 RAG） | 专注模式 |
 | ![知识检索](docs/screenshots/knowledge_retrieval.png) | ![专注模式](docs/screenshots/focus-mode.png) |

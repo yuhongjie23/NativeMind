@@ -6220,6 +6220,29 @@ select.cozy-focus-task {
   color: #e58d7c;
 }
 
+/* 专注中久坐健康贴士：每满 30 分钟出现，柔和渐变入场、不打断计时 */
+.focus-overlay__health-tip {
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(243, 242, 236, 0.1);
+  border: 1px solid rgba(243, 242, 236, 0.18);
+  font-size: 13px;
+  color: rgba(243, 242, 236, 0.85);
+  animation: focus-health-tip-in 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes focus-health-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .focus-overlay__actions {
   display: flex;
   flex-direction: column;

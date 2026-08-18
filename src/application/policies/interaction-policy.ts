@@ -11,6 +11,8 @@ export interface InteractionPolicyConfig {
   maxQuestionsPerDay: number;
   /** 每个主动场景每天最多几次（idle_checkin / stuck_encourage / milestone_celebrate） */
   maxProactivePerDay: number;
+  /** 健康提醒每天上限（30 分钟一轮 ≈ 12 次/6 小时，与 agent 阈值对齐） */
+  maxHealthRemindersPerDay: number;
   allowedScenes: string[];
 }
 
@@ -18,6 +20,7 @@ export const defaultInteractionConfig: InteractionPolicyConfig = {
   minIntervalMinutes: 30,
   maxQuestionsPerDay: 5,
   maxProactivePerDay: 3,
+  maxHealthRemindersPerDay: 12,
   // enter：进入应用的欢迎语，同样走节流，避免每次启动都吵
   allowedScenes: ['enter', 'focus_complete', 'repeatedly_aborted', 'review_generated'],
 };
@@ -38,6 +41,19 @@ export class InteractionPolicy {
 
     const todayCount = await this.interactionRepo.countTodayQuestions();
     return todayCount < this.config.maxQuestionsPerDay;
+  }
+
+  /**
+   * 健康提醒（久坐关怀）能否发起：
+   * 独立于普通互动的节流（30 分钟健康节律不被闲聊打断），
+   * 专注中仍遵守「不打扰」哲学（且全屏专注时宠物本就不可见，
+   * 由全屏层自己的健康贴士负责）；今日次数按场景计上限。
+   */
+  async allowHealthReminder(scene: string): Promise<boolean> {
+    if (!this.focusPolicy.canInterrupt('companion_dialogue')) return false;
+
+    const todayCount = await this.interactionRepo.countTodayByScene(scene);
+    return todayCount < this.config.maxHealthRemindersPerDay;
   }
 
   /**

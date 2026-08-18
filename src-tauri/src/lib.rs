@@ -187,6 +187,12 @@ pub fn run() {
             // 应当在启动阶段就暴露出来
             app.manage(OllamaClient::new(None)?);
 
+            // 沉浸式全屏兜底：窗口装饰始终跟随全屏状态（全屏→无标题栏，退出→恢复）。
+            // 不依赖前端调用入口，任何方式进入全屏都会生效。
+            if let Some(window) = app.get_webview_window("main") {
+                crate::commands::window::sync_decorations_with_fullscreen(&window);
+            }
+
             // 托盘图标 + 专注倒计时提示：每 30 秒查活动会话，更新 tooltip。
             // 表可能还没迁移（迁移由前端跑），查不到就保持默认提示，不报错。
             {
@@ -261,6 +267,9 @@ pub fn run() {
             commands::audio::bgm_read,
             // search：前端外部搜索的唯一出站通道
             commands::search::search_fetch,
+            // window：沉浸式全屏（隐藏系统装饰）
+            commands::window::window_is_fullscreen,
+            commands::window::window_toggle_fullscreen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

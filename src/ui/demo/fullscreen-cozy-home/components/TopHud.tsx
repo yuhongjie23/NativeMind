@@ -6,9 +6,10 @@
  * 时间数字最清晰但不使用大号展示字体。专注 active 时整层降低存在感。
  */
 import { useEffect, useRef, useState } from 'react';
-import { CloudRain, Flower2, Moon, Music2, Snowflake, Sparkles, Sun, Sunset, Volume2, VolumeX } from 'lucide-react';
+import { CloudRain, Flower2, Maximize2, Minimize2, Moon, Music2, Snowflake, Sparkles, Sun, Sunset, Volume2, VolumeX } from 'lucide-react';
 import { useT } from '../../../i18n';
 import appLogo from '../../../components/ui/logo.png';
+import { toggleFullscreen, isWindowFullscreen } from '@infrastructure/window-api';
 import type { SceneId, TimeMode, TimePhase, WeatherType } from '../types';
 
 interface TopHudProps {
@@ -63,7 +64,21 @@ export function TopHud({
 }: TopHudProps) {
   const t = useT();
   const [volumeOpen, setVolumeOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  // 是否桌面环境：web 演示没有窗口概念，不显示全屏按钮
+  const [canFullscreen, setCanFullscreen] = useState(false);
   const clickTimer = useRef<number | undefined>(undefined);
+
+  // 桌面端进入/退出全屏（系统标题栏消失/恢复）双向同步
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return;
+    setCanFullscreen(true);
+    void isWindowFullscreen().then(setIsFullscreen).catch(() => undefined);
+  }, []);
+
+  const handleFullscreen = () => {
+    void toggleFullscreen().then(setIsFullscreen).catch(() => undefined);
+  };
 
   // 单击：延迟后切换音量面板；双击：取消单击、关闭面板并全部静音
   const handleVolumeClick = () => {
@@ -152,6 +167,25 @@ export function TopHud({
             <Moon size={17} strokeWidth={1.75} aria-hidden="true" />
           )}
         </button>
+
+        {/* 桌面端沉浸式全屏：进入后隐藏系统标题栏；web 演示不显示 */}
+        {canFullscreen ? (
+          <button
+            type="button"
+            className="hud-icon-pill"
+            data-active={isFullscreen}
+            aria-pressed={isFullscreen}
+            aria-label={isFullscreen ? t('退出全屏') : t('进入全屏')}
+            title={isFullscreen ? t('退出全屏') : t('进入全屏 (F11)')}
+            onClick={handleFullscreen}
+          >
+            {isFullscreen ? (
+              <Minimize2 size={17} strokeWidth={1.75} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={17} strokeWidth={1.75} aria-hidden="true" />
+            )}
+          </button>
+        ) : null}
 
         <span className="top-hud__date">{dateText}</span>
         <span className="top-hud__time" aria-live="off">

@@ -76,6 +76,9 @@ export const EN: Record<string, string> = {
   '还没有完成的专注段。': 'No focus sessions yet.',
 
   // ---- 全屏专注 ----
+  进入全屏: 'Enter Fullscreen',
+  退出全屏: 'Exit Fullscreen',
+  '进入全屏 (F11)': 'Enter Fullscreen (F11)',
   退出专注: 'Exit focus',
   番茄钟: 'Pomodoro',
   专注中: 'Focusing',

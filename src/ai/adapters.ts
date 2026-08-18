@@ -212,6 +212,7 @@ const SCENE_MAP: Record<string, CompanionScene> = {
   // 主动调度（陪伴 agent）意图 → 借用语气最接近的既有场景
   idle_checkin: 'app_entered',
   stuck_encourage: 'repeatedly_aborted',
+  health_reminder: 'health_reminder',
   milestone_celebrate: 'focus_complete',
 };
 

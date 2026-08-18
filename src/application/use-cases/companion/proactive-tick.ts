@@ -35,23 +35,30 @@ export class ProactiveCompanionTickUseCase {
 
   async execute(): Promise<CompanionInteraction | null> {
     const date = today();
-    const [todos, focusSessions, lastInteraction, pendingTodos] = await Promise.all([
-      this.todoRepo.findByDate(date),
-      this.focusRepo.findByDate(date),
-      this.interactionRepo.findLast(),
-      this.todoRepo.findByStatus('pending'),
-    ]);
+    const [todos, focusSessions, lastInteraction, lastHealthReminder, pendingTodos] =
+      await Promise.all([
+        this.todoRepo.findByDate(date),
+        this.focusRepo.findByDate(date),
+        this.interactionRepo.findLast(),
+        this.interactionRepo.findLastByScene('health_reminder'),
+        this.todoRepo.findByStatus('pending'),
+      ]);
 
     const completedSessions = focusSessions.filter((session) => session.status === 'completed');
     // 边沿触发：今天是否已为「卡住/里程碑」发过（并发查询避免 N+1）
-    const [stuckCount, milestoneCount] = await Promise.all([
+    const [stuckCount, milestoneCount, healthCountToday] = await Promise.all([
       this.interactionRepo.countTodayByScene('stuck_encourage'),
       this.interactionRepo.countTodayByScene('milestone_celebrate'),
+      this.interactionRepo.countTodayByScene('health_reminder'),
     ]);
     const context: AgentContext = {
       minutesSinceLastInteraction: lastInteraction
         ? minutesSince(lastInteraction.createdAt)
         : Number.POSITIVE_INFINITY,
+      minutesSinceLastHealthReminder: lastHealthReminder
+        ? minutesSince(lastHealthReminder.createdAt)
+        : Number.POSITIVE_INFINITY,
+      healthReminderCountToday: healthCountToday,
       todayFocusMinutes: completedSessions.reduce((sum, session) => sum + (session.actualMinutes ?? session.durationMinutes), 0),
       todayCompletedTodos: todos.filter((todo) => todo.status === 'completed').length,
       todayCompletedSessions: completedSessions.length,
@@ -64,8 +71,13 @@ export class ProactiveCompanionTickUseCase {
     const intent = decide(context);
     if (!intent) return null;
 
-    // 政策裁决：专注中一律不打扰、距上次互动够久、该场景今日未超上限
-    if (!(await this.interactionPolicy.allowProactiveInitiation(intent.sceneType))) return null;
+    // 政策裁决：健康提醒走独立节流（不占用普通互动频控）；
+    // 其余场景专注中一律不打扰、距上次互动够久、该场景今日未超上限
+    const allowed =
+      intent.sceneType === 'health_reminder'
+        ? await this.interactionPolicy.allowHealthReminder(intent.sceneType)
+        : await this.interactionPolicy.allowProactiveInitiation(intent.sceneType);
+    if (!allowed) return null;
 
     const utterance = await this.questionPort.generateDialogue({
       scene: intent.sceneType,

@@ -16,5 +16,6 @@ pub mod file;
 pub mod model;
 pub mod search;
 pub mod vector;
+pub mod window;
 
 pub use file::AppPaths;

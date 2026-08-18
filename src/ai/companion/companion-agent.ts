@@ -5,12 +5,30 @@
  * 用 1.5B 小模型生成。保持陪伴安静哲学：主动互动保守，专注中由 InteractionPolicy 拦截。
  */
 
-export type AgentSceneType = 'idle_checkin' | 'stuck_encourage' | 'milestone_celebrate';
+export type AgentSceneType =
+  | 'idle_checkin'
+  | 'stuck_encourage'
+  | 'milestone_celebrate'
+  | 'health_reminder';
+
+/** 健康提醒轮换类型（久坐关怀，每 30 分钟一轮，循环 4 种） */
+export type HealthReminderKind = 'blink' | 'stretch' | 'drink_water' | 'look_far';
+
+export const HEALTH_REMINDER_KINDS: HealthReminderKind[] = [
+  'blink',
+  'stretch',
+  'drink_water',
+  'look_far',
+];
 
 /** 玩家活动快照，由 proactive-tick 从仓储聚合 */
 export interface AgentContext {
   /** 距上次宠物互动多少分钟（无互动为 Infinity） */
   minutesSinceLastInteraction: number;
+  /** 距上次健康提醒多少分钟（无记录为 Infinity） */
+  minutesSinceLastHealthReminder: number;
+  /** 今天已发过的健康提醒次数（决定下一轮类型） */
+  healthReminderCountToday: number;
   todayFocusMinutes: number;
   todayCompletedTodos: number;
   todayCompletedSessions: number;
@@ -36,12 +54,21 @@ export interface AgentThresholds {
   overdueDays: number;
   /** 今天完成专注达到几次触发肯定 */
   milestoneSessions: number;
+  /** 距上次健康提醒超过这个分钟数才再次提醒（默认 30） */
+  healthReminderIntervalMinutes: number;
+  /** 距上次任意互动至少多少分钟才发健康提醒（避免紧跟闲聊/提问，默认 10） */
+  healthReminderQuietAfterMinutes: number;
+  /** 每小时健康提醒上限（配合 interval 防刷屏，默认 12 ≈ 6 小时工作制） */
+  healthReminderDailyCap: number;
 }
 
 export const defaultAgentThresholds: AgentThresholds = {
   idleAfterMinutes: 30,
   overdueDays: 2,
   milestoneSessions: 2,
+  healthReminderIntervalMinutes: 30,
+  healthReminderQuietAfterMinutes: 10,
+  healthReminderDailyCap: 12,
 };
 
 /** 组装 prompt 用的一句话事实 */
@@ -51,6 +78,24 @@ export const buildFacts = (ctx: AgentContext): string => {
   if (ctx.todayCompletedTodos > 0) parts.push(`完成了 ${ctx.todayCompletedTodos} 个任务`);
   if (ctx.pendingTodoCount > 0) parts.push(`还有 ${ctx.pendingTodoCount} 个任务待做`);
   return parts.join('，');
+};
+
+/** 按今日已发次数轮换选择健康提醒类型（0/4/8/… → 眨眼，1/5/9 → 伸展……） */
+export const healthKindFor = (countToday: number): HealthReminderKind =>
+  HEALTH_REMINDER_KINDS[countToday % HEALTH_REMINDER_KINDS.length];
+
+/** 健康提醒类型 → 一句话事实（注入 prompt，让模型说出现成动作） */
+export const buildHealthFact = (kind: HealthReminderKind): string => {
+  switch (kind) {
+    case 'blink':
+      return '久坐提醒：请眨眼几次，湿润眼睛';
+    case 'stretch':
+      return '久坐提醒：请站起来扭扭腰、伸个懒腰';
+    case 'drink_water':
+      return '久坐提醒：请喝口水，补充水分';
+    case 'look_far':
+      return '久坐提醒：请看向远处 20 秒，让眼睛休息';
+  }
 };
 
 /**
@@ -75,6 +120,17 @@ export function decide(ctx: AgentContext, thresholds = defaultAgentThresholds): 
       sceneType: 'milestone_celebrate',
       facts: `今天已完成 ${ctx.todayCompletedSessions} 次专注`,
     };
+  }
+
+  // 健康提醒：每 30 分钟一轮，久坐关怀优先级高于闲时问候但不打扰卡任务/里程碑；
+  // 且距上次任意互动至少 10 分钟（刚聊完天就提醒很突兀）
+  if (
+    ctx.minutesSinceLastHealthReminder >= thresholds.healthReminderIntervalMinutes &&
+    ctx.minutesSinceLastInteraction >= thresholds.healthReminderQuietAfterMinutes &&
+    ctx.healthReminderCountToday < thresholds.healthReminderDailyCap
+  ) {
+    const kind = healthKindFor(ctx.healthReminderCountToday);
+    return { sceneType: 'health_reminder', facts: buildHealthFact(kind) };
   }
 
   const hasActivity =

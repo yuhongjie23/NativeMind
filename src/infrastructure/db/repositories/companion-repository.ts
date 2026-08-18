@@ -92,6 +92,16 @@ export class SqliteCompanionRepository implements CompanionInteractionRepository
     return row ? toInteraction(row) : null;
   }
 
+  /** 最近一条指定场景的互动（健康提醒按场景节流用） */
+  async findLastByScene(scene: string): Promise<CompanionInteraction | null> {
+    const row = await this.db.selectOne(
+      `SELECT ${COLUMNS} FROM companion_interactions
+       WHERE scene_type = ? ORDER BY created_at DESC LIMIT 1`,
+      [scene]
+    );
+    return row ? toInteraction(row) : null;
+  }
+
   /** 今天已经问了几次。按本地日的起止时刻查（created_at 是 UTC，不能用日期字符串比） */
   async countTodayQuestions(): Promise<number> {
     const start = new Date();

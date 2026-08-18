@@ -21,6 +21,7 @@ export type CompanionScene =
   | 'review_generated'
   | 'app_exiting'
   | 'feedback'
+  | 'health_reminder'
   | 'user_invoked';
 
 /** 角色资源包：语气 + 各场景台词。新增角色只加一份配置 */
@@ -55,6 +56,13 @@ export const fulilianVoice: CompanionVoice = {
       '你现在卡在哪一步？',
       '这个说法和你笔记里的哪条能对上？',
       '今天有什么想先做完的小事吗？',
+    ],
+    // 久坐健康提醒（每 30 分钟一轮，model 改写前先有确定性台词兜底）
+    health_reminder: [
+      '盯屏幕好一会儿了，眨眨眼。',
+      '起来扭扭腰、伸个懒腰吧。',
+      '喝口水，润润嗓子。',
+      '看看远处，让眼睛歇 20 秒。',
     ],
   },
 };
@@ -93,6 +101,8 @@ export interface GeneratedInteraction {
 
 /** JSON prompt 输出格式（小模型只完成一个明确动作，emotion 驱动动画、intent 驱动下一步） */
 export interface CompanionTurnOutput {
+  /** 轻量思维链：模型输出前一句内部简评，不展示给用户，只用于推理质量与可审计 */
+  think?: string;
   intent: 'acknowledge' | 'clarify' | 'suggest_one_step' | 'close';
   emotion: 'calm' | 'curious' | 'happy' | 'concerned';
   text: string;
@@ -133,6 +143,8 @@ const parseTurnOutput = (raw: string): CompanionTurnOutput | null => {
     const parsed = JSON.parse(text) as Partial<CompanionTurnOutput>;
     if (typeof parsed.text !== 'string' || !parsed.text.trim()) return null;
     return {
+      // think 是模型内部推理，允许缺失、允许短（1.5B 能力有限，不强求）
+      think: typeof parsed.think === 'string' ? parsed.think.slice(0, 40) : undefined,
       intent: parsed.intent ?? 'acknowledge',
       emotion: parsed.emotion ?? 'calm',
       text: parsed.text.trim(),
@@ -158,8 +170,9 @@ export class InteractionGenerator {
       input: ctx,
       modelPolicy: {
         // 宠物对延迟比对文采敏感：单次调用、不升级 14B、短预算、温度适中（小模型调用策略）
+        // maxTokens 从 96 提到 200：给轻量思维链(think)留出输出空间，仍远低于小模型单次上限
         temperature: 0.5,
-        maxTokens: 96,
+        maxTokens: 200,
         noRetry: true,
         noFallback: true,
       },
@@ -167,13 +180,16 @@ export class InteractionGenerator {
         system: [
           '你是学习陪伴宠物，不是教师、心理咨询师或效率教练。',
           '当前任务：先准确接住用户刚才的话，再给出一个很小的下一步。',
+          '思考（轻量思维链）：输出前先在 think 字段写一句话，判断「用户此刻的状态」和「最合适的回应方向」。',
+          '  - think 是内部推理，不构成对用户说的话；内容不出现「加油、坚持、应该」等口号。',
+          '  - 例：{"think":"专注结束，先肯定再提示记一笔","intent":"acknowledge", ...}',
           '规则：',
           '1. 只能使用输入中的事实，不补充不存在的任务、时长和情绪。',
           '2. 回复 20～60 个中文字符。',
           '3. 不要同时提两个问题。不要评价用户是否努力。',
           '4. 不使用「加油、坚持、你一定可以、你应该、效率、优秀」等激励口号。',
           '5. 信息不足时，只问一个容易回答的问题。',
-          '6. 输出严格 JSON：{"intent":"acknowledge|clarify|suggest_one_step|close","emotion":"calm|curious|happy|concerned","text":"...","quickReplies":["...","..."]}，不要输出其它内容。',
+          '6. 输出严格 JSON：{"think":"...","intent":"acknowledge|clarify|suggest_one_step|close","emotion":"calm|curious|happy|concerned","text":"...","quickReplies":["...","..."]}，think 不超过 20 字，不要输出其它内容。',
         ].join('\n'),
         user: [
           `speechAct: ${ctx.speechAct ?? 'statement'}`,

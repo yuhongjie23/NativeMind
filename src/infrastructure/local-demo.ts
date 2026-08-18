@@ -334,6 +334,13 @@ export class InMemoryCompanionInteractionRepository implements CompanionInteract
     return last ? copy(last) : null;
   }
 
+  async findLastByScene(scene: string): Promise<CompanionInteraction | null> {
+    const last = Array.from(this.interactions.values())
+      .filter((interaction) => interaction.sceneType === scene)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+    return last ? copy(last) : null;
+  }
+
   async countTodayQuestions(): Promise<number> {
     return Array.from(this.interactions.values()).filter(
       (interaction) => interaction.interactionType === 'question' && isSameLocalDay(interaction.createdAt)
@@ -833,6 +840,12 @@ export class TemplateCompanionQuestionPort implements CompanionQuestionPort {
   }
 
   async generateDialogue(context: { scene: string; facts?: string }): Promise<CompanionUtterance> {
+    if (context.scene === 'health_reminder') {
+      return {
+        content: context.facts ?? '坐久了，起来活动一下、看看远处吧。',
+        emotion: 'curious',
+      };
+    }
     return {
       content: context.facts ? `今天也辛苦了（${context.facts}）。` : '今天也辛苦了，要歇一会儿吗？',
       emotion: 'calm',

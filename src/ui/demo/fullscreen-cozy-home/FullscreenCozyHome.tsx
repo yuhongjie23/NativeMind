@@ -30,6 +30,7 @@ import { configurePetSprite } from './asset-resolver';
 import { getSceneManifest } from './scene-manifest';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 import { ensureOllamaRunning, readImportedBytes } from '@infrastructure/paths/paths-api';
+import { exitFullscreenIfActive, toggleFullscreen } from '@infrastructure/window-api';
 import { mimeByExtension } from '../../stores/music-store';
 import { useCompanionStore } from '../../stores/companion-store';
 import { useFocusStore } from '../../stores/focus-store';
@@ -380,14 +381,102 @@ export function FullscreenCozyHome() {
     return () => window.removeEventListener('pointerdown', onGesture);
   }, []);
 
-  // Esc 关闭副面板（有未完成内容先确认）
+  // 当前是否处于 OS 全屏（F11 / 专注联动进入）。Esc 优先退出全屏恢复边框。
+  const [osFullscreen, setOsFullscreen] = useState(false);
+  // 初始化 + 监听窗口事件同步全屏状态：进入/退出全屏都在别处发 setDecorations，
+  // 这里只负责读取状态供 Esc 裁决，避免状态漂移。
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return;
+    let disposed = false;
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const win = getCurrentWindow();
+        if (disposed) return;
+        setOsFullscreen(await win.isFullscreen());
+      } catch {
+        // 初始化失败保持默认 false
+      }
+    })();
+    const onResized = (() => {
+      if (!('__TAURI_INTERNALS__' in window)) return undefined;
+      let off: (() => void) | undefined;
+      void (async () => {
+        try {
+          const { getCurrentWindow } = await import('@tauri-apps/api/window');
+          const win = getCurrentWindow();
+          off = await win.onResized(() => {
+            void win.isFullscreen().then(setOsFullscreen).catch(() => undefined);
+          });
+        } catch {
+          // 事件注册失败：仅按键时读取即可
+        }
+      })();
+      return () => off?.();
+    })();
+    return () => {
+      disposed = true;
+      onResized?.();
+    };
+  }, []);
+
+  // Esc：优先级 ① 专注全屏层（其自身处理，这里不拦）② OS 全屏（退出全屏恢复边框）
+  // ③ 副面板（关闭面板）。专注层挂载时用自身 ESC，主组件这里用 osFullscreen 兜底。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestClose();
+      if (event.key !== 'Escape') return;
+      if (focusOverlay) return; // 专注全屏层自己处理 Esc
+      if (osFullscreen) {
+        event.preventDefault();
+        void exitFullscreenIfActive()
+          .then(() => setOsFullscreen(false))
+          .catch(() => undefined);
+        return;
+      }
+      requestClose();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   });
+
+  // F11 沉浸式全屏切换（仅桌面端；web 演示忽略）。聚焦在输入框时不劫持。
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'F11') return;
+      const target = event.target as HTMLElement | null;
+      if (target && target.closest('input, textarea, select')) return;
+      event.preventDefault();
+      void toggleFullscreen()
+        .then(setOsFullscreen)
+        .catch(() => undefined);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // 进入「专注全屏覆盖层」→ 同步切换 OS 沉浸式全屏（隐藏系统标题栏）；
+  // 退出覆盖层 → 恢复窗口。这样专注模式是无边框真全屏，而不是带标题栏的窗口。
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return;
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const win = getCurrentWindow();
+        if (focusOverlay) {
+          await win.setDecorations(false);
+          await win.setFullscreen(true);
+          setOsFullscreen(true);
+        } else {
+          await win.setFullscreen(false);
+          await win.setDecorations(true);
+          setOsFullscreen(false);
+        }
+      } catch {
+        // 全屏联动失败不应打断专注流程
+      }
+    })();
+  }, [focusOverlay]);
 
   /* ---------- 场景导演：陪伴动画驱动宠物 ---------- */
   const prevPetAnimRef = useRef(companionAnimation);

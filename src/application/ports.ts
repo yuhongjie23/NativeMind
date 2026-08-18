@@ -230,6 +230,8 @@ export interface CompanionInteractionRepository {
   findLastQuestion(): Promise<CompanionInteraction | null>;
   /** 最近一条互动（任意类型），主动调度节流用 */
   findLast(): Promise<CompanionInteraction | null>;
+  /** 最近一条指定场景的互动（健康提醒节流用） */
+  findLastByScene(scene: string): Promise<CompanionInteraction | null>;
   countTodayQuestions(): Promise<number>;
   /** 今天某个场景的互动数（主动调度按场景计日上限） */
   countTodayByScene(scene: string): Promise<number>;

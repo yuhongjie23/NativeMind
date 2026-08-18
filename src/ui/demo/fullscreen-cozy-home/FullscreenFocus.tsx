@@ -46,6 +46,7 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
   const pause = useFocusStore((state) => state.pause);
   const resume = useFocusStore((state) => state.resume);
   const pausedAt = useFocusStore((state) => state.pausedAt);
+  const pausedSeconds = useFocusStore((state) => state.pausedSeconds);
   const error = useFocusStore((state) => state.error);
   const focusView = useFocusMode();
   const defaultMinutes = useSettingsStore((state) => state.focus.defaultDurationMinutes);
@@ -64,6 +65,10 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
   const [volumeOpen, setVolumeOpen] = useState(false);
   // 开始前选择的关联任务（默认无）；开始后落到 active.todoId
   const [selectedTodoId, setSelectedTodoId] = useState<string | undefined>(undefined);
+  // 专注中健康贴士：每满 30 分钟提醒一次（久坐关怀），轮换类型
+  const [healthTip, setHealthTip] = useState<string | null>(null);
+  const healthMilestoneRef = useRef(0);
+  const healthHideTimerRef = useRef<number | null>(null);
   // 待办任务列表（未完成，供「关联任务」选择）
   const todos = useTodoStore((state) => state.todos);
   const pendingTodos = todos.filter((todo) => todo.status !== 'completed' && todo.status !== 'cancelled');
@@ -94,6 +99,38 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
   const paused = Boolean(pausedAt);
   const elapsed = isActive && focusView.remaining === 0;
   const timeText = isActive ? focusView.display : `${String(duration).padStart(2, '0')}:00`;
+
+  // 专注中久坐健康贴士：每满 30 分钟提醒一次（眨眼/伸展/喝水/远眺轮换），
+  // 自然结束或手动结束/放弃时清空；暂停期间不计时。
+  const healthKinds = ['眨眨眼，让眼睛休息一下。', '起来扭扭腰、伸个懒腰吧。', '喝口水，补充水分。', '看看远处，让眼睛休息 20 秒。'];
+  useEffect(() => {
+    if (!active) {
+      healthMilestoneRef.current = 0;
+      setHealthTip(null);
+      return;
+    }
+    const startedMs = new Date(active.startedAt).getTime();
+    const tick = () => {
+      const frozenMs = pausedAt ? new Date(pausedAt).getTime() : Date.now();
+      const elapsedSec = (frozenMs - startedMs) / 1000 - pausedSeconds;
+      const elapsedMin = Math.floor(elapsedSec / 60);
+      const milestone = Math.floor(elapsedMin / 30);
+      if (milestone >= 1 && milestone > healthMilestoneRef.current) {
+        healthMilestoneRef.current = milestone;
+        const kind = healthKinds[(milestone - 1) % healthKinds.length];
+        setHealthTip(kind);
+        if (healthHideTimerRef.current) window.clearTimeout(healthHideTimerRef.current);
+        healthHideTimerRef.current = window.setTimeout(() => setHealthTip(null), 12_000);
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, 5000);
+    return () => {
+      window.clearInterval(timer);
+      if (healthHideTimerRef.current) window.clearTimeout(healthHideTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, pausedAt, pausedSeconds]);
 
   // ESC / 关闭：专注中先弹确认（需点击）才退出；空闲直接退出
   const activeRef = useRef(isActive);
@@ -246,6 +283,11 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
               : t('未关联任务 · 专注中')
             : t('准备开始一段专注')}
         </p>
+        {healthTip ? (
+          <p className="focus-overlay__health-tip" role="status">
+            {healthTip}
+          </p>
+        ) : null}
         {elapsed ? (
           <p className="focus-overlay__hint" role="status">
             {t('时间到了。收个尾再点完成也没关系。')}

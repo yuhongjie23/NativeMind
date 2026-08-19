@@ -153,4 +153,7 @@ npm run lint       # ESLint
 
 ## License
 
-[MIT](LICENSE)
+[GPL](LICENSE)
+
+
+

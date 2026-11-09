@@ -16,16 +16,17 @@
 import { createLocalDemoRuntime } from '@infrastructure/local-demo';
 import { createTauriRuntime } from '@infrastructure/tauri-runtime';
 import { annaInvoke, isAnna } from '@infrastructure/anna';
+import { createDesktopInvoke } from '@infrastructure/model-runtime/desktop-invoke';
 import { uiConfirmationPrompt, uiConfirmPrompt } from './confirmation-store';
 
 const isTauri = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 /** 生产路径下 Rust 侧执行 SQL，这里只发命令 */
-const tauriInvoke = async <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
+const tauriInvoke = createDesktopInvoke(async <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<T>(command, args);
-};
+});
 
 const createRuntime = () => {
   if (isAnna()) {
@@ -49,7 +50,7 @@ const createRuntime = () => {
   }
 
   return createTauriRuntime({
-    invoke: (command, args) => tauriInvoke(command, args),
+    invoke: tauriInvoke,
     confirmationPrompt: uiConfirmationPrompt,
     confirmPrompt: uiConfirmPrompt,
   });

@@ -10,7 +10,25 @@ use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::model_client::{CompletionRequest, InstalledModel, OllamaClient, StreamEvent};
+use crate::model_requests::ModelRequests;
 use crate::utils::CommandResult;
+
+#[tauri::command]
+pub fn model_request_begin(
+    window: tauri::WebviewWindow,
+    requests: State<'_, ModelRequests>,
+) -> CommandResult<String> {
+    requests.begin(window.label())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn model_request_cancel(
+    window: tauri::WebviewWindow,
+    requests: State<'_, ModelRequests>,
+    request_id: String,
+) -> CommandResult<bool> {
+    requests.cancel(window.label(), &request_id)
+}
 
 /// 模型运行时是否就绪
 #[tauri::command]
@@ -31,7 +49,10 @@ pub async fn ollama_ensure_running(client: State<'_, OllamaClient>) -> Result<St
 /// 已安装模型列表。失败向设置诊断保留错误，不能误报没有模型。
 #[tauri::command]
 pub async fn model_list(client: State<'_, OllamaClient>) -> Result<Vec<InstalledModel>, String> {
-    client.list_models_checked().await.map_err(|error| error.to_string())
+    client
+        .list_models_checked()
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// 某个模型是否可用
@@ -59,12 +80,21 @@ pub async fn model_is_available(
 }
 
 /// 文本生成
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn model_complete(
     client: State<'_, OllamaClient>,
+    requests: State<'_, ModelRequests>,
+    window: tauri::WebviewWindow,
+    request_id: Option<String>,
     request: CompletionRequest,
 ) -> CommandResult<String> {
-    client.complete(request).await
+    requests
+        .run(
+            window.label(),
+            request_id.as_deref(),
+            client.complete(request),
+        )
+        .await
 }
 
 /// 流式文本生成
@@ -76,22 +106,38 @@ pub async fn model_complete(
 #[tauri::command(rename_all = "snake_case")]
 pub async fn model_complete_stream(
     client: State<'_, OllamaClient>,
+    requests: State<'_, ModelRequests>,
+    window: tauri::WebviewWindow,
+    request_id: Option<String>,
     request: CompletionRequest,
     on_token: Channel<StreamEvent>,
 ) -> CommandResult<String> {
-    client
-        .complete_stream(request, |event| {
-            let _ = on_token.send(event);
-        })
+    requests
+        .run(
+            window.label(),
+            request_id.as_deref(),
+            client.complete_stream(request, |event| {
+                let _ = on_token.send(event);
+            }),
+        )
         .await
 }
 
 /// 批量向量化
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn model_embed(
     client: State<'_, OllamaClient>,
+    requests: State<'_, ModelRequests>,
+    window: tauri::WebviewWindow,
+    request_id: Option<String>,
     model: String,
     texts: Vec<String>,
 ) -> CommandResult<Vec<Vec<f32>>> {
-    client.embed(&model, &texts).await
+    requests
+        .run(
+            window.label(),
+            request_id.as_deref(),
+            client.embed(&model, &texts),
+        )
+        .await
 }

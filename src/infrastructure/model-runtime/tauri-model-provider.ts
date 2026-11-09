@@ -116,23 +116,29 @@ export class TauriModelProvider implements ModelRuntime, EmbeddingProvider {
   }
 
   private async invokeStream(request: ModelCompletionRequest): Promise<string> {
+    request.signal?.throwIfAborted();
     // 延迟 import：vitest 环境没有 Tauri 运行时，顶层 import 会把测试炸掉
     const { Channel } = await import('@tauri-apps/api/core');
+    request.signal?.throwIfAborted();
     const channel = new Channel<{ delta?: string; done?: boolean }>();
     let full = '';
+    let active = true;
     channel.onmessage = (event) => {
-      if (event.delta) {
+      if (active && !request.signal?.aborted && event.delta) {
         full += event.delta;
         request.onToken?.(event.delta);
       }
     };
 
-    const returned = await this.invoke<string>('model_complete_stream', {
-      request: this.toPayload(request),
-      on_token: channel,
-    });
-    // Channel 增量只是渐进预览，最终以命令返回的全文为准
-    return typeof returned === 'string' && returned.length > 0 ? returned : full;
+    try {
+      const returned = await this.invoke<string>('model_complete_stream', {
+        request: this.toPayload(request),
+        on_token: channel,
+      }, { signal: request.signal });
+      request.signal?.throwIfAborted();
+      // Channel 增量只是渐进预览，最终以命令返回的全文为准
+      return typeof returned === 'string' && returned.length > 0 ? returned : full;
+    } finally { active = false; }
   }
 
   /** 批量向量化。空输入直接返回，省一次无意义的 IPC */

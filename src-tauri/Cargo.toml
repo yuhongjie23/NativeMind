@@ -21,7 +21,7 @@ rusqlite = { version = "0.32.1", features = ["bundled", "load_extension"] }
 sha2 = "0.10.8"
 # 只连本机 Ollama，不需要 TLS，去掉默认 features 少拉一半依赖树（C6）
 reqwest = { version = "0.12.9", default-features = false, features = ["json", "rustls-tls"] }
-tokio = { version = "1.40", features = ["fs", "rt", "time", "net", "sync"] }
+tokio = { version = "1.40", features = ["fs", "rt", "time", "net", "sync", "macros"] }
 # 托盘倒计时解析 started_at（ISO8601）用
 chrono = "0.4"
 # PDF 文本抽取（按页）。0.12 的 extract_text_by_pages 直接返回逐页文本

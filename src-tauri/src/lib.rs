@@ -17,6 +17,7 @@ mod commands;
 mod db;
 mod file_parser;
 mod model_client;
+mod model_requests;
 mod search_http;
 mod utils;
 mod vector;
@@ -190,6 +191,7 @@ pub fn run() {
             // 默认连本机 Ollama。地址非本机时 new 会失败，这属于配置错误，
             // 应当在启动阶段就暴露出来
             app.manage(OllamaClient::new(None)?);
+            app.manage(crate::model_requests::ModelRequests::default());
 
             // 沉浸式全屏兜底：窗口装饰始终跟随全屏状态（全屏→无标题栏，退出→恢复）。
             // 不依赖前端调用入口，任何方式进入全屏都会生效。
@@ -261,6 +263,8 @@ pub fn run() {
             commands::model::model_list,
             commands::model::model_is_available,
             commands::model::model_complete,
+            commands::model::model_request_begin,
+            commands::model::model_request_cancel,
             commands::model::model_complete_stream,
             commands::model::model_embed,
             // vector：前端 SqliteVecProvider.isAvailable() 靠它决定是否降级

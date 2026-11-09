@@ -2,10 +2,12 @@
 
 用户于 2026-11-09 确认采用此路线。此目录是新的发布候选入口；`anna/native`、`anna/bundle` 仍是旧的本机内嵌开发路径，不应把旧 `native_command` 工具发布给 Agent。
 
+发布进度：2026-11-09 已上传工具 2.0.0（工具版本 1046）和 App 2.0.0（版本 2084），绑定现有 App 847。启动界面已上传并通过校验；App 为 `pending_review`，尚未正式上架。GitHub [v2.0.0](https://github.com/yuhongjie23/NativeMind/releases/tag/v2.0.0) 已公开。
+
 ## 当前实现
 
 - `ui/` 是 Anna 内的小型启动页，点击按钮才发 `open_app`，参数永远 `{}`；不加载学习界面、学习数据或本地数据桥。启动请求与固定状态经过 Anna，学习内容不经过。
-- `../launcher` 是 Windows x64 独立 Rust Executa，只提供一个无参数启动工具。真实 Tool ID 为 `tool-forforever23-hongjie-yu-3qny9w3z`，候选工具版本 `1.1.0`。拒绝旧数据库桥、路径、模型参数；不采纳调用者传来的账号或本地路径。
+- `../launcher` 是 Windows x64 独立 Rust Executa，只提供一个无参数启动工具。真实 Tool ID 为 `tool-forforever23-hongjie-yu-3qny9w3z`，当前工具版本 `2.0.0`。拒绝旧数据库桥、路径、模型参数；不采纳调用者传来的账号或本地路径。
 - 完整 App 来自原桌面源码，以 `anna-local` 功能构建，使用 `com.nativemind.anna-local` 身份及独立单实例端口。版本/身份配置不匹配会在打开数据库前停止。
 - 数据目录默认 `%APPDATA%\com.nativemind.anna-local`，与原桌面版分开。旧数据只通过用户主动恢复备份/选择目录迁入；包内不带用户数据库、密钥、模型或音乐。
 - 纯本地构建禁用 DeepSeek 路由和外部搜索，CSP 不允许远程请求；Ollama 限制本机地址、禁代理与重定向。设置页隐藏无法启用的云端选项。
@@ -22,9 +24,9 @@
 
 在仓库根目录执行 `npm run anna:desktop:package`。开发机需要现有 Node/Rust，最终用户不需要 Node/Rust/Python/uv。脚本总是重建完整桌面界面和本机二进制，不复用未经核验的旧 exe。
 
-输出到唯一 `packages/nativemind-1.1.0-*/`，包含：
+输出到唯一 `packages/nativemind-<version>-*/`，包含：
 
-- `nativemind-1.1.0-windows-x86_64.zip`：正式 binary 分发格式候选，根清单指定 `bin/nativemind-anna-launcher.exe`，另含 `desktop/nativemind.exe` 和 `vec0.dll`。
+- `nativemind-<version>-windows-x86_64.zip`：正式 binary 分发格式，根清单指定 `bin/nativemind-anna-launcher.exe`，另含 `desktop/nativemind.exe` 和 `vec0.dll`。
 - `executa.json`：指向本目录归档的 `distribution.binary_artifacts`，不是桌面 setup.exe。
 - `acceptance.json`：归档大小和哈希、已做检查、待做验收。`publishReady` 保持 false。
 - `check-new-pc.ps1`：只读依赖/包完整性检查，不自动下载或安装任何东西。

@@ -8,6 +8,9 @@ Tracking known technical debt, trade-offs, and cleanup items.
 
 ### v2.0.0 发布准备与动态背景（2026-11-09）
 
+- **实际发布结果**：GitHub main 已推送，标签 `v2.0.0` 指向 `3dc5700`，Release 已公开且为 Latest（北京时间 2026-11-09 21:28）。包含 Windows 安装包 45,359,909 字节、Anna 工具 ZIP 47,120,442 字节及 SHA256SUMS；平台返回的两个资产摘要与本地一致。旧 v0.1.0 Release 保留。
+- **Anna 实际状态**：工具 ID `tool-forforever23-hongjie-yu-3qny9w3z`（1313）已转为 binary，2.0.0 冻结为工具版本 1046，仅声明 `open_app`。App 847 的 2.0.0 版本 2084 绑定工具版本 1046，新启动页 3 文件 / 2.8KB 已上传；提审返回 `pending_review`、review candidate `2.0.0`。这不是已上架，等待平台审核。未虚构 Anna Agent 安装或全新电脑验收结果。
+
 - 用户明确授权本轮更新 GitHub、发布 v2 并推进 Anna 上架，替代之前“暂不上传”的限制。版本统一为 2.0.0。
 - 按用户素材名称接入图书馆黄昏、夏日萤火虫夜晚；连同日常白天、春日白天共四个动态背景。保留对应静态封面及自定义视频优先级。四个构建视频完整解码通过；未声称首尾视觉无缝已人工验收。新视频压缩后约 2.29MB/1.18MB，原始文件不改。
 - 800 项常规测试通过、4 跳过，类型/lint 通过；普通 Windows NSIS 2.0.0 与 Anna Local 工具归档构建通过。Anna 启动工具测试通过；准备采用固定真实 Tool ID 1313 对应的 2.0.0 不可变版本。

@@ -2,6 +2,13 @@
 
 本工程使用完整桌面 App 源码，不使用 createLocalDemoRuntime。
 
+## 动态背景恢复上传（2026-11-09，第四十四轮）
+
+- 用户要求恢复动态背景并继续上传，现有 App 847 新建未发布版本 `0.1.2`（version ID `2062`），UI Bundle `1884` 已 `bundle_ready`：46 文件、40,784,697 字节。旧 0.1.1 及其静态背景资源未覆盖。
+- Anna 构建将 702,781 字节的压缩 MP4 编码进 JS 模块，通过 `video/mp4` Blob URL 供原视频组件播放；不改媒体 MIME、不要求独立 MP4 文件托管，不增加外部资源域名。沿用既有静音循环、隐藏/专注/减少动态时暂停逻辑；用户本地视频逻辑不改。桌面构建仍单独输出 MP4，原视频保留。提示音内嵌沿用上一轮。
+- 751 项测试、类型/全量 ESLint、官方 validate、Anna 构建通过。回归确认内嵌数据经 Blob 还原后与桌面压缩 MP4 一致；从实际生产 JS 提取视频并完整解码通过，上传后 46 文件 SHA-256/大小逐项匹配，提示音字节仍一致。未声称完成真实 Anna 窗口播放验收：公开宿主保护仍会阻止业务界面启动，正式本地通道/工具分发还未完成。
+- 平台仍 draft、review candidate 为空；未提审或发布。TEMP/nativemind-anna-012-upload-result.json 为本轮上传记录，不含登录令牌。
+
 ## 平台界面上传（2026-11-09，第四十三轮）
 
 - 已绑定 App `847`（slug `nativemind`）和已创建的工具 `tool-forforever23-hongjie-yu-3qny9w3z`。平台现有 `0.1.1`（version ID `2061`）的 UI Bundle `1883` 已上传并返回 `bundle_ready`，47 文件、40,232,004 字节；当前构建目录为 `anna/bundle/`。旧 wwMw38 本机包未改，不代表这次平台上传内容。

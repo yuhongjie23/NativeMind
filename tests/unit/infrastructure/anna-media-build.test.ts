@@ -34,13 +34,14 @@ it('desktop and Anna emit lossless derivatives with Rollup URLs and preserve sou
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-it('Anna emits a static poster while desktop retains video and both preserve the source', async () => {
+it('poster and embedded-video builds preserve the desktop video bytes and original source', async () => {
   const root = await mkdtemp(join(tmpdir(), 'anna-poster-test-'));
   try {
     const folder = join(root, 'src', 'ui', 'background'); await mkdir(folder, { recursive: true });
     const file = join(folder, 'day.mp4');
     await promisify(execFile)(ffmpeg.path, ['-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=blue:s=32x24:d=0.1', '-pix_fmt', 'yuv420p', file], { windowsHide: true });
     const original = await readFile(file);
+    let desktopBytes: Uint8Array | undefined;
     for (const staticVideo of [true, false]) {
       const emitted: EmittedFile[] = [];
       const context = { emitFile: (asset: EmittedFile) => { emitted.push(asset); return 'media'; } } as unknown as PluginContext;
@@ -51,8 +52,25 @@ it('Anna emits a static poster while desktop retains video and both preserve the
       if (asset.type !== 'asset' || !asset.source || typeof asset.source === 'string') throw new Error('Expected media bytes');
       expect(asset.name).toBe(staticVideo ? 'day.webp' : 'day.mp4');
       if (staticVideo) expect(await sharp(asset.source).metadata()).toMatchObject({ format: 'webp', width: 32, height: 24 });
-      else expect(Buffer.from(asset.source).subarray(4, 8).toString()).toBe('ftyp');
+      else {
+        desktopBytes = asset.source;
+        expect(Buffer.from(asset.source).subarray(4, 8).toString()).toBe('ftyp');
+      }
     }
+    const embeddedLoad = optimizeAppMedia(root, { embedVideo: true }).load;
+    if (typeof embeddedLoad !== 'function') throw new Error('Expected load hook');
+    const noAssets = { emitFile: () => { throw new Error('Embedded video must not emit a separate file'); } } as unknown as PluginContext;
+    const moduleSource = await embeddedLoad.call(noAssets, file);
+    if (typeof moduleSource !== 'string') throw new Error('Expected embedded module');
+    const encoded = /atob\(("[^"]+")\)/.exec(moduleSource)?.[1];
+    expect(encoded).toBeDefined();
+    const blob = new Blob([Buffer.from(JSON.parse(encoded!) as string, 'base64')], { type: 'video/mp4' });
+    const url = URL.createObjectURL(blob);
+    try {
+      const response = await fetch(url);
+      expect(response.headers.get('content-type')).toBe('video/mp4');
+      expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from(desktopBytes!));
+    } finally { URL.revokeObjectURL(url); }
     expect(await readFile(file)).toEqual(original);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

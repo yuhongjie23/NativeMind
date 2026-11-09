@@ -8,7 +8,8 @@ import ffmpeg from '@ffmpeg-installer/ffmpeg';
 import type { Plugin } from 'vite';
 
 /** Build-only derivatives shared by desktop and Anna; original assets remain untouched. */
-export function optimizeAppMedia(root: string, options: { staticVideo?: boolean } = {}): Plugin {
+export function optimizeAppMedia(root: string, options: { staticVideo?: boolean; embedVideo?: boolean } = {}): Plugin {
+  if (options.staticVideo && options.embedVideo) throw new Error('Choose either a video poster or embedded video');
   const cache = join(root, 'node_modules', '.cache', 'nativemind-anna-media');
   return {
     name: 'nativemind-media', enforce: 'pre', apply: 'build',
@@ -41,6 +42,11 @@ export function optimizeAppMedia(root: string, options: { staticVideo?: boolean 
           await rename(temporary, path);
         } finally { await unlink(temporary).catch(() => undefined); }
         source = await readFile(path);
+      }
+      if (video && options.embedVideo) {
+        // One URL per module/page lifetime; the browser releases it on document teardown.
+        // Keep real MP4 bytes/MIME while avoiding a separately hosted media asset.
+        return `export default URL.createObjectURL(new Blob([Uint8Array.from(atob(${JSON.stringify(source.toString('base64'))}), c => c.charCodeAt(0))], { type: 'video/mp4' }));`;
       }
       const reference = this.emitFile({ type: 'asset', name: basename(id).replace(/\.[^.]+$/, extension), source });
       // Rollup calculates hashes and all referencing URLs after conversion.

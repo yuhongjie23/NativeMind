@@ -8,7 +8,7 @@ import { checkAnnaBundle } from '../scripts/lib/check-anna-bundle.mjs';
 export default mergeConfig({ ...shared, plugins: shared.plugins?.filter(plugin => plugin !== mediaOptimizer) }, defineConfig({
   root: fileURLToPath(new URL('..', import.meta.url)),
   base: './',
-  plugins: [optimizeAppMedia(fileURLToPath(new URL('..', import.meta.url)), { staticVideo: true }), {
+  plugins: [optimizeAppMedia(fileURLToPath(new URL('..', import.meta.url)), { embedVideo: true }), {
     name: 'nativemind-anna-upload-limits',
     async writeBundle() {
       // The short cue is embedded below; the version upload API rejects audio/wav.

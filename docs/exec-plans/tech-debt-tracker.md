@@ -6,6 +6,13 @@ Tracking known technical debt, trade-offs, and cleanup items.
 
 ## Active Tech Debt
 
+### 第四十四轮（2026-11-09）：恢复 Anna 内嵌背景视频并上传 0.1.2
+
+- 用户明确要求继续上传同步动态背景。Anna 构建由 staticVideo 切为 embedVideo，复用 702,781 字节 H.264 压缩缓存，生成 JS 内嵌数据→video/mp4 Blob 地址；使用现有视频组件播放/暂停策略。桌面 MP4、原视频和用户自定义媒体不变，提示音内嵌保留。单页模块只创建一次 Blob URL，随页面释放；没有新外部资源域名。
+- 官方版本接口创建 App 847 的 0.1.2 / ID 2062，移除开发清单字段后以 schema 4 上传配置，再上传完整 UI。Bundle 1884 返回 bundle_ready，46 文件 / 40,784,697 字节；保留 0.1.1。版本未 is_latest、published_at=null，App draft、review_candidate_version=null；未执行提审/公开发布，也未修改 Executa 分发记录。
+- 751 常规测试、类型/全量 ESLint、官方 validate、构建通过；新增到已有真实编码测试的内嵌分支确认 Blob 数据/MIME 与桌面 MP4 一致，原文件不变。生产 JS 中实际内嵌的视频提取后 ffmpeg 完整解码通过；远端 46 文件大小/哈希与本地逐项一致。TEMP/nativemind-anna-012-upload-result.json 保存上传记录。无真实平台窗口播放或 GPU/帧率验收。
+- 仍待：正式纯本地连接、身份校验、业务接口收敛和 Executa 安装更新。公开宿主保护保留，bundle_ready 不表示目前能在公开 Anna 页面使用学习功能。
+
 ### 第四十三轮（2026-11-09）：绑定正式 ID 并上传未发布界面
 
 - 用户完成官方设备授权后，读取确认 App 847 / nativemind、既有版本 0.1.1 / 2061，工具已创建。源码的 UI 调用、开发清单、启动登记及原生 describe 对齐正式 ID `tool-forforever23-hongjie-yu-3qny9w3z`；没有把开发命令桥当作可发布工具，也未上传原生程序。

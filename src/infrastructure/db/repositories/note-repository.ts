@@ -4,7 +4,7 @@
  * 索引状态机（pending → parsing → chunking → indexing → indexed）由 Job 推进，
  * 这里只提供状态字段的读写和按状态捞待办笔记的查询。
  */
-import type { Note, NotePageRange, NoteRepository, NoteSourceType } from '@application/ports';
+import type { Note, NoteIndexRetryPort, NotePageRange, NoteRepository, NoteSourceType } from '@application/ports';
 import type { ISO8601DateTime, UUID } from '@shared-types/common';
 import {
   fromJsonColumn,
@@ -13,11 +13,12 @@ import {
   readNumber,
   readText,
   toJsonColumn,
-  type Database,
+  Database,
   type SqlDriver,
   type SqlParam,
   type SqlRow,
 } from '../database';
+import { enqueueJob } from '../../background-jobs/enqueue-job';
 
 export type IndexStatus = Note['indexStatus'];
 
@@ -66,6 +67,7 @@ const toNote = (row: SqlRow): Note => {
     sourceType: String(row.source_type) as NoteSourceType,
     sourceUri: readText(row.source_uri),
     indexStatus: String(row.index_status) as IndexStatus,
+    indexError: readText(row.index_error),
     tags: fromJsonColumn<string[]>(row.tags, []),
     pageRanges: metadata.pageRanges,
     createdAt: String(row.created_at),
@@ -91,6 +93,24 @@ export class SqliteNoteRepository implements NoteRepository {
   async findById(id: UUID): Promise<Note | null> {
     const row = await this.db.selectOne(`SELECT ${COLUMNS} FROM notes WHERE id = ?`, [id]);
     return row ? toNote(row) : null;
+  }
+
+  async retryIndex(noteId: UUID): ReturnType<NoteIndexRetryPort['retryIndex']> {
+    return this.db.transaction(async tx => {
+      const [note] = await tx.select('SELECT content FROM notes WHERE id = ?', [noteId]);
+      if (!note) return 'missing';
+      if (!String(note.content).replace(/[\u200B-\u200D\uFEFF]/g, '').trim()) return 'empty';
+      const active = await tx.select(
+        `SELECT id FROM background_jobs WHERE entity_type = 'note' AND entity_id = ?
+         AND status IN ('pending', 'running') AND job_type IN ('parse_note', 'chunk_note', 'embed_chunks', 'reindex_note', 'rebuild_index') LIMIT 1`,
+        [noteId],
+      );
+      if (active.length) return 'busy';
+      await tx.execute("UPDATE notes SET index_status = 'pending', index_error = NULL WHERE id = ?", [noteId]);
+      // Reuse the saved body even if the original file has moved or was edited later.
+      await enqueueJob(tx, { type: 'chunk_note', entityId: noteId });
+      return 'queued';
+    });
   }
 
   /** 导入去重靠内容哈希：同一份 PDF 重复导入应该命中已有笔记 */
@@ -169,6 +189,17 @@ export class SqliteNoteRepository implements NoteRepository {
       [limit]
     );
     return rows.map(toNote);
+  }
+
+  async commitImport(note: Note): Promise<Note> {
+    return this.db.transaction(async tx => {
+      const notes = new SqliteNoteRepository(new Database(tx));
+      const existing = await notes.findByContentHash(note.contentHash);
+      if (existing) return existing;
+      await notes.save(note);
+      await enqueueJob(tx, { type: 'chunk_note', entityId: note.id });
+      return note;
+    });
   }
 
   /** Job 调度器用它捞待处理的笔记，也用于启动时恢复中断的索引 */

@@ -1,0 +1,89 @@
+[
+  {
+    "id": "love-elements",
+    "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+    "evidence": [
+      {
+        "document": 0,
+        "anchor": "关心、责任心、尊重和了解"
+      }
+    ],
+    "answer": true
+  },
+  {
+    "id": "mother-unconditional",
+    "query": "为什么孩子不需要用表现来换取母亲的爱？",
+    "evidence": [
+      {
+        "document": 0,
+        "anchor": "母爱就其本质来说是无条件的"
+      }
+    ]
+  },
+  {
+    "id": "practice-patience",
+    "query": "学会爱为什么不能急于求成，需要练习哪些基本能力？",
+    "evidence": [
+      {
+        "document": 0,
+        "anchor": "训练纪律、集中和耐心"
+      }
+    ]
+  },
+  {
+    "id": "cross-chapters",
+    "query": "结合爱的理论和爱的实践，解释爱的基本要素与训练纪律、集中和耐心的关系。",
+    "evidence": [
+      {
+        "document": 0,
+        "anchor": "关心、责任心、尊重和了解"
+      },
+      {
+        "document": 0,
+        "anchor": "训练纪律、集中和耐心"
+      }
+    ]
+  },
+  {
+    "id": "mamba-speed",
+    "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+    "evidence": [
+      {
+        "document": 2,
+        "anchor": "5× higher throughput"
+      }
+    ],
+    "answer": true
+  },
+  {
+    "id": "mamba-mechanism",
+    "query": "Why do input-dependent state space parameters prevent efficient convolutions, and how does Mamba solve this?",
+    "evidence": [
+      {
+        "document": 2,
+        "anchor": "hardware-aware parallel algorithm"
+      }
+    ]
+  },
+  {
+    "id": "mamba-chinese",
+    "query": "Mamba如何通过选择性状态空间模型解决长序列推理的计算效率问题？",
+    "evidence": [
+      {
+        "document": 2,
+        "anchor": "hardware-aware parallel algorithm"
+      }
+    ]
+  },
+  {
+    "id": "absent-private",
+    "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+    "absent": true,
+    "answer": true
+  },
+  {
+    "id": "absent-date",
+    "query": "According to these documents, what exact date will GPT-8 be released?",
+    "absent": true
+  }
+]

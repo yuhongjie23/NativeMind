@@ -1,3 +1,4 @@
+import { createReminderNotifications } from './reminder-notifications';
 /**
  * 生产运行时装配：SQLite 仓储 + 真实 AI 层
  *
@@ -33,6 +34,10 @@ import { NoteCandidateProvider } from './rag/note-candidate-provider';
 const DRAIN_INTERVAL_MS = 30_000;
 
 export interface TauriRuntimeOptions {
+  /** Anna local-only distribution must not allow a saved key to enable cloud inference. */
+  localOnly?: boolean;
+  /** Use Tauri Channel streaming; Anna streams through cancellable model jobs instead. */
+  streaming?: boolean;
   /** 由 UI 注入 @tauri-apps/api 的 invoke，便于测试替换 */
   invoke: TauriInvoke;
   confirmationPrompt: ConfirmationPrompt;
@@ -62,19 +67,20 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
 
   const modelProvider = new TauriModelProvider(options.invoke, {
     embeddingModel: options.embeddingModel,
+    streaming: options.streaming,
   });
   // DeepSeek 云端：初始无 key（不可用），settings 加载后由 settings-store.configure 注入
-  const deepseek = new DeepSeekProvider({});
+  const deepseek = new DeepSeekProvider({ allowRemote: !options.localOnly });
 
   const infrastructure = createInfrastructure({
     driver,
     fileImport: {
       // 文本读取交给 Rust：WebView 没有文件系统权限
-      readTextFile: (uri: string) => options.invoke<string>('file_read_text', { path: uri }),
-      pdfExtractor: (uri: string) => options.invoke<PdfDocument>('file_extract_pdf', { path: uri }),
+      readTextFile: (uri: string, signal?: AbortSignal) => options.invoke<string>('file_read_text', { path: uri }, { signal }),
+      pdfExtractor: (uri: string, signal?: AbortSignal) => options.invoke<PdfDocument>('file_extract_pdf', { path: uri }, { signal }),
       // PDF：Rust 侧 file_extract_pdf 用 pdf-extract 按页抽取，返回与 PdfDocument 一致
-      ebookExtractor: (uri: string) =>
-        options.invoke<EbookDocument>('file_extract_ebook', { path: uri }),
+      ebookExtractor: (uri: string, signal?: AbortSignal) =>
+        options.invoke<EbookDocument>('file_extract_ebook', { path: uri }, { signal }),
       // 电子书：Rust 侧 file_extract_ebook 用 lib-epub / mobi 解包，返回分章节文本
     },
     vectorStore: { kind: 'sqlite-vec', dimension: options.vectorDimension },
@@ -105,6 +111,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
   };
 
   const ai = createAILayer({
+    localOnly: options.localOnly,
     modelProvider,
     deepseekProvider: deepseek,
     embeddingProvider: modelProvider,
@@ -120,6 +127,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
 
   const application = createApplication({
     repositories: {
+      learning: infra.repositories.learning,
       todo: infra.repositories.todo,
       focus: infra.repositories.focus,
       note: infra.repositories.note,
@@ -138,6 +146,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
     },
     ai: {
       ...ai.ports,
+      askNotes: ai.ports.deepQA,
       searchGate: ai.searchGate,
       // whats_up 来信：Flora 的近况见闻来自网络搜索（失败则空，来信退化为通用近况）
       searchBrief: async (query) => {
@@ -152,8 +161,10 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
       },
     },
     infrastructure: {
+      reminderNotifications: createReminderNotifications(options.invoke),
       fileImport: infra.fileImport,
       jobQueue: infra.jobQueue,
+      noteIndexRetry: infra.repositories.note,
       // 陪伴状态机目前只记录当前场景，无持久化需求
       companionStateMachine: { transition: async () => undefined },
       // 删除笔记时清理其向量

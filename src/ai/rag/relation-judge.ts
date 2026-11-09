@@ -67,8 +67,10 @@ export class RelationJudge {
    */
   async judge(
     sourceText: string,
-    candidates: RetrievalCandidate[]
+    candidates: RetrievalCandidate[],
+    signal?: AbortSignal
   ): Promise<{ ok: boolean; suggestions: RelationSuggestion[]; result?: AIResult<RawRelationSuggestion[]> }> {
+    signal?.throwIfAborted();
     if (candidates.length === 0) return { ok: true, suggestions: [] };
 
     const candidateList = candidates
@@ -77,6 +79,7 @@ export class RelationJudge {
 
     const result = await this.router.run<{ sourceText: string; candidateIds: string[] }, RawRelationSuggestion[]>({
       taskType: 'rag_relation',
+      signal,
       input: { sourceText, candidateIds: candidates.map((c) => c.chunkId) },
       promptVars: {
         sourceText: truncate(sourceText, MAX_SOURCE_CHARS),

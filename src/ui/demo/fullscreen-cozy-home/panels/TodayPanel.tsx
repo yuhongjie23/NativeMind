@@ -68,6 +68,7 @@ export function TodayPanel() {
   const refreshCheckInMonth = useCheckInStore((state) => state.refreshMonth);
 
   const [title, setTitle] = useState('');
+  const [availableMinutes, setAvailableMinutes] = useState('');
   const [splitting, setSplitting] = useState(false);
   const [preview, setPreview] = useState<{ savedId: string; drafts: TodoDraft[] } | null>(null);
   const [localError, setLocalError] = useState('');
@@ -75,6 +76,11 @@ export function TodayPanel() {
   const [usageMinutes, setUsageMinutes] = useState(0);
   // 取消标记：用户点 X 后让在途的 AI 拆解结果作废，避免十几秒后预览又弹回来
   const splitTokenRef = useRef(0);
+  const splitController = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    splitTokenRef.current += 1;
+    splitController.current?.abort();
+  }, []);
   // 同步去重标记：React 的 setState 不会同步生效，双击/快速回车必须用 ref 拦截，
   // 否则同一 tick 里第二次调用仍看到 splitting=false，会创建第二条任务
   const splittingRef = useRef(false);
@@ -145,7 +151,9 @@ export function TodayPanel() {
     // 用 ref 同步拦截：双击/快速回车在同一 tick 里也只会创建一条
     if (!value || splittingRef.current) return;
     splittingRef.current = true;
-    const token = splitTokenRef.current;
+    const token = ++splitTokenRef.current;
+    const controller = new AbortController();
+    splitController.current = controller;
     setTitle('');
     setPreview(null);
     setLocalError('');
@@ -156,7 +164,11 @@ export function TodayPanel() {
       if (!saved) return;
       useToastStore.getState().show(t('已加入'));
 
-      const result = await structureGoal(value);
+      if (token !== splitTokenRef.current) return;
+      const result = await structureGoal(value, {
+        signal: controller.signal,
+        availableMinutes: availableMinutes.trim() ? Number(availableMinutes) : undefined,
+      });
       if (token !== splitTokenRef.current) return; // 用户已取消，丢弃结果
       if (result.length > 0) setPreview({ savedId: saved.id, drafts: result });
     } catch (structureError) {
@@ -164,14 +176,17 @@ export function TodayPanel() {
         setLocalError(`${describeError(structureError)} 已直接加入，之后可在任务上再拆解。`);
       }
     } finally {
-      splittingRef.current = false;
-      setSplitting(false);
+      if (token === splitTokenRef.current) {
+        splittingRef.current = false;
+        setSplitting(false);
+      }
     }
   };
 
   /** 取消添加：让在途拆解结果作废，防止预览自己弹回来 */
   const cancelAdd = () => {
     splitTokenRef.current += 1;
+    splitController.current?.abort();
     splittingRef.current = false;
     setTitle('');
     setPreview(null);
@@ -197,7 +212,7 @@ export function TodayPanel() {
     // store 的 run() 会把失败吞进 error 而不抛；失败时不能伪装成成功
     const storeError = useTodoStore.getState().error;
     if (storeError) {
-      useToastStore.getState().show(`拆分失败，原任务已保留：${storeError}`, 'error');
+      useToastStore.getState().show(`未采用拆分：${storeError}`, 'error');
       return; // 保留 preview 供重试
     }
     useToastStore.getState().show(`已拆成 ${preview.drafts.length} 条`, 'ok');
@@ -228,8 +243,8 @@ export function TodayPanel() {
             <button
               type="button"
               className="cozy-add-task__cancel"
-              aria-label="取消添加"
-              title="不添加了"
+              aria-label={splitting ? t('停止拆解') : t('取消添加')}
+              title={splitting ? t('停止拆解，保留已添加的任务') : t('取消添加')}
               onClick={cancelAdd}
             >
               <X size={16} strokeWidth={2} aria-hidden={true} />
@@ -245,6 +260,22 @@ export function TodayPanel() {
             <Plus size={18} strokeWidth={2} aria-hidden={true} />
           </button>
         </div>
+
+        <label className="cozy-today-hint" htmlFor="today-available-minutes">
+          {t('本次可用时间（分钟，可选）')}{' '}
+          <input
+            id="today-available-minutes"
+            type="number"
+            min={5}
+            max={1440}
+            step={5}
+            value={availableMinutes}
+            disabled={splitting}
+            onChange={event => setAvailableMinutes(event.target.value)}
+            placeholder={t('不设上限')}
+            style={{ width: '7rem', maxWidth: '100%' }}
+          />
+        </label>
 
         {splitting ? (
           <p className="cozy-today-hint" role="status">

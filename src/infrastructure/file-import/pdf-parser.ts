@@ -18,7 +18,7 @@ export interface PdfDocument {
 }
 
 /** 由 infrastructure 注入：Tauri 命令或 pdf.js 包装 */
-export type PdfExtractor = (uri: string) => Promise<PdfDocument>;
+export type PdfExtractor = (uri: string, signal?: AbortSignal) => Promise<PdfDocument>;
 
 export interface ParsedPdf {
   title: string;
@@ -37,14 +37,14 @@ const findRepeatedLines = (pages: PdfPage[]): Set<string> => {
 
   const counts = new Map<string, number>();
   pages.forEach((page) => {
-    const lines = page.text.split('\n').map((line) => line.trim());
+    const lines = page.text.split('\n').map((line) => line.trim()).filter(Boolean);
     // 只看首尾两行，正文里的重复句子不该被误删
-    [...lines.slice(0, 2), ...lines.slice(-2)]
-      .filter((line) => line.length > 0 && line.length < 80)
+    [...new Set([...lines.slice(0, 2), ...lines.slice(-2)])]
+      .filter((line) => line.length < 80)
       .forEach((line) => counts.set(line, (counts.get(line) ?? 0) + 1));
   });
 
-  const threshold = Math.max(3, Math.floor(pages.length * 0.6));
+  const threshold = Math.max(3, Math.ceil(pages.length * 0.6));
   return new Set(
     Array.from(counts.entries())
       .filter(([, count]) => count >= threshold)
@@ -52,25 +52,30 @@ const findRepeatedLines = (pages: PdfPage[]): Set<string> => {
   );
 };
 
-/** 纯页码行（"12"、"- 12 -"）也一并去掉 */
+/** 页首/页尾的纯页码行（"12"、"- 12 -"）也一并去掉 */
 const isPageNumber = (line: string): boolean => /^[-–—\s]*\d{1,4}[-–—\s]*$/.test(line);
 
-const cleanPage = (text: string, repeated: Set<string>): string =>
-  repairLineBreaks(
-    text
-      .split('\n')
-      .filter((line) => {
+const cleanPage = (text: string, repeated: Set<string>): string => {
+  const lines = text.split('\n');
+  const nonEmpty = lines.flatMap((line, index) => line.trim() ? [index] : []);
+  const edges = new Set([...nonEmpty.slice(0, 2), ...nonEmpty.slice(-2)]);
+  return repairLineBreaks(
+    lines
+      .filter((line, index) => {
         const trimmed = line.trim();
-        return !repeated.has(trimmed) && !isPageNumber(trimmed);
+        return !edges.has(index) || (!repeated.has(trimmed) && !isPageNumber(trimmed));
       })
       .join('\n')
   );
+};
 
 export class PdfParser {
   constructor(private readonly extractor: PdfExtractor) {}
 
-  async parse(uri: string): Promise<ParsedPdf> {
-    const document = await this.extractor(uri);
+  async parse(uri: string, signal?: AbortSignal): Promise<ParsedPdf> {
+    signal?.throwIfAborted();
+    const document = await this.extractor(uri, signal);
+    signal?.throwIfAborted();
     const repeated = findRepeatedLines(document.pages);
 
     const pageRanges: ParsedPdf['pageRanges'] = [];

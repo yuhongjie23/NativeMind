@@ -8,6 +8,10 @@
  * 模型只负责把这些证据选重点、组织成人话（「数字由程序算，模型负责表达」）。
  */
 import type { FocusSession, Todo } from '@application/ports';
+import { formatLocalDate } from '@application/shared/utils';
+import { completedByDate } from '@application/use-cases/review/review-completion';
+
+const localDate = (timestamp: string): string => formatLocalDate(new Date(timestamp));
 
 export interface ReviewDailyBucket {
   date: string;
@@ -42,6 +46,7 @@ export interface ReviewEvidence {
   daily: ReviewDailyBucket[];
   /** 每个任务的累计事实（跨日期维度，供「反复中断/长期未完成」判断） */
   taskFacts: Array<{
+    id: string;
     title: string;
     scheduledDate?: string;
     status: string;
@@ -70,14 +75,20 @@ export interface EvidenceInput {
 
 /** 按日分桶 + 计算信号。纯函数，不碰 IO。 */
 export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
-  const { reviewType, dates, todos, focusSessions, usageByDate } = input;
+  const { reviewType } = input;
+  const dates = [...new Set(input.dates)].sort().reverse();
+  if (!dates.length) throw new Error('复盘区间不能为空');
+  const dateSet = new Set(dates);
+  const todos = input.todos;
+  const focusSessions = input.focusSessions.filter(session => dateSet.has(localDate(session.startedAt)));
+  const usageByDate = new Map([...(input.usageByDate ?? [])].filter(([date]) => dateSet.has(date)));
   const startDate = dates[dates.length - 1];
   const endDate = dates[0];
 
   // 按日分桶 todo：当日排期或当日创建的任务归入当日
   const todosByDay = new Map<string, Todo[]>();
   for (const todo of todos) {
-    const key = todo.scheduledDate ?? todo.createdAt.slice(0, 10);
+    const key = todo.scheduledDate ?? localDate(todo.createdAt);
     const list = todosByDay.get(key) ?? [];
     list.push(todo);
     todosByDay.set(key, list);
@@ -86,7 +97,7 @@ export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
   // 按日分桶专注
   const focusByDay = new Map<string, FocusSession[]>();
   for (const session of focusSessions) {
-    const key = session.startedAt.slice(0, 10);
+    const key = localDate(session.startedAt);
     const list = focusByDay.get(key) ?? [];
     list.push(session);
     focusByDay.set(key, list);
@@ -98,7 +109,7 @@ export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
     return {
       date,
       tasksTotal: dayTodos.length,
-      tasksCompleted: dayTodos.filter((t) => t.status === 'completed').length,
+      tasksCompleted: dayTodos.filter((t) => completedWithin(t, endDate)).length,
       completedFocusMinutes: daySessions
         .filter((s) => s.status === 'completed')
         .reduce((sum, s) => sum + (s.actualMinutes ?? s.durationMinutes), 0),
@@ -109,7 +120,7 @@ export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
 
   const totals = {
     tasksTotal: todos.length,
-    tasksCompleted: todos.filter((t) => t.status === 'completed').length,
+    tasksCompleted: todos.filter((t) => completedWithin(t, endDate)).length,
     tasksCancelled: todos.filter((t) => t.status === 'cancelled').length,
     completedFocusMinutes: focusSessions
       .filter((s) => s.status === 'completed')
@@ -135,10 +146,11 @@ export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
   >();
   for (const todo of todos) {
     taskMap.set(todo.id, {
+      id: todo.id,
       title: todo.title,
       scheduledDate: todo.scheduledDate,
       status: todo.status,
-      completedInPeriod: todo.status === 'completed',
+      completedInPeriod: completedWithin(todo, endDate) && Boolean(todo.completedAt && localDate(todo.completedAt) >= startDate),
       focusMinutes: 0,
       abortCount: 0,
     });
@@ -158,7 +170,7 @@ export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
   const signals: ReviewEvidence['signals'] = [];
   daily.forEach((bucket, index) => {
     const hasAny =
-      bucket.tasksTotal > 0 || bucket.completedFocusMinutes > 0 || bucket.appMinutes !== undefined;
+      bucket.tasksTotal > 0 || (focusByDay.get(bucket.date)?.length ?? 0) > 0 || bucket.appMinutes !== undefined;
     if (!hasAny && index < dates.length - 1) {
       signals.push({
         id: `empty-${bucket.date}`,
@@ -180,13 +192,13 @@ export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
   const repeated = taskFacts.filter((f) => f.abortCount >= 2);
   repeated.forEach((fact) => {
     signals.push({
-      id: `abort-${fact.title.slice(0, 12)}`,
+      id: `abort-${fact.id}`,
       kind: 'repeated_abort',
       description: `「${fact.title}」关联专注中断 ${fact.abortCount} 次`,
     });
   });
   const carried = todos.filter(
-    (t) => t.status !== 'completed' && t.status !== 'cancelled' && t.createdAt.slice(0, 10) < startDate
+    (t) => !completedWithin(t, endDate) && t.status !== 'cancelled' && localDate(t.createdAt) < startDate
   );
   carried.slice(0, 5).forEach((todo) => {
     signals.push({
@@ -204,7 +216,7 @@ export function buildReviewEvidence(input: EvidenceInput): ReviewEvidence {
       if (bucket.tasksTotal > 0) parts.push(`任务 ${bucket.tasksCompleted}/${bucket.tasksTotal}`);
       if (bucket.abortedSessions > 0) parts.push(`中断 ${bucket.abortedSessions} 次`);
       if (bucket.appMinutes !== undefined) parts.push(`使用 ${bucket.appMinutes} 分钟`);
-      if (parts.length === 1) parts.push('（空窗）');
+      if (parts.length === 1) parts.push('（未记录已完成活动，不代表没有学习）');
       return `- ${parts.join('，')}`;
     })
     .join('\n');
@@ -253,4 +265,4 @@ export function buildDailyReviewText(
 
 /** 判断一个完成状态是否在区间内完成（历史任务 completedAt 判定，防统计漂移） */
 export const completedWithin = (todo: Todo, endDate: string): boolean =>
-  todo.status === 'completed' && (todo.completedAt?.slice(0, 10) ?? endDate) <= endDate;
+  completedByDate(todo, endDate);

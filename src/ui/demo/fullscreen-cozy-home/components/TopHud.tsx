@@ -9,7 +9,8 @@ import { useEffect, useRef, useState } from 'react';
 import { CloudRain, Flower2, Maximize2, Minimize2, Moon, Music2, Snowflake, Sparkles, Sun, Sunset, Volume2, VolumeX } from 'lucide-react';
 import { useT } from '../../../i18n';
 import appLogo from '../../../components/ui/logo.png';
-import { toggleFullscreen, isWindowFullscreen } from '@infrastructure/window-api';
+import { canFullscreen, toggleFullscreen, subscribeFullscreen } from '@infrastructure/window-api';
+import { useToastStore } from '../../../stores/toast-store';
 import type { SceneId, TimeMode, TimePhase, WeatherType } from '../types';
 
 interface TopHudProps {
@@ -65,19 +66,15 @@ export function TopHud({
   const t = useT();
   const [volumeOpen, setVolumeOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // 是否桌面环境：web 演示没有窗口概念，不显示全屏按钮
-  const [canFullscreen, setCanFullscreen] = useState(false);
+  const fullscreenAvailable = canFullscreen();
   const clickTimer = useRef<number | undefined>(undefined);
 
-  // 桌面端进入/退出全屏（系统标题栏消失/恢复）双向同步
-  useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window)) return;
-    setCanFullscreen(true);
-    void isWindowFullscreen().then(setIsFullscreen).catch(() => undefined);
-  }, []);
+  useEffect(() => subscribeFullscreen(setIsFullscreen), []);
 
   const handleFullscreen = () => {
-    void toggleFullscreen().then(setIsFullscreen).catch(() => undefined);
+    void toggleFullscreen().then(setIsFullscreen).catch(() => {
+      useToastStore.getState().show(t('无法进入全屏，请使用宿主窗口的全屏操作。'), 'info');
+    });
   };
 
   // 单击：延迟后切换音量面板；双击：取消单击、关闭面板并全部静音
@@ -168,8 +165,7 @@ export function TopHud({
           )}
         </button>
 
-        {/* 桌面端沉浸式全屏：进入后隐藏系统标题栏；web 演示不显示 */}
-        {canFullscreen ? (
+        {fullscreenAvailable ? (
           <button
             type="button"
             className="hud-icon-pill"

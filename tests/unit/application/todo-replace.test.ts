@@ -68,4 +68,39 @@ describe('executeReplaceDrafts（替换为拆分）', () => {
     // 没有发生「先删后写失败」—— 原任务还在
     expect(await repo.findById('orig')).not.toBeNull();
   });
+
+  it('双击采用或重用旧预览只能产生一批拆分任务', async () => {
+    const repo = new InMemoryTodoRepository();
+    await repo.save(base({ id: 'orig' }));
+    const uc = makeUseCase(repo);
+    const results = await Promise.allSettled([
+      uc.executeReplaceDrafts('orig', [{ title: '阅读' }, { title: '回忆' }]),
+      uc.executeReplaceDrafts('orig', [{ title: '阅读' }, { title: '回忆' }]),
+    ]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(await repo.listAll()).toHaveLength(2);
+  });
+
+  it('拆分保留原排期、优先级、标签和关联资料', async () => {
+    const repo = new InMemoryTodoRepository();
+    await repo.save(base({ id: 'orig', scheduledDate: '2026-08-03', priority: 'high', tags: ['考试'], linkedNoteIds: ['note-1'], sourceGoalId: 'goal-1' }));
+    const tasks = await makeUseCase(repo).executeReplaceDrafts('orig', [{ title: '阅读', tags: ['算法'] }]);
+    expect(tasks[0]).toMatchObject({ scheduledDate: '2026-08-03', priority: 'high', tags: ['考试', '算法'], linkedNoteIds: ['note-1'], sourceGoalId: 'goal-1' });
+  });
+
+  it('已完成任务不能被旧拆分预览替换', async () => {
+    const repo = new InMemoryTodoRepository();
+    await repo.save(base({ id: 'orig', status: 'completed' }));
+    await expect(makeUseCase(repo).executeReplaceDrafts('orig', [{ title: '阅读' }])).rejects.toThrow();
+    expect((await repo.listAll()).map(todo => todo.id)).toEqual(['orig']);
+  });
+
+  it('无效估时或重复标题不会部分写入，也不删除原任务', async () => {
+    const repo = new InMemoryTodoRepository();
+    await repo.save(base({ id: 'orig' }));
+    const uc = makeUseCase(repo);
+    await expect(uc.executeReplaceDrafts('orig', [{ title: '阅读' }, { title: '回忆', estimatedMinutes: NaN }])).rejects.toThrow();
+    await expect(uc.executeReplaceDrafts('orig', [{ title: '阅读' }, { title: ' 阅读 ' }])).rejects.toThrow();
+    expect((await repo.listAll()).map(todo => todo.id)).toEqual(['orig']);
+  });
 });

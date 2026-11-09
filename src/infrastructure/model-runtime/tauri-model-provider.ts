@@ -11,11 +11,13 @@
  * 运行时，顶层 import @tauri-apps/api 会直接把测试炸掉。
  */
 import type { EmbeddingProvider, InstalledModel, ModelCompletionRequest, ModelRuntime } from './model-interface';
+import { embeddingInput, embeddingVersion, type EmbeddingPurpose } from './embedding-input';
 
 /** 与 Rust 侧约定的命令签名 */
-export type TauriInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+export type TauriInvoke = <T>(command: string, args?: Record<string, unknown>, options?: { signal?: AbortSignal; onToken?: (delta: string) => void }) => Promise<T>;
 
 export interface TauriModelProviderOptions {
+  streaming?: boolean;
   /** embedding 模型名。与 tier-config 的 embedding 配置保持一致 */
   embeddingModel?: string;
   /**
@@ -27,7 +29,7 @@ export interface TauriModelProviderOptions {
   timeoutMs?: number;
 }
 
-const DEFAULT_EMBEDDING_MODEL = 'nomic-embed-text';
+export const DEFAULT_EMBEDDING_MODEL = 'nomic-embed-text';
 
 export class TauriModelProvider implements ModelRuntime, EmbeddingProvider {
   readonly name = 'tauri-ollama';
@@ -35,22 +37,24 @@ export class TauriModelProvider implements ModelRuntime, EmbeddingProvider {
 
   private readonly embeddingModel: string;
   private readonly timeoutMs?: number;
+  private readonly streaming: boolean;
 
   constructor(
     private readonly invoke: TauriInvoke,
     options: TauriModelProviderOptions = {}
   ) {
     this.embeddingModel = options.embeddingModel ?? DEFAULT_EMBEDDING_MODEL;
-    this.version = options.embeddingVersion ?? `${this.embeddingModel}@tauri`;
+    this.version = embeddingVersion(this.embeddingModel, options.embeddingVersion ?? `${this.embeddingModel}@tauri`);
     this.timeoutMs = options.timeoutMs;
+    this.streaming = options.streaming ?? true;
   }
 
   /**
    * 这三个探测方法一律不抛错。
    * ModelRouter 的降级链（§16.1）靠布尔值判断某一层能不能用，
    * 抛错会打断整条链，把「模型没装」这种正常情况变成崩溃。
-   * Rust 侧命令签名已经是 Result<_, ()>，这里再兜一层是防 IPC 本身失败
-   * （比如命令未注册），那种情况同样应该走降级而不是崩。
+   * 设置诊断保留 Rust 列表错误，这里的运行时探测仍兜住错误，
+   * IPC 失败同样应该走降级而不是崩。
    */
   async isReady(): Promise<boolean> {
     try {
@@ -86,10 +90,15 @@ export class TauriModelProvider implements ModelRuntime, EmbeddingProvider {
    * 带 onToken 时走流式命令：增量经 Channel 实时回调，最终仍返回全文。
    */
   async complete(request: ModelCompletionRequest): Promise<string> {
-    if (request.onToken) return this.invokeStream(request);
-    return this.invoke<string>('model_complete', {
+    if (request.onToken && this.streaming) return this.invokeStream(request);
+    request.signal?.throwIfAborted();
+    let streamed = false;
+    const text = await this.invoke<string>('model_complete', {
       request: this.toPayload(request),
-    });
+    }, { signal: request.signal, onToken: (delta) => { streamed = true; request.onToken?.(delta); } });
+    request.signal?.throwIfAborted();
+    if (!streamed) request.onToken?.(text);
+    return text;
   }
 
   private toPayload(request: ModelCompletionRequest): Record<string, unknown> {
@@ -127,11 +136,11 @@ export class TauriModelProvider implements ModelRuntime, EmbeddingProvider {
   }
 
   /** 批量向量化。空输入直接返回，省一次无意义的 IPC */
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], signal?: AbortSignal, purpose: EmbeddingPurpose = 'document'): Promise<number[][]> {
     if (texts.length === 0) return [];
     return this.invoke<number[][]>('model_embed', {
       model: this.embeddingModel,
-      texts,
-    });
+      texts: texts.map(text => embeddingInput(this.embeddingModel, text, purpose)),
+    }, { signal });
   }
 }

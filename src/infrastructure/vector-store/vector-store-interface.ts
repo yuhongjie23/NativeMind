@@ -51,10 +51,14 @@ export const cosineSimilarity = (left: number[], right: number[]): number => {
 
 /**
  * 距离转相似度分数。
- * sqlite-vec / Chroma 返回的是 L2 距离，越小越像；
+ * 用于 L2 距离（例如 Chroma 默认配置），越小越像；
  * 上层统一按 0-1 越大越像来比阈值，所以这里做一次归一。
  */
 export const distanceToScore = (distance: number): number => {
   if (!Number.isFinite(distance) || distance < 0) return 0;
   return 1 / (1 + distance);
 };
+
+/** sqlite-vec cosine distance is 1 - cosine similarity; retain positive similarity only. */
+export const cosineDistanceToScore = (distance: number): number =>
+  Number.isFinite(distance) ? Math.max(0, Math.min(1, 1 - distance)) : 0;

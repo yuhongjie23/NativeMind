@@ -10,6 +10,7 @@ import { ChromaProvider } from '@infrastructure/vector-store/chroma-provider';
 import {
   cosineSimilarity,
   distanceToScore,
+  cosineDistanceToScore,
 } from '@infrastructure/vector-store/vector-store-interface';
 
 describe('cosineSimilarity', () => {
@@ -24,6 +25,13 @@ describe('cosineSimilarity', () => {
 });
 
 describe('distanceToScore', () => {
+  it('cosine scores ignore magnitude and reject invalid distances', () => {
+    expect(cosineDistanceToScore(0)).toBe(1);
+    expect(cosineDistanceToScore(0.25)).toBe(0.75);
+    expect(cosineDistanceToScore(1)).toBe(0);
+    expect(cosineDistanceToScore(2)).toBe(0);
+    expect(cosineDistanceToScore(Number.NaN)).toBe(0);
+  });
   it('距离越小分数越高，落在 0-1', () => {
     expect(distanceToScore(0)).toBe(1);
     expect(distanceToScore(1)).toBeCloseTo(0.5);

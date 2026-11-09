@@ -1,0 +1,6 @@
+{
+  "tool_id": "tool-dev-nativemind",
+  "type": "node",
+  "command": ["node", "launch.mjs"],
+  "distribution": { "type": "local", "supports_protocol": true }
+}

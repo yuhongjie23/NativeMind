@@ -10,7 +10,7 @@ export type TimePhase = 'day' | 'dusk' | 'night';
 export type WeatherType = 'clear' | 'rain' | 'snow' | 'spring' | 'summer';
 export type TimeMode = 'auto' | TimePhase;
 export type FocusVisualState = 'idle' | 'active' | 'paused' | 'elapsed';
-export type PanelKey = 'today' | 'focus' | 'knowledge' | 'review' | 'companion' | 'letter' | 'settings';
+export type PanelKey = 'learning' | 'today' | 'focus' | 'knowledge' | 'review' | 'companion' | 'letter' | 'settings';
 
 /** 女孩语义动作（V4 §24） */
 export type GirlAction =

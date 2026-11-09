@@ -1,147 +1,141 @@
-/**
- * 长文查看器
- *
- * 正文动辄几十万字（PDF/电子书），用 `<pre>` 渲染会一次性铺几十万个 DOM 节点，
- * 浏览器直接卡死。改用只读 textarea：浏览器原生优化大文本滚动，单个元素扛得住。
- * `defaultValue` 只在挂载时设一次，滚动重渲染不会反复 diff 那串大字符串。
- *
- * PDF 导入的笔记带 pageRanges（页 → 字符区间），按滚动进度估算当前页码。
- *
- * 段落定位（检索命中打开）：
- *   - 优先用 initialAnchor（命中段落文本）在正文里 indexOf 精确定位，
- *     比 charStart 抗漂移（合并父块/切块偏移都可能让 charStart 略偏）；
- *   - 定位滚动不靠「字符比例 × 高度」的线性估算——pre-wrap 下中英文混排
- *     每行字符数不均，长文里线性估算会累积误差。改用与 textarea 同样式的
- *     隐藏测量元素量出 content.slice(0, offset) 的真实高度作为 scrollTop，
- *     精度到行。
- */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NotePageRange } from '@application/ports';
+import { findTextMatches, resolveDocumentOffset } from './document-find';
+import { useT } from '../../i18n';
 
 interface NoteViewerProps {
   content: string;
   pageRanges?: NotePageRange[];
-  /** 打开时定位到的字符偏移（检索命中段落），无则从头部开始 */
   initialCharStart?: number;
-  /** 命中段落文本：优先用它在正文里 indexOf 精确定位 */
   initialAnchor?: string;
 }
 
-/** 取命中段落在正文里的真实偏移：优先文本锚定，回退 charStart */
-function resolveOffset(content: string, charStart?: number, anchor?: string): number | undefined {
-  const probe = anchor?.slice(0, 120).trim();
 
-  if (probe) {
-    // 优先在 charStart 附近 ±1500 字符窗口内找 anchor 开头——命中段一定在这附近，
-    // 避免全文 indexOf 撞上正文里「同样开头但更靠前」的句子（如前言引用）
-    if (charStart !== undefined) {
-      const from = Math.max(0, charStart - 1500);
-      const to = Math.min(content.length, charStart + probe.length + 1500);
-      const windowIndex = content.indexOf(probe, from);
-      if (windowIndex >= 0 && windowIndex + probe.length <= to) return windowIndex;
-    }
-    const index = content.indexOf(probe);
-    if (index >= 0) return index;
-  }
-
-  if (charStart !== undefined && charStart >= 0 && charStart < content.length) return charStart;
-  return undefined;
-}
-
+/** Two text nodes and one active mark keep long books free of per-line React nodes. */
 export function NoteViewer({ content, pageRanges, initialCharStart, initialAnchor }: NoteViewerProps) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  // 滚动时触发一次重渲染以刷新页码标签；textarea 用 defaultValue，重渲染不碰正文
-  const [, bump] = useState(0);
+  const t = useT();
+  const root = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  const [active, setActive] = useState(0);
+  const [page, setPage] = useState<number>();
+  const [exactPage, setExactPage] = useState(false);
+  const focusMatch = useRef(false);
 
-  // 段落定位：文本锚定优先 → 测量元素精确滚动
+  const positionedScroll = useRef<number | undefined>(undefined);
+  const frame = useRef(0);
+  const marker = useRef<HTMLElement>(null);
+  const [selection, setSelection] = useState<{ start: number; end: number; focus: boolean }>();
+  const matches = useMemo(() => findTextMatches(content, search), [content, search]);
+  const current = matches[active];
+
+  const locate = useCallback((start: number, end: number, focus: boolean) => {
+    setSelection({ start, end, focus });
+  }, []);
   useEffect(() => {
-    const offset = resolveOffset(content, initialCharStart, initialAnchor);
-    if (offset === undefined) return;
-    const el = ref.current;
-    if (!el || el.scrollHeight <= el.clientHeight) return;
-
-    // 等 Modal 挂载 + textarea 布局完成（否则 clientWidth/scrollHeight 不准）
-    requestAnimationFrame(() => {
-      const target = ref.current;
-      if (!target) return;
-      const width = target.clientWidth;
-      const styles = window.getComputedStyle(target);
-
-      // 隐藏测量层：与 textarea 同样式、同宽，量出前缀文本的真实高度
-      const measure = document.createElement('div');
-      measure.style.cssText = [
-        'position:fixed',
-        'left:-10000px',
-        'top:0',
-        `width:${width}px`,
-        `font:${styles.font}`,
-        `font-size:${styles.fontSize}`,
-        `line-height:${styles.lineHeight}`,
-        `padding:${styles.padding}`,
-        'box-sizing:border-box',
-        `white-space:${styles.whiteSpace}`,
-        `word-break:${styles.wordBreak}`,
-        'overflow:hidden',
-        'visibility:hidden',
-        'pointer-events:none',
-      ].join(';');
-      measure.textContent = content.slice(0, offset);
-      document.body.appendChild(measure);
-
-      const scrollTop = Math.min(measure.scrollHeight, target.scrollHeight - target.clientHeight);
-      document.body.removeChild(measure);
-
-      target.scrollTop = scrollTop;
-      bump((n) => n + 1);
+    if (!selection || !marker.current || !ref.current) return;
+    const id = requestAnimationFrame(() => {
+      marker.current?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+      if (selection.focus) ref.current?.focus({ preventScroll: true });
+      positionedScroll.current = ref.current?.scrollTop;
+      setPage(pageRanges?.find(range => selection.start >= range.start && selection.start < range.end)?.page);
+      setExactPage(true);
     });
-    // 只定位一次；后续滚动由用户接管
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCharStart, initialAnchor]);
+    return () => cancelAnimationFrame(id);
+  }, [selection, pageRanges]);
 
-  const pageLabel = (() => {
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearch(query); setActive(0); }, 150);
+    return () => clearTimeout(timer);
+  }, [query]);
+  useEffect(() => {
     const el = ref.current;
-    if (!el || !pageRanges || pageRanges.length === 0) return '';
-    if (el.scrollHeight <= el.clientHeight) return `共 ${pageRanges.length} 页`;
-    const fraction = el.scrollTop / (el.scrollHeight - el.clientHeight);
-    // 按滚动进度估算字符偏移（近似；wrap 行高不一，作定位提示够用）
-    const offset = Math.floor(fraction * content.length);
-    const page =
-      pageRanges.find((range) => offset >= range.start && offset <= range.end)?.page ??
-      pageRanges[pageRanges.length - 1].page;
-    return `第 ${page} 页 / 共 ${pageRanges.length} 页`;
-  })();
+    if (!el) return;
+    el.scrollTop = 0;
+    setSelection(undefined);
+    setActive(0);
+    setPage(undefined);
+    positionedScroll.current = undefined;
+  }, [content]);
+  useEffect(() => {
+    const offset = resolveDocumentOffset(content, initialCharStart, initialAnchor);
+    if (offset === undefined) return;
+    const id = requestAnimationFrame(() => locate(offset, Math.min(content.length, offset + Math.min(initialAnchor?.trim().length || 1, 120)), true));
+    return () => cancelAnimationFrame(id);
+  }, [content, initialCharStart, initialAnchor, locate]);
+  useEffect(() => {
+    if (open && current) locate(current.start, current.end, focusMatch.current);
+    else if (open) setSelection(undefined);
+  }, [current, locate, open]);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
-  return (
-    <div>
-      <textarea
-        ref={ref}
-        aria-label="笔记内容"
-        defaultValue={content}
-        onScroll={() => bump((n) => n + 1)}
-        readOnly
-        spellCheck={false}
-        style={{
-          width: '100%',
-          height: '60vh',
-          resize: 'none',
-          overflow: 'auto',
-          boxSizing: 'border-box',
-          font: 'inherit',
-          lineHeight: 1.6,
-          padding: 8,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          background: 'transparent',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          color: 'inherit',
-        }}
-      />
-      {pageRanges && pageRanges.length > 0 ? (
-        <p className="hint" role="status">
-          {pageLabel}
-        </p>
-      ) : null}
+  const showFind = useCallback(() => {
+    setOpen(true);
+    requestAnimationFrame(() => { input.current?.focus(); input.current?.select(); });
+  }, []);
+  const navigate = useCallback((direction: number) => {
+    if (matches.length && query === search) {
+      focusMatch.current = true;
+      if (matches.length === 1) locate(matches[0].start, matches[0].end, true);
+      else setActive(value => (value + direction + matches.length) % matches.length);
+    }
+  }, [matches, query, search, locate]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const visible = (el: HTMLElement) => el.getClientRects().length > 0;
+      const viewers = Array.from(document.querySelectorAll<HTMLElement>('[data-note-viewer]')).filter(visible);
+      const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]')).filter(visible);
+      const top = dialogs[dialogs.length - 1];
+      if (viewers[viewers.length - 1] !== root.current || (top && !top.contains(root.current))) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault(); event.stopImmediatePropagation(); showFind();
+      } else if (open && event.key === 'F3') {
+        event.preventDefault(); event.stopImmediatePropagation(); navigate(event.shiftKey ? -1 : 1);
+      } else if (open && event.key === 'Escape') {
+        event.preventDefault(); event.stopImmediatePropagation(); setOpen(false);
+        ref.current?.focus({ preventScroll: true });
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open, showFind, navigate]);
+
+  return <div ref={root} data-note-viewer>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+      {!open ? <button type="button" className="cozy-btn-ghost" onClick={showFind}>{t('文档内查找')} (Ctrl+F)</button> : <div data-document-find style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <input ref={input} aria-label={t('文档内查找')} value={query} placeholder={t('输入要查找的文字')}
+          onChange={event => { focusMatch.current = false; setQuery(event.target.value); }} onKeyDown={event => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === 'Enter') { event.preventDefault(); navigate(event.shiftKey ? -1 : 1); }
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false); ref.current?.focus({ preventScroll: true }); }
+          }} />
+        <span role="status" aria-live="polite">{query !== search ? t('正在查找…') : !search ? t('输入关键词') : matches.length ? `${active + 1} / ${matches.length}` : t('无匹配结果')}</span>
+        <button type="button" className="cozy-btn-ghost" aria-label={t('上一个匹配')} disabled={!matches.length || query !== search} onClick={() => navigate(-1)}>↑</button>
+        <button type="button" className="cozy-btn-ghost" aria-label={t('下一个匹配')} disabled={!matches.length || query !== search} onClick={() => navigate(1)}>↓</button>
+        <button type="button" className="cozy-btn-ghost" aria-label={t('关闭文档查找')} onClick={() => setOpen(false)}>×</button>
+      </div>}
     </div>
-  );
+    <div style={{ position: 'relative' }}>
+    <div role="textbox" aria-readonly="true" aria-multiline="true" tabIndex={0} onKeyDown={event => { if (open && event.key === 'Enter') { event.preventDefault(); navigate(event.shiftKey ? -1 : 1); } }} ref={ref} aria-label={t('笔记内容')}
+      onScroll={() => {
+        const target = ref.current;
+        if (target && positionedScroll.current !== undefined && Math.abs(target.scrollTop - positionedScroll.current) < 1) return;
+        positionedScroll.current = undefined;
+        if (!pageRanges?.length || frame.current) return;
+        frame.current = requestAnimationFrame(() => {
+          frame.current = 0;
+          const el = ref.current;
+          if (!el) return;
+          setExactPage(false);
+          const offset = Math.floor(el.scrollTop / Math.max(1, el.scrollHeight - el.clientHeight) * content.length);
+          setPage(pageRanges.find(range => offset >= range.start && offset < range.end)?.page ?? pageRanges[pageRanges.length - 1]?.page);
+        });
+      }}
+      style={{ width: '100%', height: 'clamp(160px, 32vh, 360px)', resize: 'none', overflow: 'auto', boxSizing: 'border-box', font: 'inherit', lineHeight: 1.6, padding: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, color: 'inherit' }}>{selection ? <>{content.slice(0, selection.start)}<mark ref={marker} style={{ background: '#f4c95d', color: '#171717', font: 'inherit' }}>{content.slice(selection.start, selection.end)}</mark>{content.slice(selection.end)}</> : content}</div>
+    </div>
+    {pageRanges?.length ? <p className="hint">{t(exactPage ? '匹配页码' : '页码（滚动时为估算）')} {page ?? 1} / {pageRanges.length}</p> : null}
+  </div>;
 }

@@ -8,6 +8,7 @@
 import {
   ChartNoAxesColumnIncreasing,
   LayoutGrid,
+  Bell,
   LibraryBig,
   ListTodo,
   Mail,
@@ -28,6 +29,7 @@ interface DockItem {
 }
 
 const dockItems: DockItem[] = [
+  { key: 'learning', label: '学习计划', Icon: Bell },
   { key: 'today', label: '今天', Icon: ListTodo },
   { key: 'focus', label: '专注', Icon: Timer },
   { key: 'knowledge', label: '知识/检索', Icon: LibraryBig },

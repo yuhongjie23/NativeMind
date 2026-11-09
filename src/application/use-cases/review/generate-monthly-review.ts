@@ -21,6 +21,8 @@ import { now, today } from '../../shared/utils';
 import { dateRange } from './generate-weekly-review';
 import { draftToReviewLog } from './generate-daily-review';
 import { fetchKnowledgeSummary } from './review-knowledge';
+import { readReviewFollowUps } from './review-follow-ups';
+import { completedByDate } from './review-completion';
 
 const MONTH_DAYS = 30;
 
@@ -38,7 +40,8 @@ export class GenerateMonthlyReviewUseCase {
     private readonly noteRepo?: NoteRepository
   ) {}
 
-  async execute(input: { endDate?: string } = {}): Promise<ReviewLog | null | undefined> {
+  async execute(input: { endDate?: string; signal?: AbortSignal; onCommit?: () => void } = {}): Promise<ReviewLog | null | undefined> {
+    input.signal?.throwIfAborted();
     // 专注拦截返回 undefined，用户拒绝返回 null（store 区分提示）
     if (!this.focusPolicy.canInterrupt('ai_suggestion')) return undefined;
 
@@ -78,6 +81,7 @@ export class GenerateMonthlyReviewUseCase {
     // 已确认的知识链接摘要（⑤）
     const knowledgeSummary = await fetchKnowledgeSummary(this.linkRepo, this.noteRepo);
 
+    input.signal?.throwIfAborted();
     const draft = await this.generator.generate({
       reviewType: 'monthly',
       date,
@@ -88,17 +92,19 @@ export class GenerateMonthlyReviewUseCase {
       focusUsageMinutes: usageFocusMinutes,
       usageByDate,
       knowledgeSummary,
-    });
+      followUps: await readReviewFollowUps(this.reviewRepo, date),
+    }, { signal: input.signal });
+    input.signal?.throwIfAborted();
 
     const statistics = {
       focusMinutes: focusSessions
         .filter((session) => session.status === 'completed')
         .reduce((sum, session) => sum + (session.actualMinutes ?? session.durationMinutes), 0),
       // 历史任务完成判定：completedAt 在区间内才算完成
-      tasksCompleted: todos.filter((todo) => todo.status === 'completed' && (todo.completedAt?.slice(0, 10) ?? date) <= date).length,
+      tasksCompleted: todos.filter((todo) => completedByDate(todo, date)).length,
       tasksTotal: todos.length,
       daysCovered: dates.length,
-      appMinutes: appUsageMinutes ?? 0,
+      ...(appUsageMinutes === undefined ? {} : { appMinutes: appUsageMinutes }),
     };
 
     // 复用已有行的 id，保证事件/返回里的 reviewId 与库里行一致
@@ -114,7 +120,8 @@ export class GenerateMonthlyReviewUseCase {
         review.sourceProposalId = proposalId;
         await this.reviewRepo.save(review);
         return review;
-      }
+      },
+      { signal: input.signal, onCommit: input.onCommit }
     );
 
     if (!confirmed || !result) return null;

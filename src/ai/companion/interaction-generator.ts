@@ -10,6 +10,7 @@
  */
 import type { ModelRouter } from '../router/model-router';
 import { truncate } from '../shared/utils';
+import { withModelDeadline } from '../shared/model-deadline';
 
 /** 场景与 companion-subscriber 里订阅的事件对应；user_invoked=用户点击宠物 */
 export type CompanionScene =
@@ -95,67 +96,31 @@ export interface GeneratedInteraction {
   emotion?: 'calm' | 'curious' | 'happy' | 'concerned';
   /** 快捷回应（随这句话展示，最多 3 个） */
   quickReplies?: string[];
-  /** true 表示用了模板兜底，未调用模型 */
+  /** true 表示使用模板（模型不可用、超时或输出不符合规则） */
   fromTemplate: boolean;
 }
 
 /** JSON prompt 输出格式（小模型只完成一个明确动作，emotion 驱动动画、intent 驱动下一步） */
 export interface CompanionTurnOutput {
-  /** 轻量思维链：模型输出前一句内部简评，不展示给用户，只用于推理质量与可审计 */
-  think?: string;
   intent: 'acknowledge' | 'clarify' | 'suggest_one_step' | 'close';
   emotion: 'calm' | 'curious' | 'happy' | 'concerned';
   text: string;
   quickReplies: string[];
 }
 
-const pickLine = (voice: CompanionVoice, scene: CompanionScene): string => {
-  const lines = voice.lines[scene] ?? voice.lines.feedback;
+// 保守拦截常见问句；语义是否自然仍需真实模型评测。
+const hasQuestion = (text: string): boolean => /[?？]|(?:吗|么|呢)(?:[。！!\s]|$)|要不要|能不能|可不可以|是否|怎么|为什么|哪[个里些]|什么|几[点次个分钟]/u.test(text);
+
+const pickLine = (voice: CompanionVoice, scene: CompanionScene, statement: boolean): string => {
+  const candidates = voice.lines[scene] ?? voice.lines.feedback;
+  const lines = statement ? candidates.filter(line => !hasQuestion(line)) : candidates;
+  if (!lines.length) return '我在这里，安静陪你。';
   return lines[Math.floor(Math.random() * lines.length)];
 };
 
 const MAX_FACT_CHARS = 300;
 /** 宠物气泡 2.5 秒未生成就直接用模板：对延迟比对文采更敏感（小模型调用策略） */
 const DIALOGUE_TIMEOUT_MS = 2_500;
-
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('气泡生成超时')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-
-/** 宽松解析模型 JSON 输出；失败返回 null（调用方模板兜底） */
-const parseTurnOutput = (raw: string): CompanionTurnOutput | null => {
-  const text = raw
-    .replace(/```json|```/g, '')
-    .trim()
-    .replace(/^\{/, '{');
-  try {
-    const parsed = JSON.parse(text) as Partial<CompanionTurnOutput>;
-    if (typeof parsed.text !== 'string' || !parsed.text.trim()) return null;
-    return {
-      // think 是模型内部推理，允许缺失、允许短（1.5B 能力有限，不强求）
-      think: typeof parsed.think === 'string' ? parsed.think.slice(0, 40) : undefined,
-      intent: parsed.intent ?? 'acknowledge',
-      emotion: parsed.emotion ?? 'calm',
-      text: parsed.text.trim(),
-      quickReplies: Array.isArray(parsed.quickReplies)
-        ? parsed.quickReplies.filter((q): q is string => typeof q === 'string').slice(0, 3)
-        : [],
-    };
-  } catch {
-    return null;
-  }
-};
 
 export class InteractionGenerator {
   constructor(
@@ -165,62 +130,47 @@ export class InteractionGenerator {
 
   /** 一句陪伴短语。speechAct 由规则决定，模型只把明确意图改写成自然的一句话（P1 Agent） */
   async generateDialogue(ctx: DialogueContext): Promise<GeneratedInteraction> {
-    const runPromise = this.router.run<DialogueContext, string>({
+    const responseMode = ctx.responseMode ?? 'statement';
+    const statement = responseMode === 'statement';
+    const fallback = (): GeneratedInteraction => ({
+      content: pickLine(this.voice, ctx.scene, statement), fromTemplate: true,
+    });
+    const result = await withModelDeadline(signal => this.router.run<DialogueContext, CompanionTurnOutput>({
       taskType: 'companion_dialogue',
+      signal,
       input: ctx,
       modelPolicy: {
         // 宠物对延迟比对文采敏感：单次调用、不升级 14B、短预算、温度适中（小模型调用策略）
-        // maxTokens 从 96 提到 200：给轻量思维链(think)留出输出空间，仍远低于小模型单次上限
         temperature: 0.5,
         maxTokens: 200,
         noRetry: true,
         noFallback: true,
       },
-      inlinePrompt: {
-        system: [
-          '你是学习陪伴宠物，不是教师、心理咨询师或效率教练。',
-          '当前任务：先准确接住用户刚才的话，再给出一个很小的下一步。',
-          '思考（轻量思维链）：输出前先在 think 字段写一句话，判断「用户此刻的状态」和「最合适的回应方向」。',
-          '  - think 是内部推理，不构成对用户说的话；内容不出现「加油、坚持、应该」等口号。',
-          '  - 例：{"think":"专注结束，先肯定再提示记一笔","intent":"acknowledge", ...}',
-          '规则：',
-          '1. 只能使用输入中的事实，不补充不存在的任务、时长和情绪。',
-          '2. 回复 20～60 个中文字符。',
-          '3. 不要同时提两个问题。不要评价用户是否努力。',
-          '4. 不使用「加油、坚持、你一定可以、你应该、效率、优秀」等激励口号。',
-          '5. 信息不足时，只问一个容易回答的问题。',
-          '6. 输出严格 JSON：{"think":"...","intent":"acknowledge|clarify|suggest_one_step|close","emotion":"calm|curious|happy|concerned","text":"...","quickReplies":["...","..."]}，think 不超过 20 字，不要输出其它内容。',
-        ].join('\n'),
-        user: [
-          `speechAct: ${ctx.speechAct ?? 'statement'}`,
-          ctx.facts ? `事实：${truncate(ctx.facts, MAX_FACT_CHARS)}` : '',
-          ctx.userResponse ? `用户回答：${truncate(ctx.userResponse, MAX_FACT_CHARS)}` : '',
-          ctx.recentLines && ctx.recentLines.length > 0
-            ? `最近台词（不要复述）：${ctx.recentLines.slice(-3).join(' / ')}`
-            : '',
-        ]
-          .filter(Boolean)
-          .join('\n'),
+      promptVars: {
+        tone: this.voice.tone,
+        scene: ctx.scene,
+        speechAct: ctx.speechAct ?? 'statement',
+        responseMode,
+        responseRule: statement
+          ? '只作简短陈述；禁止提问、追问、索要回应。intent 不得为 clarify，quickReplies 必须为空数组。信息不足时安静陪伴即可。'
+          : '最多问一个简单问题，不连续追问；信息不足时只问一个澄清问题。',
+        context: JSON.stringify({
+          facts: truncate(ctx.facts ?? '', MAX_FACT_CHARS),
+          userResponse: truncate(ctx.userResponse ?? '', MAX_FACT_CHARS),
+          recentLines: ctx.recentLines?.slice(-3).map(line => truncate(line, 60)) ?? [],
+        }),
       },
-    });
+    }), DIALOGUE_TIMEOUT_MS, '宠物回复').catch(() => null);
 
-    // 2.5s 超时：超时/失败一律模板兜底，绝不拖慢气泡
-    const result = await withTimeout(runPromise, DIALOGUE_TIMEOUT_MS).catch(() => null);
-    if (!result) {
-      return { content: pickLine(this.voice, ctx.scene), fromTemplate: true };
-    }
-
-    const raw = typeof result.output === 'string' ? result.output.trim() : '';
-    const parsed = raw ? parseTurnOutput(raw) : null;
-    if (!parsed) {
-      // 模型没给合法 JSON / 输出太短：模板兜底
-      return { content: pickLine(this.voice, ctx.scene), fromTemplate: true };
-    }
+    const parsed = result?.ok ? result.output : undefined;
+    if (!parsed || !parsed.text.trim()) return fallback();
+    if (statement && (parsed.intent === 'clarify' || hasQuestion(parsed.text))) return fallback();
+    if ((parsed.text.match(/[?？]/g)?.length ?? 0) > 1) return fallback();
     return {
-      content: parsed.text,
+      content: parsed.text.trim(),
       intent: parsed.intent,
       emotion: parsed.emotion,
-      quickReplies: parsed.quickReplies,
+      quickReplies: statement ? [] : parsed.quickReplies.map(reply => reply.trim()).filter(Boolean),
       fromTemplate: false,
     };
   }

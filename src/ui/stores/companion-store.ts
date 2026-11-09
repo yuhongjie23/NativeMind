@@ -30,6 +30,8 @@ export type CompanionConversationState =
   | { kind: 'resting' };
 
 interface CompanionState {
+  surfaceBusy: boolean;
+  setSurfaceBusy: (busy: boolean) => void;
   /** 当前等待用户回应的那条互动，null 表示宠物没在问话 */
   current: CompanionInteraction | null;
   animation: CompanionAnimation;
@@ -57,6 +59,8 @@ interface CompanionState {
 }
 
 export const useCompanionStore = create<CompanionState>((set, get) => ({
+  surfaceBusy: true,
+  setSurfaceBusy: surfaceBusy => set({ surfaceBusy }),
   current: null,
   animation: 'idle',
   history: [],
@@ -67,6 +71,11 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
 
   /** 内部：把一条新互动展示到主舞台，按类型进入对应状态（asking=可回应 / 其他=自动关闭） */
   showInteraction: (interaction: CompanionInteraction, quickReplies: string[] = []) => {
+    if (!useSettingsStore.getState().companion.enabled) return;
+    if (get().current?.id === interaction.id) {
+      if (quickReplies.length) set({ quickReplies });
+      return;
+    }
     // 动画：优先 interaction.animationName（emotion 驱动），fallback 按场景
     const animation = interaction.animationName
       ? (interaction.animationName as CompanionAnimation)
@@ -103,9 +112,6 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
           const interaction = await repositories.companionInteraction.findById(event.interactionId);
           if (!interaction) return;
           get().showInteraction(interaction, event.quickReplies);
-          if (interaction.sceneType !== 'focus_complete') {
-            void audioPlayer.play('companion_greet');
-          }
         } catch {
           // 互动不存在/读取失败：忽略
         }
@@ -125,6 +131,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
   trigger: async (scene, triggerEvent) => {
     // 开关归 settings-store（唯一数据源），这里只读不存
     if (!useSettingsStore.getState().companion.enabled) return;
+    if (get().generating || (scene !== 'user_invoked' && (get().surfaceBusy || get().current))) return;
 
     // 调本地模型期间显示等待转圈（thinking 状态）
     set({ generating: true, conversationState: { kind: 'thinking' } });
@@ -157,7 +164,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
       }
 
       // 宠物出声。专注完成时已播 completion cue，不叠加招呼音
-      if (scene !== 'focus_complete') void audioPlayer.play('companion_greet');
+      if (scene === 'user_invoked' && !get().surfaceBusy) void audioPlayer.play('companion_greet');
       // 通过事件通道由 showInteraction 统一处理（避免双 set）；事件可能先到，这里幂等
       get().showInteraction(interaction);
       await get().refresh();
@@ -170,13 +177,13 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
 
   proactiveTick: async () => {
     if (!useSettingsStore.getState().companion.enabled) return;
+    if (get().surfaceBusy || get().generating || get().current) return;
 
     try {
       const interaction = await useCases.proactiveCompanionTick.execute();
       // null = 政策判定此刻不该主动说话，保持安静
       if (!interaction) return;
 
-      void audioPlayer.play('companion_greet');
       get().showInteraction(interaction);
       await get().refresh();
     } catch (error) {
@@ -185,6 +192,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
   },
 
   respond: async (response) => {
+    if (get().generating) return;
     const { current } = get();
     if (!current) return;
 
@@ -193,7 +201,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     try {
       // P0-1：HandleUserResponse 返回反馈互动，展示 4-6 秒再回到 idle
       const feedback = await useCases.handleUserResponse.execute(current.id, response);
-      set({ current: feedback, turnCount: get().turnCount + 1 });
+      set({ turnCount: get().turnCount + 1 });
       get().showInteraction(feedback);
       await get().refresh();
     } catch (error) {

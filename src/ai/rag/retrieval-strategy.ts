@@ -1,3 +1,5 @@
+import type { KnowledgeProgress } from '@application/ports';
+import { measureKnowledgeStage } from '../shared/knowledge-timing';
 /**
  * 检索策略：规则层 + 向量层召回（§11.3 前两层）
  *
@@ -42,6 +44,11 @@ export interface RuleCandidateSource {
 }
 
 export interface RetrievalQuery {
+  /** Ordinary interactive search skips generative reranking. */
+  rerank?: boolean;
+  onProgress?: (progress: KnowledgeProgress) => void;
+  onPartial?: (hits: RetrievalCandidate[]) => void;
+  signal?: AbortSignal;
   text: string;
   tags?: string[];
   /** 同一天的任务/笔记更可能相关（§11.3 规则层） */
@@ -92,7 +99,9 @@ const scoreByRules = (candidate: RuleCandidateSource, query: RetrievalQuery): nu
 
   const lower = candidate.text.toLowerCase();
   const keywordHits = keywords.filter((kw) => lower.includes(kw)).length;
-  const keywordScore = keywords.length > 0 ? Math.min(keywordHits / keywords.length, 1) * 0.3 : 0;
+  // A literal full match in the body must survive the default threshold even
+  // without vectors: 0.5 * 0.4 = 0.2 > 0.18 (the old maximum was only 0.12).
+  const keywordScore = keywords.length > 0 ? Math.min(keywordHits / keywords.length, 1) * 0.5 : 0;
 
   // 关键词命中候选标签：用户搜「微积分」而笔记正文没这词、但打了「微积分」标签，
   // 标签应该把这篇笔记抬上来（标签是用户自己给的内容摘要，比正文相似更可信）。
@@ -108,7 +117,7 @@ const scoreByRules = (candidate: RuleCandidateSource, query: RetrievalQuery): nu
 };
 
 export interface RetrievalOptions {
-  /** 同一篇笔记最多贡献几个 chunk，防止大文件把别的笔记挤出结果（重排序/多样性） */
+  /** 首轮每篇笔记预留的片段额度；其它笔记获位后再填满空位 */
   maxChunksPerNote: number;
   /** 子块合并为父块时文本上限，避免整章塞爆后续 LLM 上下文 */
   maxParentChars: number;
@@ -161,7 +170,7 @@ export class RetrievalStrategy {
    * 保证断网 / 模型缺失时检索仍然可用（C3、§16.1）。
    *
    * RAG 增强：先对查询做 Multi-Query / Sub-Query 展开，多角度召回后合并；
-   * 合并时按「每篇笔记最多 maxChunksPerNote 个 chunk」做多样性重排（top-k），
+   * 合并时先按每篇笔记的预留额度轮询，再用剩余候选填满结果（top-k），
    * 避免内容超长的单篇笔记把其它相关笔记挤出结果。
    */
   async retrieve(
@@ -169,20 +178,17 @@ export class RetrievalStrategy {
     ruleCandidates: RuleCandidateSource[],
     limit = 10
   ): Promise<RetrievalCandidate[]> {
+    query.signal?.throwIfAborted();
     const excluded = new Set(query.excludeNoteIds ?? []);
     const merged = new Map<string, RetrievalCandidate>();
 
     // 查询展开：深度检索（LLM Multi-Query + HyDE）或启发式
     let variants = expandQuery(query.text);
     let hydePassage: string | undefined;
-    if (query.deep && this.options.queryRewriter) {
-      const rewritten = await this.options.queryRewriter.rewrite(query.text);
-      variants = rewritten.variants;
-      hydePassage = rewritten.hypothetical;
-    }
+
 
     // 规则层：对每个查询变体分别打分，取该 chunk 的最优分
-    ruleCandidates
+    const addRules = () => ruleCandidates
       .filter((c) => !excluded.has(c.noteId))
       .forEach((c) => {
         let best = 0;
@@ -203,6 +209,20 @@ export class RetrievalStrategy {
         });
       });
 
+    await measureKnowledgeStage('keywords', query.onProgress, async () => {
+      addRules();
+      query.signal?.throwIfAborted();
+      query.onPartial?.([...merged.values()].filter(c => c.score >= this.weights.minScore)
+        .sort((a, b) => b.score - a.score).slice(0, limit)
+        .map(c => ({ ...c, matchedBy: [...c.matchedBy] })));
+    });
+    if (query.deep && this.options.queryRewriter) {
+      const rewritten = await measureKnowledgeStage('rewrite', query.onProgress, () => this.options.queryRewriter!.rewrite(query.text, query.signal));
+      variants = rewritten.variants;
+      hydePassage = rewritten.hypothetical;
+    }
+    if (query.deep) addRules();
+
     try {
       // 向量层：把全部查询变体（+ HyDE 假设性答案）一起 embed，逐个查向量库，chunk 取各变体的最优分
       // 向量命中的 chunk 也要带标题：先从规则层候选建 noteId → title 反查表
@@ -210,11 +230,12 @@ export class RetrievalStrategy {
       for (const c of ruleCandidates) {
         if (c.title) titleByNote.set(c.noteId, c.title);
       }
-      const vectors = await this.embedding.embed(
-        hydePassage ? [...variants, hydePassage] : variants
-      );
+      const vectors = await measureKnowledgeStage('embedding', query.onProgress, () => this.embedding.embed(variants, query.signal, 'query'));
+      // HyDE is a hypothetical document, not a user query.
+      if (hydePassage) vectors.push(...await measureKnowledgeStage('embedding', query.onProgress, () => this.embedding.embed([hydePassage!], query.signal, 'document')));
+      query.signal?.throwIfAborted();
       for (const vector of vectors) {
-        const matches = await this.vectorStore.query(vector, limit * 2);
+        const matches = await measureKnowledgeStage('vector', query.onProgress, () => this.vectorStore.query(vector, limit * 2));
         matches
           .filter((m) => !excluded.has(m.noteId))
           .forEach((m) => {
@@ -239,6 +260,7 @@ export class RetrievalStrategy {
           });
       }
     } catch (error) {
+      query.signal?.throwIfAborted();
       console.warn('[RetrievalStrategy] 向量召回失败，退化为规则层:', error);
     }
 
@@ -258,22 +280,23 @@ export class RetrievalStrategy {
     // 模型级 Rerank（深度检索或普通检索都启用，用本地小模型按相关性评判段落）：
     // 优先专用 cross-encoder（精度最高），失败/慢回退生成式 LLM 打分重排，
     // 两者都失败保持启发式顺序（C3）
-    if (query.deep || this.options.rerankAlways) {
+    if (query.rerank ?? (query.deep || this.options.rerankAlways)) {
       let modelRanked: RetrievalCandidate[] | null = null;
       if (this.options.crossEncoder) {
-        modelRanked = await this.rerankWithCrossEncoder(query.text, promoted);
+        modelRanked = await measureKnowledgeStage('rerank', query.onProgress, () => this.rerankWithCrossEncoder(query.text, promoted));
       }
       if (!modelRanked && this.options.reranker) {
-        modelRanked = await this.options.reranker.rerank(
+        modelRanked = await measureKnowledgeStage('rerank', query.onProgress, () => this.options.reranker!.rerank(
           query.text,
           promoted,
-          Math.max(limit, this.options.maxChunksPerNote * 4)
-        );
+          Math.max(limit, this.options.maxChunksPerNote * 4),
+          query.signal
+        ));
       }
       if (modelRanked) promoted = modelRanked;
     }
 
-    // 多样性重排 → 笔记轮询：按「每篇笔记最多 maxChunksPerNote 段」在各篇之间轮询，
+    // 多样性重排 → 笔记轮询：先按每篇 maxChunksPerNote 的预留额度轮询，
     // 保证多篇命中笔记的段落都出现在结果里，而不是被高分单篇挤掉。
     // 轮询顺序：按笔记在 promoted 中的出现顺序（模型重排后 = 模型打分顺序）排序，
     // 而不是按 score 字段——rerank 只重排不更新 score，按 score 排会丢掉模型排序。
@@ -296,6 +319,19 @@ export class RetrievalStrategy {
         if (diverse.length >= limit) break;
       }
     }
+    // Reserve diversity first, then fill spare slots. A single long book must
+    // not be limited to three passages when the caller requested eight.
+    for (let round = this.options.maxChunksPerNote; diverse.length < limit; round += 1) {
+      let added = false;
+      for (const queue of noteQueues) {
+        if (!queue[round]) continue;
+        diverse.push(queue[round]);
+        added = true;
+        if (diverse.length >= limit) break;
+      }
+      if (!added) break;
+    }
+    query.signal?.throwIfAborted();
     return diverse;
   }
 
@@ -328,7 +364,7 @@ export class RetrievalStrategy {
  *
  * 合并按 maxSiblingsPerHeading 封顶：同一章节再多也只每 N 个子块出一段，
  * 避免整篇挂同一标题的大文档被并成一个巨型结果（用户就定位不到具体哪段命中了）。
- * 每篇笔记的封顶段数由调用方 maxChunksPerNote 再收一道。
+ * 只合并偏移相邻且总长度不超预算的片段，不能拼接相隔很远的章节证据。
  */
 function promoteSiblingChunks(
   candidates: RetrievalCandidate[],
@@ -352,21 +388,29 @@ function promoteSiblingChunks(
       out.push(list[0]);
       continue;
     }
-    for (let i = 0; i < list.length; i += maxSiblingsPerHeading) {
-      const group = list.slice(i, i + maxSiblingsPerHeading);
+    for (let i = 0; i < list.length;) {
+      const group = [list[i++]];
+      while (i < list.length && group.length < maxSiblingsPerHeading) {
+        const last = group[group.length - 1];
+        const next = list[i];
+        const gap = last.charStart !== undefined && next.charStart !== undefined ? next.charStart - last.charStart - last.text.length : -1;
+        if (gap < 0 || gap > 100 || group.reduce((sum, c) => sum + c.text.length + 2, 0) + next.text.length > maxParentChars) break;
+        group.push(next);
+        i++;
+      }
       out.push({
         chunkId: group[0].chunkId,
         noteId: group[0].noteId,
         text: group
           .map((c) => c.text)
-          .join('\n\n')
-          .slice(0, maxParentChars),
+          .join('\n\n'),
         score: Math.max(...group.map((c) => c.score)),
         matchedBy: [...new Set(group.flatMap((c) => c.matchedBy))],
+        title: group[0].title,
         headingPath: group[0].headingPath,
         charStart: group[0].charStart,
       });
     }
   }
-  return out;
+  return out.sort((a, b) => b.score - a.score);
 }

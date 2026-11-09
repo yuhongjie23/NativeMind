@@ -141,7 +141,7 @@ describe('RetrievalStrategy', () => {
     expect(results[0].matchedBy).toEqual(['rule', 'vector']);
   });
 
-  it('大文件不挤占其它笔记：每篇笔记最多贡献 maxChunksPerNote 个 chunk', async () => {
+  it('先保留其它笔记，再用长文片段填满剩余结果位置', async () => {
     // 一篇大笔记有 5 个命中 chunk，另一篇只有 1 个 —— 多样性重排后小笔记不会被挤出
     const bigNoteChunks = [1, 2, 3, 4, 5].map((i) => ({
       chunkId: `big-${i}`,
@@ -155,8 +155,8 @@ describe('RetrievalStrategy', () => {
     const results = await strategy.retrieve({ text: 'LoRA', tags: ['LLM'] }, [...bigNoteChunks, small], 10);
 
     const bigCount = results.filter((r) => r.noteId === 'big').length;
-    expect(bigCount).toBeLessThanOrEqual(defaultRetrievalOptions.maxChunksPerNote);
-    expect(results.some((r) => r.noteId === 'small')).toBe(true);
+    expect(bigCount).toBe(5);
+    expect(results.slice(0, defaultRetrievalOptions.maxChunksPerNote).some((r) => r.noteId === 'small')).toBe(true);
   });
 
   it('向量层失败时退化为规则层，不抛错（C3）', async () => {
@@ -251,6 +251,21 @@ describe('RetrievalStrategy', () => {
     expect(results.length).toBeGreaterThanOrEqual(3);
     // 每段都带章节路径，用户能定位到是哪一段命中
     expect(results.every((r) => r.headingPath?.[0] === '中国历代政治得失')).toBe(true);
+  });
+
+  it('相隔很远的同章节命中不能拼成一个引用或截掉后面的证据', async () => {
+    const strategy = new RetrievalStrategy(fakeEmbedding(), fakeVectorStore([]));
+    const chunks = [0, 10000, 50000].map((offset, i) => ({ chunkId: `c${i}`, noteId: 'book', text: `LoRA evidence ${i}`, tags: ['LLM'], headingPath: ['book'], charStart: offset }));
+    const hits = await strategy.retrieve({ text: 'LoRA', tags: ['LLM'] }, chunks, 8);
+    expect(hits).toHaveLength(3);
+    expect(hits.map(h => h.charStart)).toEqual([0, 10000, 50000]);
+    expect(hits.map(h => h.text)).toEqual(chunks.map(c => c.text));
+  });
+
+  it('只有正文精确命中、标题不相关且无向量时仍返回结果', async () => {
+    const strategy = new RetrievalStrategy(fakeEmbedding(), fakeVectorStore([]));
+    const hits = await strategy.retrieve({ text: 'hardware-aware' }, [{ chunkId: 'paper', noteId: 'paper', title: 'Mamba', text: 'A hardware-aware algorithm.', tags: [] }]);
+    expect(hits.map(h => h.chunkId)).toEqual(['paper']);
   });
 
   it('关键词命中候选标签：正文没这词、但打了对应标签的笔记也能被检索到', async () => {

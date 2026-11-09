@@ -7,7 +7,7 @@
  */
 import type { Database } from '../db/database';
 import {
-  distanceToScore,
+  cosineDistanceToScore,
   type VectorMatch,
   type VectorRecord,
   type VectorStoreProvider,
@@ -32,12 +32,15 @@ export class SqliteVecProvider implements VectorStoreProvider {
   /** 建虚拟表。扩展没加载时这句会抛错，正好用来判断可用性。
    *  已存在但维度对不上（此前误建、或换了 embedding 模型）就重建——旧表里插不进数据，丢弃无损失。 */
   private async ensureTable(): Promise<void> {
+    const createTable = `CREATE VIRTUAL TABLE IF NOT EXISTS ${TABLE} USING vec0(
+      chunk_id TEXT PRIMARY KEY, note_id TEXT, embedding FLOAT[${this.dimension}] distance_metric=cosine
+    )`;
     const row = await this.db.selectOne(
       `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`,
       [TABLE]
     );
     if (row) {
-      const declared = String(row.sql).match(/FLOAT\[(\d+)\]/);
+      const declared = String(row.sql).match(/FLOAT\s*\[(\d+)\]/i);
       if (declared && Number(declared[1]) !== this.dimension) {
         // 维度变了（换 embedding 模型/配置）：旧向量与当前查询空间不兼容，只能重建。
         // DROP 后把「已 indexed」的笔记全部打回 stale，让流水线整体重嵌入——
@@ -47,16 +50,20 @@ export class SqliteVecProvider implements VectorStoreProvider {
           `UPDATE notes SET index_status = 'stale' WHERE index_status = 'indexed'`
         );
         this.didRebuild = true;
+      } else if (!/distance_metric\s*=\s*cosine/i.test(String(row.sql))) {
+        // The old L2 score suppresses non-normalized Ollama vectors. Change only
+        // the metric, preserving every existing vector and note in one transaction.
+        await this.db.transaction(async tx => {
+          await tx.execute(`CREATE TABLE ${TABLE}_metric_copy AS SELECT chunk_id, note_id, embedding FROM ${TABLE}`);
+          await tx.execute(`DROP TABLE ${TABLE}`);
+          await tx.execute(createTable);
+          await tx.execute(`INSERT INTO ${TABLE}(chunk_id, note_id, embedding) SELECT chunk_id, note_id, embedding FROM ${TABLE}_metric_copy`);
+          await tx.execute(`DROP TABLE ${TABLE}_metric_copy`);
+        });
       }
     }
 
-    await this.db.execute(
-      `CREATE VIRTUAL TABLE IF NOT EXISTS ${TABLE} USING vec0(
-         chunk_id TEXT PRIMARY KEY,
-         note_id TEXT,
-         embedding FLOAT[${this.dimension}]
-       )`
-    );
+    await this.db.execute(createTable);
   }
 
   async isAvailable(): Promise<boolean> {
@@ -79,6 +86,7 @@ export class SqliteVecProvider implements VectorStoreProvider {
         `向量维度不匹配：期望 ${this.dimension}，实际 ${mismatched.embedding.length}（chunk ${mismatched.chunkId}）`
       );
     }
+    for (const record of records) this.validateVector(record.embedding);
 
     if (!(await this.isAvailable())) throw new Error('sqlite-vec 扩展不可用');
 
@@ -99,6 +107,7 @@ export class SqliteVecProvider implements VectorStoreProvider {
    * 这样上层拿到的 VectorMatch 是自洽的、可直接展示的。
    */
   async query(embedding: number[], limit: number): Promise<VectorMatch[]> {
+    this.validateVector(embedding);
     if (!(await this.isAvailable())) return [];
 
     const rows = await this.db.select(
@@ -114,9 +123,15 @@ export class SqliteVecProvider implements VectorStoreProvider {
       chunkId: String(row.chunk_id),
       noteId: String(row.note_id),
       text: row.text === null || row.text === undefined ? '' : String(row.text),
-      score: distanceToScore(Number(row.distance)),
+      score: cosineDistanceToScore(Number(row.distance)),
       charStart: row.char_start === null || row.char_start === undefined ? undefined : Number(row.char_start),
     }));
+  }
+
+  private validateVector(vector: number[]): void {
+    if (vector.length !== this.dimension || vector.some(value => !Number.isFinite(Math.fround(value))) || !vector.some(value => Math.fround(value) !== 0)) {
+      throw new Error('向量无效：必须是维度匹配、有限且非零的数值向量');
+    }
   }
 
   async deleteByNote(noteId: string): Promise<void> {

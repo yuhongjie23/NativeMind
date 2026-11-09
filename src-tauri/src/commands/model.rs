@@ -25,46 +25,13 @@ pub async fn model_is_ready(client: State<'_, OllamaClient>) -> Result<bool, ()>
 /// 前端据此给用户提示，不打断启动流程。
 #[tauri::command]
 pub async fn ollama_ensure_running(client: State<'_, OllamaClient>) -> Result<String, String> {
-    if client.is_ready().await {
-        return Ok("already_running".to_string());
-    }
-
-    if let Err(error) = try_start_ollama() {
-        return Err(format!("无法启动 Ollama：{error}"));
-    }
-
-    for _ in 0..10 {
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        if client.is_ready().await {
-            return Ok("started".to_string());
-        }
-    }
-    Ok("failed".to_string())
+    crate::model_client::startup::ensure_running(&client).await
 }
 
-/// 无窗口后台拉起 `ollama serve`。Windows 上带 CREATE_NO_WINDOW，不弹黑框；
-/// 三路 stdio 全部丢弃，避免子进程日志刷进应用 stdout / 阻塞在继承的控制台上。
-fn try_start_ollama() -> std::io::Result<()> {
-    let mut command = std::process::Command::new("ollama");
-    command
-        .arg("serve")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-    let _child = command.spawn()?;
-    Ok(())
-}
-
-/// 已安装模型列表。探测失败返回空表
+/// 已安装模型列表。失败向设置诊断保留错误，不能误报没有模型。
 #[tauri::command]
-pub async fn model_list(client: State<'_, OllamaClient>) -> Result<Vec<InstalledModel>, ()> {
-    Ok(client.list_models().await)
+pub async fn model_list(client: State<'_, OllamaClient>) -> Result<Vec<InstalledModel>, String> {
+    client.list_models_checked().await.map_err(|error| error.to_string())
 }
 
 /// 某个模型是否可用

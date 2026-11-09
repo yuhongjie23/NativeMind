@@ -9,7 +9,8 @@
  */
 import type { JobQueuePort, JobType } from '@application/ports';
 import type { UUID } from '@shared-types/common';
-import { fromJsonColumn, readText, toJsonColumn, type Database } from '../db/database';
+import { fromJsonColumn, readText, type Database } from '../db/database';
+import { enqueueJob } from './enqueue-job';
 
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -28,7 +29,7 @@ export interface Job {
 /** 单个 Job 的处理器。抛错即视为失败，由队列决定重试还是放弃 */
 export interface JobHandler {
   readonly type: JobType;
-  run(job: Job): Promise<void>;
+  run(job: Job, signal?: AbortSignal): Promise<void>;
 }
 
 export interface JobQueueOptions {
@@ -56,6 +57,20 @@ export class JobQueue implements JobQueuePort {
   private readonly canRun: () => boolean | Promise<boolean>;
   /** 防止定时器和手动调用同时进入消费循环 */
   private draining = false;
+  private interactiveCount = 0;
+  private activeController?: AbortController;
+
+  prioritizeInteractive(): () => void {
+    this.interactiveCount += 1;
+    this.activeController?.abort();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.interactiveCount -= 1;
+      // Resume through the existing periodic drain; never bypass canRun/focus.
+    };
+  }
 
   constructor(
     private readonly db: Database,
@@ -70,19 +85,7 @@ export class JobQueue implements JobQueuePort {
   }
 
   async enqueue(job: { type: JobType; entityId: UUID; payload?: Record<string, unknown> }): Promise<void> {
-    await this.db.execute(
-      `INSERT INTO background_jobs (
-         id, job_type, entity_type, entity_id, status, payload, retry_count, max_retries, created_at
-       ) VALUES (?, ?, ?, ?, 'pending', ?, 0, 3, ?)`,
-      [
-        crypto.randomUUID(),
-        job.type,
-        'note',
-        job.entityId,
-        toJsonColumn(job.payload ?? {}),
-        new Date().toISOString(),
-      ]
-    );
+    await enqueueJob(this.db, job);
   }
 
   /**
@@ -107,19 +110,20 @@ export class JobQueue implements JobQueuePort {
   /** 消费一批。返回成功处理的数量，供调用方决定是否立刻再来一轮 */
   async drain(): Promise<number> {
     if (this.draining) return 0;
-    if (!(await this.canRun())) return 0;
-
+    // Acquire before any await: an asynchronous policy must not let two drains in.
     this.draining = true;
     let processed = 0;
 
     try {
+      if (!(await this.canRun()) || this.interactiveCount > 0) return 0;
       const jobs = await this.listPending();
       for (const job of jobs) {
         // 每个 Job 之前重新问一次：专注可能在这一批中途开始
-        if (!(await this.canRun())) break;
+        if (!(await this.canRun()) || this.interactiveCount > 0) break;
         if (await this.runOne(job)) processed += 1;
       }
     } finally {
+      this.activeController = undefined;
       this.draining = false;
     }
 
@@ -127,6 +131,8 @@ export class JobQueue implements JobQueuePort {
   }
 
   private async runOne(job: Job): Promise<boolean> {
+    const controller = new AbortController();
+    this.activeController = controller;
     const handler = this.handlers.get(job.type);
     if (!handler) {
       await this.fail(job, `没有注册 ${job.type} 的处理器`, true);
@@ -139,27 +145,51 @@ export class JobQueue implements JobQueuePort {
     );
 
     try {
-      await handler.run(job);
+      controller.signal.throwIfAborted();
+      await handler.run(job, controller.signal);
       await this.db.execute(
         `UPDATE background_jobs SET status = 'completed', completed_at = ?, error_message = NULL WHERE id = ?`,
         [new Date().toISOString(), job.id]
       );
       return true;
     } catch (error) {
+      if (controller.signal.aborted) {
+        // Preemption is not a failure and must not consume the retry budget.
+        await this.db.execute("UPDATE background_jobs SET status = 'pending', started_at = NULL WHERE id = ?", [job.id]);
+        return false;
+      }
       const message = error instanceof Error ? error.message : String(error);
       await this.fail(job, message, job.retryCount + 1 >= job.maxRetries);
       return false;
+    } finally {
+      this.activeController = undefined;
     }
   }
 
   /** 还有重试次数就退回 pending，用完了才标 failed 并让 UI 提示用户 */
   private async fail(job: Job, message: string, giveUp: boolean): Promise<void> {
-    await this.db.execute(
-      `UPDATE background_jobs SET
-         status = ?, retry_count = retry_count + 1, error_message = ?, completed_at = ?
-       WHERE id = ?`,
-      [giveUp ? 'failed' : 'pending', message, giveUp ? new Date().toISOString() : null, job.id]
-    );
+    await this.db.transaction(async tx => {
+      await tx.execute(
+        `UPDATE background_jobs SET
+           status = ?, retry_count = retry_count + 1, error_message = ?, completed_at = ?
+         WHERE id = ?`,
+        [giveUp ? 'failed' : 'pending', message, giveUp ? new Date().toISOString() : null, job.id]
+      );
+      // Keep the user-visible status consistent with the retry queue, including
+      // parse/chunk/enqueue failures. Do not overwrite a completed index or a
+      // different active pipeline; stale still marks newer saved edits.
+      await tx.execute(
+        `UPDATE notes SET
+           index_status = CASE WHEN index_status = 'stale' THEN 'stale' ELSE ? END,
+           index_error = ?
+         WHERE id = ? AND index_status <> 'indexed'
+           AND NOT EXISTS (
+             SELECT 1 FROM background_jobs WHERE entity_type = 'note' AND entity_id = notes.id
+               AND id <> ? AND status IN ('pending', 'running')
+           )`,
+        [giveUp ? 'failed' : 'pending', message, job.entityId, job.id]
+      );
+    });
   }
 
   /** 清理 7 天前已完成的记录，并顺带清掉超期的 failed（否则反复失败的任务永久堆积） */

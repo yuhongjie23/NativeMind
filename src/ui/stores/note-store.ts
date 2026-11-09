@@ -8,12 +8,13 @@
  */
 import { create } from 'zustand';
 import type { Note, SearchHit } from '@shared-types/domain';
-import type { AskNotesAnswer, AskSession, ImportSource, SearchResultEnhancement } from '@application/ports';
+import type { KnowledgeProgress, AskNotesAnswer, AskSession, ImportSource, SearchResultEnhancement } from '@application/ports';
 import type { SearchNotesResult } from '@application/use-cases/note/search-notes';
 import type { UpdateNotePatch } from '@application/use-cases/note/update-note';
 import type { RankedResult } from '@ai/search/result-filter';
 import { useKnowledgeLinkStore } from './knowledge-link-store';
 import { useToastStore } from './toast-store';
+import { abortable } from '@application/shared/abortable';
 import { splitPlainIntoParagraphs } from '@application/shared/utils';
 import { ai, aiMode, describeError, repositories, useCases } from './runtime';
 
@@ -34,6 +35,12 @@ interface NoteState {
   /** Self-RAG 信号：本地最高分命中仍偏低 */
   localLowConfidence: boolean;
   searching: boolean;
+  searchProgress: KnowledgeProgress[];
+  askProgress: KnowledgeProgress[];
+  searchKeywordReady: boolean;
+  searchElapsedMs?: number;
+  askElapsedMs?: number;
+  firstTokenMs?: number;
   /** 导入后正在自动关联已有知识 */
   linking: boolean;
   /** 最近搜索（设置表持久化） */
@@ -44,15 +51,22 @@ interface NoteState {
   enhancing: boolean;
   error?: string;
   refresh: () => Promise<void>;
+  retryingIndex: Record<string, boolean>;
+  retryIndex: (noteId: string) => Promise<void>;
+  refreshIndex: (noteId: string) => Promise<void>;
   /** 对当前搜索结果做 AI 整理：快速模型摘要 + 教师模型软推荐 */
   enhanceResults: () => Promise<void>;
+  cancelEnhancement: () => void;
   /**
    * 导入。来源必须显式说明是文件路径还是直接给的文本 ——
    * 之前两者共用一个 string，粘贴的正文在桌面端会被当路径解析而报错。
    */
-  importNote: (source: ImportSource) => Promise<void>;
+  importPhase: 'idle' | 'parsing' | 'checking' | 'saving';
+  importOutcome?: string;
+  cancelImport: () => void;
+  importNote: (source: ImportSource) => Promise<'imported' | 'cancelled' | 'failed' | 'busy'>;
   /** 把外部搜索结果存为新笔记 */
-  importExternalResult: (result: RankedResult) => Promise<void>;
+  importExternalResult: (result: RankedResult) => Promise<'imported' | 'cancelled' | 'failed' | 'busy'>;
   /** 导入后自动尝试建立知识关联（后台跑，不阻塞导入；普通导入与外部搜索导入共用） */
   suggestLinksForNote: (noteId: string) => Promise<void>;
 
@@ -67,6 +81,7 @@ interface NoteState {
   deep: boolean;
   setDeep: (deep: boolean) => void;
   /** 按月归纳：yearMonth(YYYY-MM) → 小结文本与生成状态 */
+  cancelDigest: (yearMonth: string) => void;
   digests: Record<string, { text: string; loading: boolean }>;
   summarizeMonth: (yearMonth: string, notes: { title: string; content: string }[]) => Promise<void>;
   /** 深度问答（Self-RAG）结果：检索 + 生成 + 自我评判，只读不落库 */
@@ -75,6 +90,7 @@ interface NoteState {
   asking: boolean;
   /** 深度问答生成中的流式预览（最终以 deepAnswer.answer 为准） */
   streamingAnswer: string;
+  cancelQuestion: () => void;
   askQuestion: (question: string) => Promise<void>;
   /** 深度问答历史（持久化，可回看 / 删除） */
   askHistory: AskSession[];
@@ -127,9 +143,17 @@ export const useNoteStore = create<NoteState>((set, get) => {
   const HISTORY_MAX = 5;
 
   // 搜索请求序号：连续搜索 A→B 时，A 晚返回不能覆盖 B 的结果
+  let importSequence = 0;
+  let importController: AbortController | undefined;
   let searchSeq = 0;
+  let searchController: AbortController | undefined;
   // 深度问答请求序号：只允许最新一次问答写回结果
+  let enhancementController: AbortController | undefined;
+  const digestControllers = new Map<string, AbortController>();
   let askSeq = 0;
+  let askController: AbortController | undefined;
+  const indexReads = new Map<string, number>();
+  let indexReadSequence = 0;
 
   const loadHistory = async (): Promise<string[]> => {
     const raw = await repositories.settings.get(HISTORY_KEY);
@@ -149,6 +173,42 @@ export const useNoteStore = create<NoteState>((set, get) => {
 
   return {
   notes: [],
+  searchProgress: [], askProgress: [], searchKeywordReady: false,
+  retryingIndex: {},
+  refreshIndex: async (noteId) => {
+    const sequence = ++indexReadSequence;
+    indexReads.set(noteId, sequence);
+    try {
+      const fresh = await repositories.note.findById(noteId);
+      if (indexReads.get(noteId) !== sequence || !fresh) return;
+      set(state => ({ notes: state.notes.map(note => note.id === noteId
+        ? { ...note, indexStatus: fresh.indexStatus, indexError: fresh.indexError } : note) }));
+    } catch (error) {
+      if (indexReads.get(noteId) === sequence) set({ error: describeError(error) });
+    } finally {
+      if (indexReads.get(noteId) === sequence) indexReads.delete(noteId);
+    }
+  },
+  retryIndex: async (noteId) => {
+    if (get().retryingIndex[noteId]) return;
+    indexReads.delete(noteId);
+    set(state => ({ retryingIndex: { ...state.retryingIndex, [noteId]: true }, error: undefined }));
+    try {
+      const result = await useCases.retryNoteIndex.execute(noteId);
+      const message = result === 'queued' ? '已加入索引队列；专注期间暂停，退出专注后继续。'
+        : result === 'busy' ? '这篇笔记已有索引任务，无需重复提交。' : '网页演示不提供向量索引，请使用桌面或 Anna 本地版。';
+      useToastStore.getState().show(message, 'info');
+      await get().refreshIndex(noteId);
+    } catch (error) {
+      set({ error: describeError(error) });
+    } finally {
+      set(state => {
+        const retryingIndex = { ...state.retryingIndex };
+        delete retryingIndex[noteId];
+        return { retryingIndex };
+      });
+    }
+  },
   hits: [],
   query: '',
   externalResults: [],
@@ -170,26 +230,44 @@ export const useNoteStore = create<NoteState>((set, get) => {
   deep: false,
   setDeep: (deep) => set({ deep }),
   digests: {},
+  cancelDigest: (yearMonth) => {
+    digestControllers.get(yearMonth)?.abort();
+    digestControllers.delete(yearMonth);
+    set(state => ({ digests: { ...state.digests, [yearMonth]: { text: '已停止生成', loading: false } } }));
+  },
   summarizeMonth: async (yearMonth, notes) => {
-    set((state) => ({
-      digests: { ...state.digests, [yearMonth]: { text: '', loading: true } },
-    }));
+    if (digestControllers.has(yearMonth)) return;
+    const controller = new AbortController();
+    digestControllers.set(yearMonth, controller);
+    set(state => ({ digests: { ...state.digests, [yearMonth]: { text: '', loading: true } } }));
     try {
-      const text = await ai.ports.noteDigest.summarizeMonth(notes, yearMonth);
-      set((state) => ({
-        digests: {
-          ...state.digests,
-          [yearMonth]: { text: text ?? '未能生成小结，请检查本地模型是否可用', loading: false },
+      const text = await abortable(ai.ports.noteDigest.summarizeMonth(notes, yearMonth, {
+        signal: controller.signal,
+        onToken: (delta, reset) => {
+          if (digestControllers.get(yearMonth) !== controller) return;
+          set(state => ({ digests: { ...state.digests, [yearMonth]: {
+            text: reset ? '' : (state.digests[yearMonth]?.text ?? '') + delta, loading: true,
+          } } }));
         },
-      }));
+      }), controller.signal);
+      if (digestControllers.get(yearMonth) !== controller) return;
+      set(state => ({ digests: { ...state.digests, [yearMonth]: {
+        text: text ?? '未能生成小结，请检查本地模型是否可用', loading: false,
+      } } }));
     } catch (error) {
-      set((state) => ({
-        digests: {
-          ...state.digests,
-          [yearMonth]: { text: `生成失败：${describeError(error)}`, loading: false },
-        },
-      }));
+      if (digestControllers.get(yearMonth) !== controller) return;
+      set(state => ({ digests: { ...state.digests, [yearMonth]: {
+        text: `生成失败：${describeError(error)}`, loading: false,
+      } } }));
+    } finally {
+      if (digestControllers.get(yearMonth) === controller) digestControllers.delete(yearMonth);
     }
+  },
+
+  cancelEnhancement: () => {
+    enhancementController?.abort();
+    enhancementController = undefined;
+    set({ enhancing: false });
   },
 
   enhanceResults: async () => {
@@ -203,14 +281,21 @@ export const useNoteStore = create<NoteState>((set, get) => {
       })),
     ];
     if (items.length === 0 || !query) return;
+    get().cancelEnhancement();
+    const controller = new AbortController();
+    enhancementController = controller;
     set({ enhancing: true });
     try {
-      const enhanced = await useCases.enhanceSearchResults.execute({ results: items });
+      const enhanced = await useCases.enhanceSearchResults.execute({ results: items, signal: controller.signal });
+      if (enhancementController !== controller) return;
       const byId: Record<string, SearchResultEnhancement> = {};
       for (const entry of enhanced) byId[entry.id] = entry;
       set({ enhancements: byId, enhancing: false });
     } catch (error) {
+      if (enhancementController !== controller) return;
       set({ enhancing: false, error: describeError(error) });
+    } finally {
+      if (enhancementController === controller) enhancementController = undefined;
     }
   },
 
@@ -246,19 +331,43 @@ export const useNoteStore = create<NoteState>((set, get) => {
     }
   },
 
-  importNote: async (source) => {
-    set({ error: undefined });
-    try {
-      const note = await useCases.importNote.execute(source);
-      await get().refresh();
+  importPhase: 'idle',
+  cancelImport: () => {
+    if (!['parsing', 'checking'].includes(get().importPhase)) return;
+    importSequence += 1;
+    importController?.abort();
+    set({ importPhase: 'idle', importOutcome: '已停止导入，未新增笔记。', error: undefined });
+  },
 
-      // 导入后自动尝试与已有知识建立关联。
-      // 关键：这里不能 await——关联判断要调本地模型（14B，最长可超时）+ 弹确认框等用户，
-      // 同步等待会让「导入」按钮卡到模型跑完和用户确认完才恢复。落库即返回，
-      // 关联建议在后台跑，有建议时确认框会随后弹出（全局 Modal，不依赖导入按钮）。
-      if (note) void get().suggestLinksForNote(note.id);
+  importNote: async (source) => {
+    if (get().importPhase !== 'idle') return 'busy';
+    const seq = ++importSequence;
+    const controller = new AbortController();
+    importController = controller;
+    set({ error: undefined, importOutcome: undefined, importPhase: 'parsing' });
+    let duplicate = false;
+    try {
+      const note = await useCases.importNote.execute(source, {
+        signal: controller.signal,
+        onDuplicate: () => { duplicate = true; },
+        onPhase: (phase) => { if (seq === importSequence) set({ importPhase: phase }); },
+      });
+      if (seq !== importSequence) return 'cancelled';
+      await get().refresh();
+      if (seq !== importSequence) return 'cancelled';
+      set({ importOutcome: duplicate ? '已有相同内容，已保留原笔记。' : '笔记已导入，索引将在后台处理。' });
+      // Association only starts after a successful save; cancellation cannot open a late proposal.
+      if (note && !duplicate) void get().suggestLinksForNote(note.id);
+      return 'imported';
     } catch (error) {
+      if (seq !== importSequence) return 'cancelled';
       set({ error: describeError(error) });
+      return 'failed';
+    } finally {
+      if (seq === importSequence) {
+        importController = undefined;
+        set({ importPhase: 'idle' });
+      }
     }
   },
 
@@ -276,17 +385,15 @@ export const useNoteStore = create<NoteState>((set, get) => {
         .filter(Boolean)
         .join('\n');
 
-      const note = await useCases.importNote.execute({
+      return await get().importNote({
         kind: 'text',
         content,
         title: result.title.slice(0, 120),
       });
-      await get().refresh();
 
-      // 与普通导入一致：外部搜索保存的笔记同样自动尝试关联，落图才会出现节点
-      if (note) void get().suggestLinksForNote(note.id);
     } catch (error) {
       set({ error: describeError(error) });
+      return 'failed';
     }
   },
 
@@ -295,6 +402,7 @@ export const useNoteStore = create<NoteState>((set, get) => {
     set({ linking: true });
     try {
       const result = await useKnowledgeLinkStore.getState().suggestForNote(noteId);
+      if (result.cancelled || result.skipped) return;
       if (result.created.length > 0) {
         useToastStore.getState().show(
           `已建立 ${result.created.length} 条知识关联`,
@@ -344,16 +452,31 @@ export const useNoteStore = create<NoteState>((set, get) => {
   },
 
   search: async (query) => {
+    get().cancelQuestion();
+    get().cancelEnhancement();
+    searchController?.abort();
+    const controller = new AbortController();
+    searchController = controller;
+    const started = performance.now();
+    set({ enhancements: {} });
     const trimmed = query.trim();
     const seq = ++searchSeq; // 本次搜索的序号，只允许最新一次写回结果
-    set({ query, searching: true, error: undefined, deepAnswer: null, streamingAnswer: '', externalResults: [], externalQueries: [] });
+    set({ query, hits: [], searching: true, searchKeywordReady: false, searchProgress: [], searchElapsedMs: undefined, error: undefined, deepAnswer: null, streamingAnswer: '', externalResults: [], externalQueries: [] });
     if (trimmed) {
       const next = [trimmed, ...get().history.filter((item) => item !== trimmed)].slice(0, 5);
       set({ history: next });
       void saveHistory(next).catch(() => undefined);
     }
     try {
-      const result: SearchNotesResult = await useCases.searchNotes.execute(query, 10, 'user_explicit', get().deep);
+      const result: SearchNotesResult = await useCases.searchNotes.execute(query, 10, 'user_explicit', get().deep, {
+        signal: controller.signal,
+        onPartial: hits => {
+          if (seq === searchSeq && !controller.signal.aborted) set({ hits, searchKeywordReady: true });
+        },
+        onProgress: progress => {
+          if (seq === searchSeq && !controller.signal.aborted) set(state => ({ searchProgress: [...state.searchProgress, progress] }));
+        },
+      });
       if (seq !== searchSeq) return; // 已有更新的搜索，丢弃本次结果
       // RAG/向量无命中时，用关键词在已导入笔记里兜底，保证已索引内容可被找到
       const hits =
@@ -369,8 +492,9 @@ export const useNoteStore = create<NoteState>((set, get) => {
         confirmationRequired: result.confirmationRequired,
         keywordFallback: result.keywordFallback,
         searching: false,
+        searchElapsedMs: performance.now() - started,
       });
-      void get().enhanceResults();
+      // Result summaries are explicit, so they do not compete with the next question.
     } catch (error) {
       if (seq !== searchSeq) return;
       set({ searching: false, error: describeError(error) });
@@ -383,9 +507,13 @@ export const useNoteStore = create<NoteState>((set, get) => {
     const query = (queryArg ?? get().query ?? '').trim();
     if (!query) return;
 
-    set({ query, searching: true, error: undefined, confirmationRequired: false });
+    get().cancelEnhancement();
+    searchController?.abort();
+    const seq = ++searchSeq;
+    set({ searchProgress: [], searchElapsedMs: undefined, query, searching: true, error: undefined, confirmationRequired: false, enhancements: {} });
     try {
       const result = await useCases.searchNotes.executeWithConfirmation(query);
+      if (seq !== searchSeq) return;
       const hits =
         result.hits.length > 0 ? result.hits : localKeywordFallback(query, get().notes);
       set({
@@ -398,18 +526,23 @@ export const useNoteStore = create<NoteState>((set, get) => {
         keywordFallback: result.keywordFallback,
         searching: false,
       });
-      void get().enhanceResults();
+      // Result summaries are explicit, so they do not compete with the next question.
     } catch (error) {
+      if (seq !== searchSeq) return;
       set({ searching: false, error: describeError(error) });
     }
   },
 
   clearSearch: () => {
+    searchController?.abort();
+    get().cancelEnhancement();
+    askController?.abort();
     searchSeq += 1; // 清空后让在途搜索的结果作废
     askSeq += 1; // 在途深度问答同样作废：否则清空后旧答案仍会写回并弹回界面
     set({
       query: '',
       hits: [],
+      searchProgress: [], askProgress: [], searchElapsedMs: undefined, askElapsedMs: undefined, firstTokenMs: undefined, searchKeywordReady: false,
       externalResults: [],
       externalQueries: [],
       externalBlockedReason: undefined,
@@ -424,22 +557,40 @@ export const useNoteStore = create<NoteState>((set, get) => {
     });
   },
 
+  cancelQuestion: () => {
+    askSeq += 1;
+    askController?.abort();
+    set({ asking: false, streamingAnswer: '' });
+  },
+
   askQuestion: async (question) => {
     const trimmed = question.trim();
     if (!trimmed) return;
+    get().cancelEnhancement();
+    searchController?.abort();
+    searchSeq += 1;
+    askController?.abort();
+    const started = performance.now();
+    const controller = new AbortController();
+    askController = controller;
     const seq = ++askSeq; // 只允许最新一次问答写回结果
-    set({ asking: true, error: undefined, streamingAnswer: '' });
+    set({ asking: true, searching: false, askProgress: [], askElapsedMs: undefined, firstTokenMs: undefined, deepAnswer: null, error: undefined, streamingAnswer: '' });
     try {
       const result = await useCases.askNotes.execute(trimmed, {
-        deep: true,
+        signal: controller.signal,
+        deep: get().deep,
+        onProgress: progress => {
+          if (seq === askSeq && !controller.signal.aborted) set(state => ({ askProgress: [...state.askProgress, progress] }));
+        },
         onToken: (delta, reset) => {
           if (seq !== askSeq) return; // 已有更新的问答，丢弃增量
+          if (delta && !reset && get().firstTokenMs === undefined) set({ firstTokenMs: performance.now() - started });
           // 精修稿整体替换草稿：reset 先清空旧预览，避免 draft1+精修稿 拼在一起
           set(reset ? { streamingAnswer: '' } : (state) => ({ streamingAnswer: state.streamingAnswer + delta }));
         },
       });
       if (seq !== askSeq) return;
-      set({ deepAnswer: result, asking: false, streamingAnswer: '' });
+      set({ deepAnswer: result, asking: false, streamingAnswer: '', askElapsedMs: performance.now() - started });
       // 落库进问答历史（无相关笔记的问答不值得存）
       if (!result.empty) {
         try {

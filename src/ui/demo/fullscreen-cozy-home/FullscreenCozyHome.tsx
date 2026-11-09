@@ -1,3 +1,8 @@
+import { useLearningReminders } from '../../hooks/use-learning-reminders';
+import { useLearningStore } from '../../stores/learning-store';
+import { useStartupCheckStore } from '../../stores/startup-check-store';
+import { StartupCheckNotice } from './panels/StartupCheckPanel';
+import { useCompanionQuiet } from '../../hooks/use-companion-quiet';
 /**
  * NativeMind「心流小筑」全屏应用界面（V4 视觉 + 真实功能）。
  *
@@ -9,6 +14,7 @@
  * 复盘/音乐全部走真实 store。视觉场景偏好（房间/天气/时间预览/亮度）仍为本地状态。
  */
 import { useEffect, useRef, useState } from 'react';
+import { annaInvoke, isAnna } from '@infrastructure/anna';
 import { ConfirmationModal } from '../../components/features/ConfirmationModal';
 import { SimpleConfirmModal } from '../../components/features/SimpleConfirmModal';
 import { ToastHost } from '../../components/features/ToastHost';
@@ -28,9 +34,10 @@ import { TopHud } from './components/TopHud';
 import { useActorQueue } from './scene-director';
 import { configurePetSprite } from './asset-resolver';
 import { getSceneManifest } from './scene-manifest';
-import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
-import { ensureOllamaRunning, readImportedBytes } from '@infrastructure/paths/paths-api';
-import { exitFullscreenIfActive, toggleFullscreen } from '@infrastructure/window-api';
+import { sendFocusNotification } from '@infrastructure/notification-api';
+import { useT } from '../../i18n';
+import { readImportedBytes } from '@infrastructure/paths/paths-api';
+import { canFullscreen, exitFullscreenIfActive, setWindowFullscreen, subscribeFullscreen, toggleFullscreen } from '@infrastructure/window-api';
 import { mimeByExtension } from '../../stores/music-store';
 import { useCompanionStore } from '../../stores/companion-store';
 import { useFocusStore } from '../../stores/focus-store';
@@ -76,7 +83,7 @@ import './fullscreen-cozy-home.css';
  * 过期 actionProposal/陪伴记录/模型日志也从未清理。这里搬进真实启动流程，按本地日防重。
  */
 const runMaintenance = async (): Promise<void> => {
-  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+  if (typeof window === 'undefined' || (!isAnna() && !('__TAURI_INTERNALS__' in window))) return;
   try {
     const today = formatLocalDate(new Date());
     const last = await repositories.settings.get('maintenance.lastRun');
@@ -85,7 +92,7 @@ const runMaintenance = async (): Promise<void> => {
     // 备份不 gate：每次启动都备一份（Rust 侧按时间戳保留最近 7 份轮转）。
     // 之前只在「当天首次启动」备份一份并覆盖——应用连续多天不重启，备份就
     // 停留在最早那天，当天崩溃只能恢复到昨天早晨的快照，删除/损坏难找回。
-    const backup = import('@tauri-apps/api/core').then(({ invoke }) => invoke('db_backup'));
+    const backup = isAnna() ? annaInvoke('db_backup') : import('@tauri-apps/api/core').then(({ invoke }) => invoke('db_backup'));
     if (ranToday) {
       await backup.catch(() => undefined); // 今天已维护过：只补一次启动备份
       return;
@@ -172,11 +179,15 @@ interface BubbleState {
 }
 
 export function FullscreenCozyHome() {
+  const t = useT();
+  const [finishedFocusId, setFinishedFocusId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
   const [bubble, setBubble] = useState<BubbleState | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  useLearningReminders(ready);
+  const dueLearning = useLearningStore(s => s.reminders.filter(item => item.state === 'scheduled' && Date.parse(item.dueAt) <= s.clock).length);
   const [petInteractTick, setPetInteractTick] = useState(0);
   // 宠物当前位置（viewport px），气泡钉在宠物上方、跟随拖动移动
   const [petRect, setPetRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -241,22 +252,14 @@ export function FullscreenCozyHome() {
 
   /* ---------- 专注倒计时归零：系统通知（挂在常驻根组件，切页/关全屏也能收到） ---------- */
   useFocusMode(() => {
-    void (async () => {
-      try {
-        let granted = await isPermissionGranted();
-        if (!granted) granted = (await requestPermission()) === 'granted';
-        if (granted) {
-          sendNotification({ title: 'NativeMind · 专注结束', body: '这一段的计时到了，收个尾吧。' });
-        }
-      } catch {
-        // 通知失败不影响专注
-      }
-    })();
+    setFinishedFocusId(activeSession?.id ?? null);
+    void sendFocusNotification(t('NativeMind · 专注结束'), t('这一段的计时到了，收个尾吧。'));
   });
   // 真实陪伴动画与当前互动
   const companionAnimation = useCompanionStore((state) => state.animation);
   const currentInteraction = useCompanionStore((state) => state.current);
   const petGenerating = useCompanionStore((state) => state.generating);
+  const petQuiet = useCompanionQuiet(Boolean(activePanel || activeSession) || !companionEnabled || !settings.showPet);
 
   const bubbleTimer = useRef<number | undefined>(undefined);
 
@@ -332,14 +335,7 @@ export function FullscreenCozyHome() {
         // 复盘自动补生成：昨天/上周/上月缺失且当日有学习数据时触发（确认框决定是否写入）。
         // 放启动流程末尾：等各 store refresh 完成、确认门可用后再跑，避免和引导弹窗抢。
         void backfillMissingReviews().catch(() => undefined);
-        // 确保本机 Ollama 在运行：未运行则后台拉起，保证模型可用（不阻塞启动）
-        void ensureOllamaRunning().then((status) => {
-          if (status === 'started') {
-            useToastStore.getState().show('Ollama 服务已自动启动', 'info');
-          } else if (status === 'failed') {
-            useToastStore.getState().show('Ollama 未运行且自动启动失败，请运行 setup_ollama.bat', 'error');
-          }
-        });
+        void useStartupCheckStore.getState().check(true);
         void eventBus.publish({
           type: 'AppEntered',
           isFirstLaunch: false,
@@ -383,42 +379,7 @@ export function FullscreenCozyHome() {
 
   // 当前是否处于 OS 全屏（F11 / 专注联动进入）。Esc 优先退出全屏恢复边框。
   const [osFullscreen, setOsFullscreen] = useState(false);
-  // 初始化 + 监听窗口事件同步全屏状态：进入/退出全屏都在别处发 setDecorations，
-  // 这里只负责读取状态供 Esc 裁决，避免状态漂移。
-  useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window)) return;
-    let disposed = false;
-    void (async () => {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const win = getCurrentWindow();
-        if (disposed) return;
-        setOsFullscreen(await win.isFullscreen());
-      } catch {
-        // 初始化失败保持默认 false
-      }
-    })();
-    const onResized = (() => {
-      if (!('__TAURI_INTERNALS__' in window)) return undefined;
-      let off: (() => void) | undefined;
-      void (async () => {
-        try {
-          const { getCurrentWindow } = await import('@tauri-apps/api/window');
-          const win = getCurrentWindow();
-          off = await win.onResized(() => {
-            void win.isFullscreen().then(setOsFullscreen).catch(() => undefined);
-          });
-        } catch {
-          // 事件注册失败：仅按键时读取即可
-        }
-      })();
-      return () => off?.();
-    })();
-    return () => {
-      disposed = true;
-      onResized?.();
-    };
-  }, []);
+  useEffect(() => subscribeFullscreen(setOsFullscreen), []);
 
   // Esc：优先级 ① 专注全屏层（其自身处理，这里不拦）② OS 全屏（退出全屏恢复边框）
   // ③ 副面板（关闭面板）。专注层挂载时用自身 ESC，主组件这里用 osFullscreen 兜底。
@@ -439,9 +400,9 @@ export function FullscreenCozyHome() {
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  // F11 沉浸式全屏切换（仅桌面端；web 演示忽略）。聚焦在输入框时不劫持。
+  // Supported desktop/Anna fullscreen only; leave browser defaults alone otherwise.
   useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window)) return;
+    if (!canFullscreen()) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'F11') return;
       const target = event.target as HTMLElement | null;
@@ -449,33 +410,18 @@ export function FullscreenCozyHome() {
       event.preventDefault();
       void toggleFullscreen()
         .then(setOsFullscreen)
-        .catch(() => undefined);
+        .catch(() => useToastStore.getState().show(t('无法进入全屏，请使用宿主窗口的全屏操作。'), 'info'));
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [t]);
 
   // 进入「专注全屏覆盖层」→ 同步切换 OS 沉浸式全屏（隐藏系统标题栏）；
   // 退出覆盖层 → 恢复窗口。这样专注模式是无边框真全屏，而不是带标题栏的窗口。
   useEffect(() => {
     if (!('__TAURI_INTERNALS__' in window)) return;
-    void (async () => {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const win = getCurrentWindow();
-        if (focusOverlay) {
-          await win.setDecorations(false);
-          await win.setFullscreen(true);
-          setOsFullscreen(true);
-        } else {
-          await win.setFullscreen(false);
-          await win.setDecorations(true);
-          setOsFullscreen(false);
-        }
-      } catch {
-        // 全屏联动失败不应打断专注流程
-      }
-    })();
+    // Anna uses explicit fullscreen controls: effects do not retain a browser gesture.
+    void setWindowFullscreen(focusOverlay).then(setOsFullscreen).catch(() => undefined);
   }, [focusOverlay]);
 
   /* ---------- 场景导演：陪伴动画驱动宠物 ---------- */
@@ -483,7 +429,7 @@ export function FullscreenCozyHome() {
   useEffect(() => {
     const prev = prevPetAnimRef.current;
     prevPetAnimRef.current = companionAnimation;
-    if (prev === companionAnimation) return;
+    if (prev === companionAnimation || useCompanionStore.getState().surfaceBusy) return;
     const sleeping =
       petActionRef.current === 'sleep_loop' || petActionRef.current === 'sleep_enter';
     switch (companionAnimation) {
@@ -539,22 +485,25 @@ export function FullscreenCozyHome() {
 
   /* ---------- 气泡：真实互动内容 ---------- */
   useEffect(() => {
+    window.clearTimeout(bubbleTimer.current);
     if (currentInteraction) {
       setBubble({
         id: 1,
         text: currentInteraction.content ?? '',
         requiresResponse: currentInteraction.requiresResponse,
       });
+      bubbleTimer.current = window.setTimeout(() => setBubble(null), 5000);
     } else {
       setBubble(null);
     }
+    return () => window.clearTimeout(bubbleTimer.current);
   }, [currentInteraction]);
 
   /* ---------- 陪伴提问：宠物做「认真查看问题」小动作（sprite 第 8 行） ---------- */
   const wasQuestionRef = useRef(false);
   useEffect(() => {
     const isQuestion = currentInteraction?.interactionType === 'question';
-    if (isQuestion && !wasQuestionRef.current) {
+    if (isQuestion && !wasQuestionRef.current && !useCompanionStore.getState().surfaceBusy) {
       const sleeping =
         petActionRef.current === 'sleep_loop' || petActionRef.current === 'sleep_enter';
       petQueue.cue(sleeping ? 'wake' : 'examining', {
@@ -572,6 +521,7 @@ export function FullscreenCozyHome() {
   /* ---------- 宠物苏格拉底提问：冒一个简单问题气泡 ---------- */
   useEffect(() => {
     if (!petQuestion) return;
+    if (useCompanionStore.getState().surfaceBusy) { usePetQuestion.getState().clear(); return; }
     window.clearTimeout(bubbleTimer.current);
     setBubble({ id: Date.now(), text: petQuestion });
     bubbleTimer.current = window.setTimeout(() => {
@@ -591,6 +541,7 @@ export function FullscreenCozyHome() {
 
   /* ---------- 本地气泡（唤醒语）与自动休息 ---------- */
   const showLine = (text: string) => {
+    if (useCompanionStore.getState().surfaceBusy) return;
     window.clearTimeout(bubbleTimer.current);
     setBubble({ id: Date.now(), text });
     bubbleTimer.current = window.setTimeout(() => setBubble(null), 2200);
@@ -608,6 +559,8 @@ export function FullscreenCozyHome() {
   }, [settings.petAutoRest, petInteractTick]);
 
   const handlePetInteract = () => {
+    if (petGenerating) return;
+    if (currentInteraction) { openPanel('companion'); return; }
     setPetInteractTick((t) => t + 1);
     const action = petActionRef.current;
     if (action === 'sleep_loop' || action === 'sleep_enter') {
@@ -618,14 +571,6 @@ export function FullscreenCozyHome() {
       return;
     }
     void useCompanionStore.getState().trigger('user_invoked');
-  };
-
-  const handleRespond = async (text: string) => {
-    await useCompanionStore.getState().respond(text);
-  };
-
-  const handleDismiss = () => {
-    useCompanionStore.getState().dismiss();
   };
 
   /* ---------- 自定义背景音频：读字节 → Blob → 循环播放 ---------- */
@@ -963,6 +908,8 @@ export function FullscreenCozyHome() {
         <h1>启动失败</h1>
         <p>{bootError}</p>
         <p>数据库初始化没有完成，为避免写入错乱，应用暂停在这里。</p>
+        <p>请检查数据目录的写入权限、磁盘剩余空间及错误详情，然后重试。</p>
+        <button type="button" onClick={() => window.location.reload()}>重试启动</button>
       </main>
     );
   }
@@ -978,6 +925,7 @@ export function FullscreenCozyHome() {
   return (
     <main
       className="fullscreen-cozy-home"
+      data-modal-root
       data-hud={hudTheme}
       data-focus={focusing ? 'on' : 'off'}
       data-panel={activePanel ? 'on' : 'off'}
@@ -985,6 +933,11 @@ export function FullscreenCozyHome() {
       data-bgm={playingAmbient ?? 'off'}
       aria-label="心流小筑 全屏学习空间"
     >
+      {ready && dueLearning > 0 && !activePanel && !focusing && <button className="learning-notice" onClick={() => openPanel('learning')}>有 {dueLearning} 项学习提醒待处理</button>}
+      {!activePanel && !focusing && <StartupCheckNotice onOpen={() => {
+        openPanel('settings');
+        window.requestAnimationFrame(() => document.getElementById('startup-check')?.scrollIntoView({ block: 'start' }));
+      }} />}
       <SceneViewport
         sceneState={{
           sceneId: settings.sceneId,
@@ -998,7 +951,8 @@ export function FullscreenCozyHome() {
         showPet={settings.showPet && companionEnabled}
         onPetInteract={handlePetInteract}
         onPetPositionChange={setPetRect}
-        petGenerating={petGenerating}
+        petGenerating={petGenerating && !petQuiet}
+        pendingQuestion={Boolean(currentInteraction?.requiresResponse) && !petQuiet}
       />
 
       <TopHud
@@ -1040,10 +994,10 @@ export function FullscreenCozyHome() {
       />
 
       <SpeechBubble
-        line={bubble}
+        line={petQuiet ? null : bubble}
         anchor={bubbleAnchor}
-        onRespond={(text) => void handleRespond(text)}
-        onDismiss={handleDismiss}
+        onOpen={() => openPanel('companion')}
+        onDismiss={() => setBubble(null)}
       />
 
       {/* 常驻挂载：面板关闭后本地状态保留 */}
@@ -1091,6 +1045,16 @@ export function FullscreenCozyHome() {
           onToggleMute={() => setMuted((value) => !value)}
         />
       ) : null}
+      {!focusOverlay && finishedFocusId && activeSession?.id === finishedFocusId && (
+        <aside className="focus-finished-notice" role="status">
+          <p>{t('这一段的计时到了，收个尾吧。')}</p>
+          <button type="button" className="cozy-btn-ghost" onClick={() => {
+            setFinishedFocusId(null);
+            useFocusOverlayStore.getState().openOverlay();
+          }}>{t('查看专注')}</button>
+          <button type="button" className="cozy-btn-ghost" onClick={() => setFinishedFocusId(null)}>{t('关闭提醒')}</button>
+        </aside>
+      )}
     </main>
   );
 }

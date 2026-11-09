@@ -4,6 +4,7 @@
  */
 import type { UUID } from '@shared-types/common';
 import { now } from '../shared/utils';
+import { abortable } from '../shared/abortable';
 import {
   createProposal,
   type ActionProposal,
@@ -12,7 +13,7 @@ import {
 } from './action-proposal';
 
 /** UI 侧确认入口：返回 true 表示用户同意 */
-export type ConfirmationPrompt = (proposal: ActionProposal) => Promise<boolean>;
+export type ConfirmationPrompt = (proposal: ActionProposal, signal?: AbortSignal) => Promise<boolean>;
 
 /** 简单确认请求（删除等破坏性操作），不落 action_proposal，确认后直接执行 */
 export interface ConfirmRequest {
@@ -59,14 +60,25 @@ export class ConfirmationService {
    */
   async confirmAndCommit<P, R>(
     input: ProposeInput<P>,
-    commit: (payload: P, proposalId: string) => Promise<R>
+    commit: (payload: P, proposalId: string) => Promise<R>,
+    options?: { signal?: AbortSignal; onCommit?: () => void }
   ): Promise<ConfirmationResult<R>> {
+    const signal = options?.signal;
+    signal?.throwIfAborted();
     const proposal = createProposal(input);
     await this.proposalRepo.save(proposal as ActionProposal);
 
-    const approved = proposal.requiresConfirmation
-      ? await this.prompt(proposal as ActionProposal)
-      : true;
+    let approved: boolean;
+    try {
+      signal?.throwIfAborted();
+      approved = proposal.requiresConfirmation
+        ? await abortable(this.prompt(proposal as ActionProposal, signal), signal)
+        : true;
+      signal?.throwIfAborted();
+    } catch (error) {
+      if (signal?.aborted) await this.proposalRepo.updateStatus(proposal.id, 'rejected', now());
+      throw error;
+    }
 
     if (!approved) {
       await this.proposalRepo.updateStatus(proposal.id, 'rejected', now());
@@ -75,6 +87,8 @@ export class ConfirmationService {
 
     // 先 commit 成功再标 confirmed：否则 commit 抛错（如过滤后空标题）时，
     // 库里会留下一条「已确认但什么都没写」的假记录，审计就失真了。
+    // Once confirmed persistence starts, finish it; the UI can no longer stop generation.
+    options?.onCommit?.();
     const result = await commit(proposal.payload, proposal.id);
     await this.proposalRepo.updateStatus(proposal.id, 'confirmed', now());
 

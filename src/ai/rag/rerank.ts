@@ -1,3 +1,4 @@
+import { withModelDeadline } from '../shared/model-deadline';
 /**
  * 模型级重排（Rerank）
  *
@@ -60,22 +61,6 @@ export function parseReRankOutput(raw: string): Map<string, number> {
   return map;
 }
 
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
-    // 竞态一有结果就清掉定时器，否则败者 timer 空转保活事件循环
-    const timer = setTimeout(() => reject(new Error('重排超时')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-
 export class ReRanker {
   constructor(
     private readonly router: ModelRouter,
@@ -86,8 +71,10 @@ export class ReRanker {
   async rerank(
     query: string,
     candidates: RetrievalCandidate[],
-    topK: number
+    topK: number,
+    signal?: AbortSignal
   ): Promise<RetrievalCandidate[] | null> {
+    signal?.throwIfAborted();
     const pool = candidates.slice(0, this.options.maxCandidates);
     if (pool.length < 2) return null;
 
@@ -98,8 +85,9 @@ export class ReRanker {
       )
       .join('\n');
 
-    const rankingPromise = this.router.run<{ query: string; candidates: string }, ScoredId[]>({
+    const ranking = (requestSignal: AbortSignal) => this.router.run<{ query: string; candidates: string }, ScoredId[]>({
       taskType: 'search_result_ranking',
+      signal: requestSignal,
       input: { query, candidates: list },
       inlinePrompt: {
         system:
@@ -107,8 +95,9 @@ export class ReRanker {
         user: `查询：${query}\n\n候选片段：\n${list}\n\n请输出相关性分数 JSON。`,
       },
     });
-    const result = await withTimeout(rankingPromise, this.options.timeoutMs).catch(() => null);
+    const result = await withModelDeadline(ranking, this.options.timeoutMs, '重排', signal).catch(() => null);
     // 重排超时/模型报错：保持启发式原顺序，绝不阻塞检索
+    signal?.throwIfAborted();
     if (result === null) return null;
 
     // 优先用路由已解析的结构化输出；否则用原始文本宽松解析兜底

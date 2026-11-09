@@ -22,13 +22,15 @@ export interface EbookDocument {
 }
 
 /** 由 infrastructure 注入：Tauri 命令 file_extract_ebook 的封装 */
-export type EbookExtractor = (uri: string) => Promise<EbookDocument>;
+export type EbookExtractor = (uri: string, signal?: AbortSignal) => Promise<EbookDocument>;
 
 export class EbookParser {
   constructor(private readonly extractor: EbookExtractor) {}
 
-  async parse(uri: string): Promise<ParsedFile> {
-    const document = await this.extractor(uri);
+  async parse(uri: string, signal?: AbortSignal): Promise<ParsedFile> {
+    signal?.throwIfAborted();
+    const document = await this.extractor(uri, signal);
+    signal?.throwIfAborted();
 
     const parts: string[] = [];
     for (const chapter of document.chapters) {

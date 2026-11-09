@@ -1,3 +1,4 @@
+import { measureKnowledgeStage } from '../shared/knowledge-timing';
 /**
  * RAGOrchestrator - RAG 编排入口（§11.3）
  *
@@ -67,10 +68,11 @@ export class RAGOrchestrator {
 
   /** 纯检索，不调模型。供「查找相关旧笔记」按钮与本地搜索用 */
   async retrieve(query: RetrievalQuery, limit = 10): Promise<RetrievalCandidate[]> {
-    const ruleCandidates = await this.candidateProvider.listCandidates(
+    query.signal?.throwIfAborted();
+    const ruleCandidates = await measureKnowledgeStage('candidates', query.onProgress, () => this.candidateProvider.listCandidates(
       query,
       this.options.ruleCandidateLimit
-    );
+    ));
     return this.retrieval.retrieve(query, ruleCandidates, limit);
   }
 
@@ -80,11 +82,13 @@ export class RAGOrchestrator {
    */
   async findConnections(query: RetrievalQuery): Promise<ConnectionResult> {
     let candidates = await this.retrieve(query, this.options.judgeCandidateLimit);
+    query.signal?.throwIfAborted();
 
     // 检索零命中时的语义兜底：字面检索对「正文用词不重叠但语义相关」的笔记必然落空
     // （如「记忆模块(Memory)」与「Agent 核心组件」），拉最近笔记（含标题）让模型综合判断。
     if (candidates.length === 0 && this.candidateProvider.listFallback) {
       const fallback = await this.candidateProvider.listFallback(query, this.options.judgeCandidateLimit);
+      query.signal?.throwIfAborted();
       // 兜底候选直接进模型层，不再过规则层打分（打分本来就是零，过了也是零）
       candidates = fallback.map((c) => ({
         chunkId: c.chunkId,
@@ -102,7 +106,8 @@ export class RAGOrchestrator {
       return { candidates: [], suggestions: [], relationJudged: true };
     }
 
-    const { ok, suggestions } = await this.judge.judge(query.text, candidates);
+    const { ok, suggestions } = await this.judge.judge(query.text, candidates, query.signal);
+    query.signal?.throwIfAborted();
     return { candidates, suggestions, relationJudged: ok };
   }
 

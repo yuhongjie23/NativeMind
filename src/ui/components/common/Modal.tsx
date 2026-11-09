@@ -11,6 +11,8 @@
  */
 import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useT } from '../../i18n';
 
 interface ModalProps {
   open: boolean;
@@ -26,18 +28,27 @@ const FOCUSABLE =
   'button, [href], input, select, textarea, [role="switch"], [tabindex]:not([tabindex="-1"])';
 
 export function Modal({ open, title, children, footer, dismissible = true, onClose }: ModalProps) {
+  const t = useT();
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const isTopDialog = () => {
+    const dialogs = document.querySelectorAll('.modal-overlay > .modal');
+    return dialogs[dialogs.length - 1] === dialogRef.current;
+  };
 
   useEffect(() => {
-    if (!open || !dismissible || !onClose) return;
+    if (!open) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Escape' || !isTopDialog()) return;
+      if (event.target instanceof Element && event.target.closest('[data-note-viewer]')?.querySelector('[data-document-find]')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (dismissible) onClose?.();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [open, dismissible, onClose]);
 
   // 焦点陷阱：打开时聚焦弹窗内首个可聚焦元素；Tab 循环困在弹窗内；关闭后还原焦点
@@ -49,39 +60,47 @@ export function Modal({ open, title, children, footer, dismissible = true, onClo
     const focusables = (): HTMLElement[] =>
       dialog
         ? Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-            (el) => !el.hasAttribute('disabled')
+            (el) => !el.hasAttribute('disabled') && el.tabIndex >= 0 && el.getClientRects().length > 0
           )
         : [];
 
     const first = focusables()[0] ?? dialog;
-    first?.focus();
+    first?.focus({ preventScroll: true });
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab' || !dialog) return;
+      if (event.key !== 'Tab' || !dialog || !isTopDialog()) return;
+      // The sheet beneath this dialog has its own focus trap.
+      event.stopImmediatePropagation();
       const list = focusables();
-      if (list.length === 0) return;
+      if (list.length === 0) { event.preventDefault(); dialog.focus({ preventScroll: true }); return; }
       const firstEl = list[0];
       const lastEl = list[list.length - 1];
       const activeEl = document.activeElement;
-      if (event.shiftKey && (activeEl === firstEl || activeEl === dialog)) {
+      if (event.shiftKey && (activeEl === firstEl || !dialog.contains(activeEl) || activeEl === dialog)) {
         event.preventDefault();
         lastEl.focus();
-      } else if (!event.shiftKey && activeEl === lastEl) {
+      } else if (!event.shiftKey && (activeEl === lastEl || !dialog.contains(activeEl) || activeEl === dialog)) {
         event.preventDefault();
         firstEl.focus();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      previouslyFocusedRef.current?.focus?.();
+      window.removeEventListener('keydown', onKeyDown, true);
+      const previous = previouslyFocusedRef.current;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, [open]);
 
   if (!open) return null;
 
-  return (
-    <div className="modal-overlay" onClick={dismissible ? onClose : undefined}>
+  // Keep scene theme inheritance, but escape the transformed, scrollable sheet.
+  const host = document.querySelector('[data-modal-root]') ?? document.body;
+  return createPortal(
+    <div className="modal-overlay" onClick={(event) => {
+      event.stopPropagation();
+      if (dismissible && event.target === event.currentTarget && isTopDialog()) onClose?.();
+    }}>
       <div
         ref={dialogRef}
         aria-labelledby={titleId}
@@ -91,12 +110,14 @@ export function Modal({ open, title, children, footer, dismissible = true, onClo
         role="dialog"
         tabIndex={-1}
       >
-        <h2 className="modal-title" id={titleId}>
-          {title}
-        </h2>
+        <header className="modal-header">
+          <h2 className="modal-title" id={titleId}>{title}</h2>
+          {dismissible && onClose && <button type="button" className="modal-close" aria-label={t('关闭')} onClick={onClose}>×</button>}
+        </header>
         <div className="modal-body">{children}</div>
         {footer ? <div className="modal-footer">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    host
   );
 }

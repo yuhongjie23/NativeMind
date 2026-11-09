@@ -4,7 +4,7 @@
  * 目录设置是这次新增的持久化项：readDirs 存 JSON 数组、musicDir 存单个路径。
  * 重点是「改完能落库、重载能读回」，否则配置的读取/音乐目录重启即丢。
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { repositories } from '@ui/stores/runtime';
 import { useSettingsStore } from '@ui/stores/settings-store';
 
@@ -43,5 +43,25 @@ describe('settings-store 路径', () => {
   it('readDirs 以 JSON 数组字符串落库', async () => {
     await useSettingsStore.getState().updatePaths({ readDirs: ['/a', '/b'] });
     expect(await repositories.settings.get('paths.readDirs')).toBe('["/a","/b"]');
+  });
+
+  it('persists independent video slots, restores them and removes only the selected mapping', async () => {
+    useSettingsStore.setState({ backgroundVideos: {} });
+    await useSettingsStore.getState().updateBackgroundVideo('library:night', 'C:/data/imports/night.mp4');
+    await useSettingsStore.getState().updateBackgroundVideo('library:day', 'C:/data/imports/day.webm');
+    useSettingsStore.setState({ backgroundVideos: {} });
+    await useSettingsStore.getState().load();
+    expect(Object.keys(useSettingsStore.getState().backgroundVideos)).toHaveLength(2);
+    await useSettingsStore.getState().updateBackgroundVideo('library:night');
+    expect(useSettingsStore.getState().backgroundVideos).toEqual({ 'library:day': 'C:/data/imports/day.webm' });
+  });
+
+  it('keeps the current video when saving the replacement fails', async () => {
+    useSettingsStore.setState({ backgroundVideos: { 'library:day': 'original.mp4' } });
+    const save = vi.spyOn(repositories.settings, 'setMany').mockRejectedValueOnce(new Error('disk full'));
+    try {
+      await expect(useSettingsStore.getState().updateBackgroundVideo('library:day', 'replacement.mp4')).rejects.toThrow('disk full');
+      expect(useSettingsStore.getState().backgroundVideos['library:day']).toBe('original.mp4');
+    } finally { save.mockRestore(); }
   });
 });

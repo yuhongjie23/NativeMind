@@ -1,0 +1,33 @@
+{
+  "schema": 2,
+  "required_executas": [
+    {
+      "tool_id": "tool-dev-nativemind"
+    }
+  ],
+  "tags": ["nativemind"],
+  "ui": {
+    "browser_permissions": ["fullscreen"],
+    "bundle": {
+      "format": "static-spa",
+      "entry": "index.html",
+      "external_origins": []
+    },
+    "views": [
+      {
+        "name": "main",
+        "title": "NativeMind",
+        "default": true,
+        "default_size": { "w": 1280, "h": 800 },
+        "min_size": { "w": 960, "h": 640 }
+      }
+    ],
+    "csp_overrides": {},
+    "state_merge": "last_writer_wins"
+  },
+  "dev": {
+    "fixtures": ["fixtures/*.jsonl"],
+    "seed_storage": {},
+    "user_id": 1
+  }
+}

@@ -158,8 +158,10 @@ export class SqliteTodoRepository implements TodoRepository {
    * 「替换为拆分」用：先删后写在事务里，任何一条失败都不会留下「原任务已删、新任务没写」的丢数据状态。
    */
   async replaceAll(deleteId: UUID, todos: Todo[]): Promise<void> {
+    if (!todos.length) throw new Error('拆分任务不能为空');
     await this.db.transaction(async (tx: SqlDriver) => {
-      await tx.execute('DELETE FROM todos WHERE id = ?', [deleteId]);
+      const deleted = await tx.execute("DELETE FROM todos WHERE id = ? AND status IN ('pending', 'in_progress')", [deleteId]);
+      if (deleted !== 1) throw new Error('原任务已删除、已拆分或已结束，请刷新后再试。');
       for (const todo of todos) {
         await tx.execute(UPSERT, toRow(todo));
       }

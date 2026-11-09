@@ -1,0 +1,21 @@
+.learning-panel { display: grid; gap: 24px; }
+.learning-section { border-bottom: 1px solid #84766533; padding-bottom: 22px; }
+.learning-section h3 { margin: 0 0 10px; }
+.learning-section p { line-height: 1.6; font-size: 13px; overflow-wrap: anywhere; }
+.learning-section form { display: grid; gap: 12px; margin: 14px 0; }
+.learning-section label:not(.learning-checkbox) { display: grid; gap: 6px; font-size: 13px; }
+.learning-section input:not([type=checkbox]), .learning-section select, .learning-section textarea { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #84766599; border-radius: 8px; color: #302b22; background: #fff8ed; font: inherit; box-sizing: border-box; color-scheme: light; }
+.learning-section input::placeholder, .learning-section textarea::placeholder { color: #70675b; }
+.learning-section textarea { min-height: 68px; resize: vertical; }
+.learning-form-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.learning-form-row label { flex: 1 1 160px; }
+.learning-checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.learning-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.learning-card { margin-top: 12px; border: 1px solid #84766544; padding: 14px; border-radius: 12px; }
+.learning-card[data-due=true] { border-color: #aa733f; background: #e8c79822; }
+.learning-card h4 { margin: 0; }
+.learning-card details { margin-top: 12px; font-size: 13px; }
+.learning-card summary { cursor: pointer; }
+.learning-error { color: #842719; background: #fff1ed; padding: 8px; border-radius: 6px; }
+.learning-caption { opacity: .8; }
+.learning-notice { position: absolute; z-index: 25; top: 88px; right: 24px; max-width: min(300px, 80vw); padding: 10px 16px; border: 1px solid #a28a65; border-radius: 12px; background: #fff8e8ed; color: #4d4035; cursor: pointer; }

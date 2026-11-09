@@ -6,7 +6,7 @@
  */
 import { create } from 'zustand';
 import type { Todo } from '@shared-types/domain';
-import type { TodoDraft } from '@application/ports';
+import type { TodoStructuringOptions, TodoDraft } from '@application/ports';
 import type { CreateTodoInput } from '@application/use-cases/todo/create-todo';
 import type { UpdateTodoPatch } from '@application/use-cases/todo/update-todo';
 import { describeError, repositories, useCases } from './runtime';
@@ -21,7 +21,7 @@ interface TodoState {
   /** 自然语言目标拆解，写入前会弹确认 */
   createFromGoal: (goal: string) => Promise<void>;
   /** 只拆不写：返回草稿供页面预览（用户选择采用/直接加入） */
-  structureGoal: (goal: string) => Promise<TodoDraft[]>;
+  structureGoal: (goal: string, options?: TodoStructuringOptions) => Promise<TodoDraft[]>;
   /** 采用拆分：多条 todo 共享 sourceGoalId 落库（软连接任务组） */
   createDrafts: (drafts: TodoDraft[], sourceGoalId?: string) => Promise<void>;
   /** 替换为拆分：事务化「删原任务 + 整批写拆分任务」，任一失败不丢原任务 */
@@ -68,7 +68,7 @@ export const useTodoStore = create<TodoState>((set, get) => {
       }
     },
     createFromGoal: (goal) => run(() => useCases.createTodo.executeFromGoal(goal)),
-    structureGoal: (goal) => useCases.createTodo.structureGoal(goal),
+    structureGoal: (goal, options) => useCases.createTodo.structureGoal(goal, options),
     createDrafts: (drafts, sourceGoalId) =>
       run(() => useCases.createTodo.executeDrafts(drafts, sourceGoalId)),
     replaceWithDrafts: (originalId, drafts) =>

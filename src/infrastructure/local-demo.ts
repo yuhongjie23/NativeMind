@@ -1,6 +1,8 @@
+import { InMemoryLearningRepository } from './learning-memory';
 import { createApplication, type Application } from '@application/bootstrap';
 import { DeepSeekProvider } from './model-runtime/deepseek-provider';
 import { isSameLocalDay, splitPlainIntoParagraphs } from '@application/shared/utils';
+import { completedByDate } from '@application/use-cases/review/review-completion';
 import type { ActionProposal, ActionProposalRepository, ProposalStatus } from '@application/confirmation/action-proposal';
 import type { ConfirmPrompt, ConfirmationPrompt } from '@application/confirmation/confirmation-service';
 import type {
@@ -40,6 +42,7 @@ CompanionUtterance,
   ReviewGeneratorPort,
   ReviewLog,
   ReviewRepository,
+  ReviewFollowUp,
   SearchHit,
   SearchResultEnhancement,
   SearchResultEnhancerPort,
@@ -137,6 +140,11 @@ export class InMemoryTodoRepository implements TodoRepository {
 
   /** 事务化替换（内存版等价于先删后整批写，一次落盘） */
   async replaceAll(deleteId: UUID, todos: Todo[]): Promise<void> {
+    if (!todos.length) throw new Error('拆分任务不能为空');
+    const original = this.todos.get(deleteId);
+    if (!original || (original.status !== 'pending' && original.status !== 'in_progress')) {
+      throw new Error('原任务已删除、已拆分或已结束，请刷新后再试。');
+    }
     this.todos.delete(deleteId);
     todos.forEach((todo) => this.todos.set(todo.id, copy(todo)));
     saveMapEntries('nm.todos', this.todos);
@@ -219,7 +227,7 @@ export class InMemoryFocusRepository implements FocusRepository {
 export class InMemoryNoteRepository implements NoteRepository {
   private readonly notes = new Map<UUID, Note>();
 
-  constructor() {
+  constructor(private readonly importJobs = new InMemoryJobQueue()) {
     loadMapEntries('nm.notes', this.notes);
   }
 
@@ -257,6 +265,17 @@ export class InMemoryNoteRepository implements NoteRepository {
     saveMapEntries('nm.notes', this.notes);
   }
 
+  async commitImport(note: Note): Promise<Note> {
+    // No await between duplicate lookup and the two in-memory writes.
+    const existing = Array.from(this.notes.values()).find(item => item.contentHash === note.contentHash);
+    if (existing) return copy(existing);
+    const stored = copy(note);
+    this.importJobs.push({ type: 'chunk_note', entityId: note.id });
+    this.notes.set(note.id, stored);
+    saveMapEntries('nm.notes', this.notes);
+    return note;
+  }
+
   async delete(id: string): Promise<void> {
     this.notes.delete(id);
     saveMapEntries('nm.notes', this.notes);
@@ -271,9 +290,12 @@ export class InMemoryNoteRepository implements NoteRepository {
 
 export class InMemoryReviewRepository implements ReviewRepository {
   private readonly reviews = new Map<string, ReviewLog>();
+  private readonly followUps = new Map<string, ReviewFollowUp>();
+  private adoptionQueue: Promise<void> = Promise.resolve();
 
-  constructor() {
+  constructor(private readonly todos: TodoRepository = new InMemoryTodoRepository()) {
     loadMapEntries('nm.reviews', this.reviews);
+    loadMapEntries('nm.reviewFollowUps', this.followUps);
   }
 
   async findById(id: string): Promise<ReviewLog | null> {
@@ -287,24 +309,55 @@ export class InMemoryReviewRepository implements ReviewRepository {
   }
 
   async save(review: ReviewLog): Promise<void> {
-    this.reviews.set(`${review.reviewType}:${review.date}`, copy(review));
+    const key = `${review.reviewType}:${review.date}`;
+    this.reviews.set(key, copy({ ...review, id: this.reviews.get(key)?.id ?? review.id }));
     saveMapEntries('nm.reviews', this.reviews);
   }
 
-  async listAll(): Promise<ReviewLog[]> {
+  async listAll(limit?: number): Promise<ReviewLog[]> {
     return Array.from(this.reviews.values())
       .map(copy)
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      .sort((left, right) => right.date.localeCompare(left.date) || right.updatedAt.localeCompare(left.updatedAt)).slice(0, limit);
   }
 
   async delete(id: string): Promise<void> {
     for (const [key, review] of this.reviews) {
       if (review.id === id) {
         this.reviews.delete(key);
+        for (const [followUpKey, entry] of this.followUps) {
+          if (entry.reviewId === id) this.followUps.delete(followUpKey);
+        }
+        saveMapEntries('nm.reviewFollowUps', this.followUps);
         saveMapEntries('nm.reviews', this.reviews);
         return;
       }
     }
+  }
+
+  async adoptSuggestion(reviewId: string, suggestion: string, todo: Todo): Promise<{ followUp: ReviewFollowUp; created: boolean }> {
+    const work = this.adoptionQueue.then(async () => {
+      const key = JSON.stringify([reviewId, suggestion]);
+      const existing = this.followUps.get(key);
+      if (existing) return { followUp: await this.currentFollowUp(existing), created: false };
+      const review = await this.findById(reviewId);
+      if (!review?.nextTodos.some(title => title.trim() === suggestion)) throw new Error('复盘建议已变化，请刷新后再试。');
+      await this.todos.save(todo);
+      const followUp: ReviewFollowUp = { id: todo.id, reviewId, suggestion, todoId: todo.id, adoptedAt: todo.createdAt, status: todo.status };
+      this.followUps.set(key, followUp);
+      saveMapEntries('nm.reviewFollowUps', this.followUps);
+      return { followUp: copy(followUp), created: true };
+    });
+    this.adoptionQueue = work.then(() => undefined, () => undefined);
+    return work;
+  }
+
+  private async currentFollowUp(entry: ReviewFollowUp): Promise<ReviewFollowUp> {
+    const todo = entry.todoId ? await this.todos.findById(entry.todoId) : null;
+    return { ...copy(entry), todoId: todo?.id, status: todo?.status ?? 'deleted', completedAt: todo?.completedAt };
+  }
+
+  async listFollowUps(limit?: number): Promise<ReviewFollowUp[]> {
+    return Promise.all([...this.followUps.values()].sort((a, b) => b.adoptedAt.localeCompare(a.adoptedAt)).slice(0, limit).map(entry => this.currentFollowUp(entry)));
   }
 }
 
@@ -704,6 +757,10 @@ export class InMemoryJobQueue implements JobQueuePort {
   private readonly jobs: QueuedJob[] = [];
 
   async enqueue(job: QueuedJob): Promise<void> {
+    this.push(job);
+  }
+
+  push(job: QueuedJob): void {
     this.jobs.push(copy(job));
   }
 
@@ -784,33 +841,34 @@ export class RuleBasedTodoStructuringPort implements TodoStructuringPort {
 }
 
 export class TemplateReviewGeneratorPort implements ReviewGeneratorPort {
-  async generate(input: {
-    reviewType: 'daily' | 'weekly';
-    date: string;
-    todos: Todo[];
-    focusSessions: FocusSession[];
-  }): Promise<ReviewDraft> {
-    const completedTodos = input.todos.filter((todo) => todo.status === 'completed');
+  async generate(input: Parameters<ReviewGeneratorPort['generate']>[0]): Promise<ReviewDraft> {
+    const completedTodos = input.todos.filter((todo) => completedByDate(todo, input.date));
     const completedFocus = input.focusSessions.filter((session) => session.status === 'completed');
-    const focusMinutes = completedFocus.reduce((sum, session) => sum + session.durationMinutes, 0);
-    const label = input.reviewType === 'daily' ? 'Daily' : 'Weekly';
+    const focusMinutes = completedFocus.reduce((sum, session) => sum + (session.actualMinutes ?? session.durationMinutes), 0);
+    const label = input.reviewType === 'daily' ? '日' : input.reviewType === 'weekly' ? '周' : '月';
+    const fact = `截至 ${input.date}，有日期依据的已完成任务 ${completedTodos.length}/${input.todos.length} 项，记录完成专注 ${focusMinutes} 分钟。`;
+    const observed = input.todos.length > 0 || input.focusSessions.length > 0;
+    const nextTodo = input.followUps?.some(entry => entry.status === 'pending' || entry.status === 'in_progress') ? undefined : completedTodos[0];
+    const suggestion = nextTodo ? `回顾「${nextTodo.title.slice(0, 100)}」` : undefined;
 
     return {
       content: [
-        `# ${label} review - ${input.date}`,
+        `${input.date} ${label}复盘（演示）`,
         '',
-        `Completed tasks: ${completedTodos.length}/${input.todos.length}.`,
-        `Completed focus time: ${focusMinutes} minutes.`,
+        fact,
         '',
-        'Notes:',
-        '- Add a short reflection after the session.',
+        '这是程序统计的演示草稿；没有记录不代表没有学习。',
       ].join('\n'),
-      summary: `${completedTodos.length} tasks completed, ${focusMinutes} focused minutes.`,
-      insights: focusMinutes > 0 ? ['Focus data is available for review.'] : ['No completed focus sessions yet.'],
-      nextTodos: input.todos
-        .filter((todo) => todo.status !== 'completed')
-        .slice(0, 3)
-        .map((todo) => todo.title),
+      summary: fact,
+      insights: observed ? [fact] : [],
+      nextTodos: suggestion ? [suggestion] : [],
+      evidence: {
+        observations: observed ? [{ text: fact, evidenceIds: ['period'] }] : [],
+        suggestions: suggestion && nextTodo ? [{ text: suggestion, evidenceIds: [`task:${nextTodo.id}`] }] : [],
+        sources: [{ id: 'period', kind: 'period', description: fact },
+          ...(nextTodo ? [{ id: `task:${nextTodo.id}`, kind: 'task' as const, description: `任务「${nextTodo.title}」已完成，完成日期 ${nextTodo.completedAt}。` }] : [])],
+        limitations: ['浏览器演示使用程序模板，不代表模型已分析学习情况。'],
+      },
     };
   }
 }
@@ -1010,6 +1068,7 @@ export interface LocalDemoRuntime {
   /** 与 Tauri 同形：web 演示模式不接云端，占位空实例 */
   deepseek: DeepSeekProvider;
   repositories: {
+    learning: InMemoryLearningRepository;
     todo: InMemoryTodoRepository;
     focus: InMemoryFocusRepository;
     note: InMemoryNoteRepository;
@@ -1046,10 +1105,12 @@ export interface LocalDemoOptions {
 export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDemoRuntime => {
   const todo = new InMemoryTodoRepository();
   const focus = new InMemoryFocusRepository();
-  const note = new InMemoryNoteRepository();
-  const review = new InMemoryReviewRepository();
+  const jobQueue = new InMemoryJobQueue();
+  const note = new InMemoryNoteRepository(jobQueue);
+  const review = new InMemoryReviewRepository(todo);
   const companionInteraction = new InMemoryCompanionInteractionRepository();
   const socratic = new InMemorySocraticRepository();
+  const learning = new InMemoryLearningRepository();
   const knowledgeLink = new InMemoryKnowledgeLinkRepository();
   const actionProposal = new InMemoryActionProposalRepository();
   const audit = new InMemoryAuditRepository();
@@ -1062,7 +1123,6 @@ export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDem
   const settings = new InMemorySettingsRepository();
 
   const fileImport = new LocalTextFileImport();
-  const jobQueue = new InMemoryJobQueue();
   const companionStateMachine = new InMemoryCompanionStateMachine();
   const audioPlayer = new AudioPlayer();
 
@@ -1094,6 +1154,7 @@ export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDem
   const application = createApplication({
 
     repositories: {
+      learning,
       todo,
       focus,
       note,
@@ -1126,6 +1187,7 @@ export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDem
     ai: { ports: aiPorts },
     deepseek: new DeepSeekProvider({}),
     repositories: {
+      learning,
       todo,
       focus,
       note,

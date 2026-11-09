@@ -12,7 +12,7 @@
 import type { SqlDriver, SqlParam, SqlRow } from './database';
 
 /** 与 Rust 侧约定的命令签名 */
-export type TauriInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+export type TauriInvoke = <T>(command: string, args?: Record<string, unknown>, options?: { signal?: AbortSignal }) => Promise<T>;
 
 export interface TauriDriverOptions {
   selectCommand?: string;

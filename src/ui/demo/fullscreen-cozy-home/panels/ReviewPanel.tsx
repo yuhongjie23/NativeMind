@@ -10,7 +10,8 @@ import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { useT } from '../../../i18n';
 import type { ReviewLog } from '@shared-types/domain';
 import { useReviewStore } from '../../../stores/review-store';
-import { useTodoStore } from '../../../stores/todo-store';
+import { ReviewEvidenceDetails } from '../../../components/features/ReviewEvidenceDetails';
+import { ReviewNextSteps } from '../components/ReviewNextSteps';
 import { eventBus } from '../../../stores/runtime';
 
 const periods = [
@@ -34,22 +35,18 @@ export function ReviewPanel() {
   const t = useT();
   const reviews = useReviewStore((state) => state.reviews);
   const generating = useReviewStore((state) => state.generating);
+  const canCancel = useReviewStore((state) => state.canCancel);
+  const cancelGeneration = useReviewStore((state) => state.cancelGeneration);
   const lastOutcome = useReviewStore((state) => state.lastOutcome);
   const error = useReviewStore((state) => state.error);
   const refresh = useReviewStore((state) => state.refresh);
   const deleteReview = useReviewStore((state) => state.deleteReview);
-  const createDrafts = useTodoStore((state) => state.createDrafts);
+  const followUps = useReviewStore(state => state.followUps);
+  const adopting = useReviewStore(state => state.adopting);
+  const adoptSuggestion = useReviewStore(state => state.adoptSuggestion);
 
   const [period, setPeriod] = useState<PeriodValue>('daily');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // 把复盘「下一步」建议创建为任务：走 createDrafts（executeDrafts 确认门）
-  const createNextAsTodos = async (nextTodos: string[]) => {
-    if (nextTodos.length === 0) return;
-    await createDrafts(
-      nextTodos.map((title) => ({ title, description: '来自复盘建议' })),
-    );
-  };
 
   useEffect(() => {
     void refresh();
@@ -57,8 +54,9 @@ export function ReviewPanel() {
 
   // 复盘生成确认后发布 ReviewGenerated，这里监听事件刷新列表
   useEffect(() => {
-    const off = eventBus.subscribe('ReviewGenerated', () => void refresh());
-    return off;
+    const offs = (['ReviewGenerated', 'TodoConfirmed', 'TodoCompleted', 'TodoUpdated', 'TodoDeleted'] as const)
+      .map(type => eventBus.subscribe(type, () => void refresh()));
+    return () => offs.forEach(off => off());
   }, [refresh]);
 
   // 只显示当前选中周期类型的复盘
@@ -117,25 +115,8 @@ export function ReviewPanel() {
                     .join(' · ')}
                 </p>
               ) : null}
-              {latest.insights.length > 0 ? (
-                <ul className="cozy-review-insights">
-                  {latest.insights.map((insight) => (
-                    <li key={insight}>{insight}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {latest.nextTodos.length > 0 ? (
-                <div className="cozy-review-next">
-                  <p>{t('下一步：{0}', latest.nextTodos.join('；'))}</p>
-                  <button
-                    type="button"
-                    className="cozy-btn-secondary cozy-review-next__create"
-                    onClick={() => void createNextAsTodos(latest.nextTodos)}
-                  >
-                    {t('创建为任务')}
-                  </button>
-                </div>
-              ) : null}
+              <ReviewEvidenceDetails evidence={latest.evidence} insights={latest.insights} />
+              <ReviewNextSteps review={latest} followUps={followUps} adopting={adopting} onAdopt={adoptSuggestion} />
             </article>
           ) : (
             <p className="cozy-today-empty">
@@ -189,16 +170,8 @@ export function ReviewPanel() {
                       {expanded ? (
                         <div className="cozy-review-history__detail">
                           <p className="cozy-review-card__content">{review.content}</p>
-                          {review.insights.length > 0 ? (
-                            <ul className="cozy-review-insights">
-                              {review.insights.map((insight) => (
-                                <li key={insight}>{insight}</li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {review.nextTodos.length > 0 ? (
-                            <p className="cozy-review-next">下一步：{review.nextTodos.join('；')}</p>
-                          ) : null}
+                          <ReviewEvidenceDetails evidence={review.evidence} insights={review.insights} />
+                          <ReviewNextSteps review={review} followUps={followUps} adopting={adopting} onAdopt={adoptSuggestion} />
                         </div>
                       ) : null}
                     </li>
@@ -211,6 +184,7 @@ export function ReviewPanel() {
       </div>
 
       <div className="cozy-review__footer">
+        {canCancel && <button type="button" className="cozy-btn-secondary" onClick={cancelGeneration}>{t('停止生成')}</button>}
         <button
           type="button"
           className="cozy-btn-primary"

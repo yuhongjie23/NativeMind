@@ -1,3 +1,4 @@
+import { SqliteLearningRepository } from './db/repositories/learning-repository';
 /**
  * 基础设施层装配
  *
@@ -10,6 +11,7 @@
  * - 日历默认 Noop，不碰用户隐私数据
  */
 import { Database, type SqlDriver } from './db/database';
+import { prepareEmbeddingIndex } from './background-jobs/embedding-index-version';
 import { SqliteAskSessionRepository } from './db/repositories/ask-repository';
 import { SqliteAppUsageRepository } from './db/repositories/app-usage-repository';
 import { SqliteDailyCheckInRepository } from './db/repositories/checkin-repository';
@@ -76,6 +78,7 @@ export interface InfrastructureConfig {
 export interface Infrastructure {
   db: Database;
   repositories: {
+    learning: SqliteLearningRepository;
     todo: SqliteTodoRepository;
     focus: SqliteFocusRepository;
     note: SqliteNoteRepository;
@@ -143,12 +146,13 @@ export function createInfrastructure(config: InfrastructureConfig): Infrastructu
     onIndexed: config.onNoteIndexed,
   });
   jobQueue.register(embedJob);
-  // 编辑笔记内容触发的事件入队 reindex_note，只转发回 parse_note 复用整条链路
+  // 编辑后的正文已经保存，直接重新切分，不能再读取源文件覆盖修改。
   jobQueue.register(new ReindexNoteJob(jobQueue));
 
   return {
     db,
     repositories: {
+      learning: new SqliteLearningRepository(db),
       todo: new SqliteTodoRepository(db),
       focus: new SqliteFocusRepository(db),
       note: notes,
@@ -179,14 +183,9 @@ export function createInfrastructure(config: InfrastructureConfig): Infrastructu
       await letters.syncSchemaState();
       await db.migrate();
       await jobQueue.recoverStaleJobs();
-      // 向量维度变化会触发全量重建（DROP + 笔记打回 stale）：检测到就把 stale 笔记
-      // 重新入队，让 parse→chunk→embed 流水线整体重建，而不是静默丢向量
-      await vectorStore.isAvailable();
-      if (vectorStore.didRebuild) {
-        const stale = await notes.findByIndexStatus('stale', 200);
-        for (const note of stale) {
-          await jobQueue.enqueue({ type: 'parse_note', entityId: note.id });
-        }
+      // 维度或输入策略升级时，事务内清除旧空间并从保存正文重建，不重新解析源文件。
+      if (await vectorStore.isAvailable() && vectorStore instanceof SqliteVecProvider) {
+        await prepareEmbeddingIndex(db, modelRuntime.version, vectorStore.didRebuild);
       }
     },
   };

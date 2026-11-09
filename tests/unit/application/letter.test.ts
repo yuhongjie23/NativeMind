@@ -49,6 +49,27 @@ const makeRepo = (): LetterRepository & { saved: Letter[] } => {
 };
 
 describe('WriteLetterUseCase', () => {
+  it('主动停止不会写入原信、半截回信或待补发队列', async () => {
+    const repo = makeRepo();
+    const controller = new AbortController();
+    const flora: FloraPort = { sendLetter: async (_input, options) => {
+      expect(options?.signal).toBe(controller.signal);
+      controller.abort();
+      return floraOk.sendLetter({ letter: 'late reply', language: 'zh' });
+    } };
+    await expect(new WriteLetterUseCase(repo, flora).execute('draft kept in UI', 'zh', undefined, { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(repo.saved).toEqual([]);
+  });
+
+  it('停止不必等待忽略取消信号的旧端口结束', async () => {
+    const repo = makeRepo();
+    const controller = new AbortController();
+    const flora: FloraPort = { sendLetter: async () => new Promise(() => {}) };
+    const pending = new WriteLetterUseCase(repo, flora).execute('draft', 'zh', undefined, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(repo.saved).toEqual([]);
+  });
   it('写信后立即回信并存为 sent，回信成为独立来信', async () => {
     const repo = makeRepo();
 

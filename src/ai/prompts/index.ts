@@ -11,22 +11,30 @@ import { fillTemplate } from '../shared/utils';
 import type { PromptId } from '../types';
 
 import intentV1 from './intent.v1.md?raw';
+import reviewGroundedV1 from './review-grounded.v1.md?raw';
+import companionDialogueV1 from './companion-dialogue.v1.md?raw';
 import queryRewriteV1 from './query-rewrite.v1.md?raw';
 import ragRelationV1 from './rag-relation.v1.md?raw';
 import reviewDailyV1 from './review-daily.v1.md?raw';
 import reviewWeeklyV1 from './review-weekly.v1.md?raw';
 import reviewMonthlyV1 from './review-monthly.v1.md?raw';
 import socraticV1 from './socratic.v1.md?raw';
+import socraticV2 from './socratic.v2.md?raw';
 import todoStructuringV1 from './todo-structuring.v1.md?raw';
+import todoStructuringV2 from './todo-structuring.v2.md?raw';
 
 const RAW_PROMPTS: Record<PromptId, string> = {
+  'review-grounded.v1': reviewGroundedV1,
+  'companion-dialogue.v1': companionDialogueV1,
   'intent.v1': intentV1,
   'todo-structuring.v1': todoStructuringV1,
+  'todo-structuring.v2': todoStructuringV2,
   'review-daily.v1': reviewDailyV1,
   'review-weekly.v1': reviewWeeklyV1,
   'review-monthly.v1': reviewMonthlyV1,
   'rag-relation.v1': ragRelationV1,
   'socratic.v1': socraticV1,
+  'socratic.v2': socraticV2,
   'query-rewrite.v1': queryRewriteV1,
 };
 

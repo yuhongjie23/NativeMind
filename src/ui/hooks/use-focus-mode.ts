@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useFocusStore } from '../stores/focus-store';
+import { createFocusElapsedSignal } from './focus-elapsed';
 
 /**
  * 剩余秒数。暂停期间用 pausedAt 冻结「已流逝时间」：effectiveElapsed 不再前进，
@@ -39,7 +40,6 @@ export function useFocusMode(onElapsed?: () => void): FocusModeView {
   const pausedSeconds = useFocusStore((state) => state.pausedSeconds);
   const [remaining, setRemaining] = useState(0);
 
-  const elapsedFiredRef = useRef(false);
   const onElapsedRef = useRef(onElapsed);
   onElapsedRef.current = onElapsed;
 
@@ -49,25 +49,13 @@ export function useFocusMode(onElapsed?: () => void): FocusModeView {
       return;
     }
 
-    elapsedFiredRef.current = false;
-    // 首次 tick 若已经归零（重启恢复的过期会话），不弹「专注结束」——
-    // 那只是幽灵会话，真实归零发生在本次运行过程中才值得提醒
-    let firstTick = true;
+    const shouldNotify = createFocusElapsedSignal();
 
     const tick = () => {
       const next = remainingSeconds(active.startedAt, active.durationMinutes, pausedAt, pausedSeconds);
       setRemaining(next);
 
-      if (firstTick) {
-        firstTick = false;
-        if (next === 0) return;
-      }
-
-      // 只触发一次，否则归零后每秒都会回调
-      if (next === 0 && !elapsedFiredRef.current) {
-        elapsedFiredRef.current = true;
-        onElapsedRef.current?.();
-      }
+      if (shouldNotify(next)) onElapsedRef.current?.();
     };
 
     tick();

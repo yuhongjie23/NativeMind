@@ -21,6 +21,39 @@ const isEmotion = (system: string): boolean => system.includes('信件阅读助�
 const isVerify = (system: string): boolean => system.includes('回信质检员');
 
 describe('FloraAgent', () => {
+  it.each(['emotion', 'reply', 'verify'])('取消 %s 阶段不会继续后续步骤或生成兜底回复', async stage => {
+    const controller = new AbortController();
+    const calls: string[] = [];
+    const router = routerWith(req => {
+      const step = isEmotion(req.system ?? '') ? 'emotion' : isVerify(req.system ?? '') ? 'verify' : 'reply';
+      calls.push(step);
+      if (step === stage) { controller.abort(); throw new Error('cancelled'); }
+      if (step === 'emotion') return JSON.stringify({ emotion: 'calm', summary: 's', tone: 'warm' });
+      if (step === 'verify') return JSON.stringify({ appropriate: true, critique: '' });
+      return 'draft reply';
+    });
+    await expect(new FloraAgent(router).sendLetter('hello', 'zh', { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(calls).toEqual(['emotion', 'reply', 'verify'].slice(0, ['emotion', 'reply', 'verify'].indexOf(stage) + 1));
+  });
+
+  it('只预览回信正文，精修时替换旧预览', async () => {
+    let verifies = 0;
+    let preview = '';
+    let resets = 0;
+    const router = routerWith(req => {
+      if (isEmotion(req.system ?? '')) return JSON.stringify({ emotion: 'calm', summary: 's', tone: 'warm' });
+      if (isVerify(req.system ?? '')) return JSON.stringify({ appropriate: ++verifies > 1, critique: 'revise' });
+      const reply = verifies ? 'revised reply' : 'first reply';
+      req.onToken?.(reply);
+      return reply;
+    });
+    const result = await new FloraAgent(router).sendLetter('hello', 'zh', {
+      onToken: (delta, reset) => { if (reset) { preview = ''; resets++; } else preview += delta; },
+    });
+    expect(result.regenerated).toBe(true);
+    expect(preview).toBe('revised reply');
+    expect(resets).toBe(1);
+  });
   it('通读→情感→高级模型回信→低级模型验证通过', async () => {
     const router = routerWith((req) => {
       const sys = req.system ?? '';
@@ -35,6 +68,7 @@ describe('FloraAgent', () => {
     expect(result.emotion?.emotion).toBe('低落');
     expect(result.reply).toContain('别担心');
     expect(result.verified).toBe(true);
+    expect(result.verificationStatus).toBe('passed');
     expect(result.regenerated).toBe(false);
   });
 
@@ -74,6 +108,33 @@ describe('FloraAgent', () => {
     expect(result.ok).toBe(true);
     expect(result.emotion).toBeUndefined();
     expect(result.reply).toContain('别太累');
+    expect(result.verified).toBe(false);
+    expect(result.verificationStatus).toBe('not_checked');
+  });
+
+  it('校验格式失败时保留回信，但不伪装为已通过', async () => {
+    const router = routerWith(req => {
+      if (isEmotion(req.system ?? '')) return JSON.stringify({ emotion: '不确定', summary: 's', tone: 't' });
+      if (isVerify(req.system ?? '')) return '不是合法校验';
+      return '收到你的信了。';
+    });
+    const result = await new FloraAgent(router).sendLetter('你好', 'zh');
+    expect(result.ok).toBe(true);
+    expect(result.reply).toContain('收到你的信');
+    expect(result.verified).toBe(false);
+    expect(result.verificationStatus).toBe('not_checked');
+  });
+
+  it('精修后仍不通过时保留 failed 状态', async () => {
+    const router = routerWith(req => {
+      if (isEmotion(req.system ?? '')) return JSON.stringify({ emotion: '不确定', summary: 's', tone: 't' });
+      if (isVerify(req.system ?? '')) return JSON.stringify({ appropriate: false, critique: '没有回应内容' });
+      return '一段回信';
+    });
+    const result = await new FloraAgent(router).sendLetter('你好', 'zh');
+    expect(result.regenerated).toBe(true);
+    expect(result.verified).toBe(false);
+    expect(result.verificationStatus).toBe('failed');
   });
 
   it('回信失败→ok=false', async () => {

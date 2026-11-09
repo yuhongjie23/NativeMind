@@ -94,6 +94,39 @@ describe('PdfParser', () => {
 
     expect(pageAt(parsed.pageRanges, position)).toBe(3);
   });
+
+  it('preserves repeated sentences and numeric data in the page body', async () => {
+    const parser = new PdfParser(async () => ({ pages: Array.from({ length: 5 }, (_, i) => ({
+      page: i + 1,
+      text: `\nRepeated heading\nSection ${i}\nRepeated heading\n2026\nBody ${i}\nFooter\n${i + 1}\n`,
+    })) }));
+    const parsed = await parser.parse('repeated.pdf');
+    expect(parsed.content.match(/Repeated heading/g)).toHaveLength(5);
+    expect(parsed.content.match(/2026/g)).toHaveLength(5);
+    expect(parsed.content).not.toContain('Footer');
+    for (const range of parsed.pageRanges) {
+      expect(parsed.content.slice(range.start, range.end)).toContain(`Body ${range.page - 1}`);
+      expect(pageAt(parsed.pageRanges, range.start)).toBe(range.page);
+    }
+  });
+
+  it('counts a repeated line once per page, not once per occurrence', async () => {
+    const parser = new PdfParser(async () => ({ pages: [
+      { page: 1, text: 'Unique\nUnique\nBody\nUnique\nUnique' },
+      { page: 2, text: 'Second page' },
+      { page: 3, text: 'Third page' },
+    ] }));
+    expect((await parser.parse('one-page-repeat.pdf')).content.match(/Unique/g)).toHaveLength(4);
+  });
+
+  it('does not erase an entire document made of repeated body lines', async () => {
+    const parser = new PdfParser(async () => ({ pages: Array.from({ length: 3 }, (_, i) => ({
+      page: i + 1, text: Array.from({ length: 10 }, () => 'Repeated study sentence.').join('\n'),
+    })) }));
+    const parsed = await parser.parse('repeated-body.pdf');
+    expect(parsed.content.match(/Repeated study sentence\./g)).toHaveLength(18);
+    expect(parsed.pageRanges).toHaveLength(3);
+  });
 });
 
 describe('FileImportService', () => {

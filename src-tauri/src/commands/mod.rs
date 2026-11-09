@@ -17,5 +17,9 @@ pub mod model;
 pub mod search;
 pub mod vector;
 pub mod window;
+pub mod video;
 
 pub use file::AppPaths;
+
+pub mod startup;
+pub mod learning;

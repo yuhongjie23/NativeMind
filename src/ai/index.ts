@@ -69,6 +69,8 @@ import { SearchGate, type SearchProvider } from './search/search-gate';
 import type { EmbeddingProvider, ModelProvider, ModelRunRecorder, RerankProvider, VectorStorePort } from './types';
 
 export interface AILayerDeps {
+  /** Enforce local model routing even when imported settings select a cloud provider. */
+  localOnly?: boolean;
   /** 本地模型运行时（Ollama / llama.cpp），由 infrastructure 提供 */
   modelProvider: ModelProvider;
   /** 云端 DeepSeek provider（可选）：配置 API key 后教练档走它，未配则全部走本地 */
@@ -117,7 +119,7 @@ export interface AILayer {
 }
 
 export function createAILayer(deps: AILayerDeps): AILayer {
-  const deepseek = deps.deepseekProvider;
+  const deepseek = deps.localOnly ? undefined : deps.deepseekProvider;
   const local = deps.modelProvider;
 
   // 组合 provider：本地优先，DeepSeek 兜底。
@@ -137,6 +139,9 @@ export function createAILayer(deps: AILayerDeps): AILayer {
     deps.modelProvider,
     {
       ...deps.options?.router,
+      resolveModel: deps.localOnly
+        ? (tier) => tier === 'fast' ? getModelConfig().small : getModelConfig().big
+        : deps.options?.router?.resolveModel,
       recorder: deps.modelRunRecorder ?? deps.options?.router?.recorder,
     },
     (tier) => {

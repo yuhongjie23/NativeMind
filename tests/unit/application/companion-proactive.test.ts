@@ -4,7 +4,7 @@
  * 关键路径：聚合上下文 → decide → InteractionPolicy 裁决（专注/节流/上限）→ 生成 → 写库。
  * 用 InMemory 仓储连真实政策跑，比 mock 掉政策更贴近实际行为。
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   InMemoryCompanionInteractionRepository,
   InMemoryFocusRepository,
@@ -44,6 +44,13 @@ const build = () => {
 };
 
 describe('ProactiveCompanionTickUseCase', () => {
+  beforeEach(() => {
+    // Keep the preceding seven hours on the same local day, even in midnight runs.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 5, 16, 0, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
   it('完全没活动且健康提醒已发过 → 安静（null）', async () => {
     const { interactionRepo, useCase } = build();
     // 播种一次 5 分钟前的健康提醒：久坐节律未到，其它分支无活动 → 安静

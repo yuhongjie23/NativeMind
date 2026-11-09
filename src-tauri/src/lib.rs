@@ -10,10 +10,14 @@
 //! SQL 字符串、文件路径和 HTTP 请求。加功能时先问一句「这件事前端能不能做」，
 //! 能做就别放进来。
 
+mod startup_check;
+mod learning_notifications;
+mod local_media;
 mod commands;
 mod db;
 mod file_parser;
 mod model_client;
+mod search_http;
 mod utils;
 mod vector;
 
@@ -224,6 +228,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::learning::learning_notifications_sync,
             // db：命令名与前端 TauriSqlDriver 的默认值对齐，改名会断掉所有 Repository
             commands::db::db_select,
             commands::db::db_execute,
@@ -245,6 +250,9 @@ pub fn run() {
             commands::file::file_set_app_paths,
             commands::file::file_repair_custom_audio_paths,
             commands::file::file_import_into_data_dir,
+            commands::video::video_import,
+            commands::video::video_read_chunk,
+            commands::startup::storage_check,
             commands::file::data_export,
             commands::file::data_import,
             // model

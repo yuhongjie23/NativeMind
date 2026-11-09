@@ -32,6 +32,8 @@ const MAX_ATTEMPTS_PER_TIER = 2;
 
 export interface RouterOptions {
   tierConfigs?: Partial<Record<ModelTier, TierConfig>>;
+  /** Runtime-specific model policy; resolve on each request without rewriting saved settings. */
+  resolveModel?: (tier: ModelTier) => string;
   /** 模型调用日志，缺省则不记录 */
   recorder?: ModelRunRecorder;
 }
@@ -47,6 +49,8 @@ export interface RoutedRequest<I = unknown> extends AIRequest<I> {
   promptVars?: PromptVars;
   /** 覆盖路由表的 prompt，用于同一任务的多套模板实验 */
   promptOverride?: PromptId;
+  /** 同一任务的已注册结构变体，例如限时拆解要求每项估时。 */
+  schemaOverride?: SchemaId;
   /** 无 prompt 模板的任务（如标签生成）可直接给出完整提示词 */
   inlinePrompt?: { system?: string; user: string };
 }
@@ -54,6 +58,7 @@ export interface RoutedRequest<I = unknown> extends AIRequest<I> {
 export class ModelRouter {
   private readonly tiers: Record<ModelTier, TierConfig>;
   private readonly recorder?: ModelRunRecorder;
+  private readonly modelFor: (tier: ModelTier) => string;
 
   constructor(
     /** 默认 provider；同时支持按 tier 精确路由（ProviderSelector 优先） */
@@ -63,6 +68,7 @@ export class ModelRouter {
   ) {
     this.tiers = { ...defaultTierConfigs, ...options.tierConfigs } as Record<ModelTier, TierConfig>;
     this.recorder = options.recorder;
+    this.modelFor = options.resolveModel ?? resolveModel;
   }
 
   /** 当前 tier 实际用的 provider（精确路由优先，回退默认） */
@@ -74,25 +80,31 @@ export class ModelRouter {
   async isTierAvailable(tier: ModelTier): Promise<boolean> {
     const selected = this.providerOf(tier);
     if (!selected) return false;
-    return selected.isAvailable(resolveModel(tier));
+    return selected.isAvailable(this.modelFor(tier));
   }
 
   async run<I, O>(request: RoutedRequest<I>): Promise<AIResult<O>> {
+    request.signal?.throwIfAborted();
     const route = TASK_ROUTES[request.taskType];
     const startTier = request.modelPolicy?.preferredTier ?? route.tier;
     const promptId = request.promptOverride ?? route.promptVersion;
-    const schemaId = route.schemaId;
+    const schemaId = request.schemaOverride ?? route.schemaId;
     const requiresJson = request.modelPolicy?.requiresJson ?? route.requiresJson;
 
     let tier: ModelTier | null = startTier;
     let attempts = 0;
     let lastError: AIFailure = { kind: 'model_error', message: '未执行任何调用' };
+    let lastTier = startTier;
+    let lastModel = this.modelFor(startTier);
     const visited = new Set<ModelTier>();
 
     while (tier && !visited.has(tier)) {
+      request.signal?.throwIfAborted();
       visited.add(tier);
       const config = this.tiers[tier];
-      const model = resolveModel(tier);
+      const model = this.modelFor(tier);
+      lastTier = tier;
+      lastModel = model;
       const selected = this.providerOf(tier);
 
       // 该 tier 没有可用 provider（如云端未配 key）→ 直接降级
@@ -114,9 +126,13 @@ export class ModelRouter {
       // noRetry：同层只试一次（宠物一句气泡不值得重试拖延迟）
       const attemptsPerTier = request.modelPolicy?.noRetry ? 1 : MAX_ATTEMPTS_PER_TIER;
       for (let i = 0; i < attemptsPerTier; i += 1) {
+        request.signal?.throwIfAborted();
         attempts += 1;
+        if (attempts > 1) request.onToken?.('', true);
+        request.signal?.throwIfAborted();
         const outcome = await this.attempt<O>(request, {
           tier,
+          model,
           config,
           promptId,
           schemaId,
@@ -126,6 +142,7 @@ export class ModelRouter {
           retryHint: i > 0 ? lastError.message : undefined,
         });
 
+        request.signal?.throwIfAborted();
         if (outcome.ok) {
           const result: AIResult<O> = {
             ...outcome.result,
@@ -145,10 +162,11 @@ export class ModelRouter {
       tier = TIER_FALLBACK[tier];
     }
 
+    request.signal?.throwIfAborted();
     const failed: AIResult<O> = {
       ok: false,
-      tier: startTier,
-      model: resolveModel(startTier),
+      tier: lastTier,
+      model: lastModel,
       promptVersion: promptId,
       schemaId,
       attempts,
@@ -164,6 +182,7 @@ export class ModelRouter {
     request: RoutedRequest,
     ctx: {
       tier: ModelTier;
+      model: string;
       config: TierConfig;
       promptId?: PromptId;
       schemaId?: SchemaId;
@@ -172,7 +191,7 @@ export class ModelRouter {
       retryHint?: string;
     }
   ): Promise<{ ok: true; result: AIResult<O> } | { ok: false; error: AIFailure }> {
-    const { tier, config, promptId, schemaId, requiresJson, provider, retryHint } = ctx;
+    const { tier, model, config, promptId, schemaId, requiresJson, provider, retryHint } = ctx;
 
     const base = promptId
       ? renderPrompt(promptId, request.promptVars)
@@ -189,7 +208,7 @@ export class ModelRouter {
     let raw: string;
     try {
       raw = await provider.complete({
-        model: resolveModel(tier),
+        model,
         system: base.system || undefined,
         prompt: user,
         json: requiresJson,
@@ -198,23 +217,30 @@ export class ModelRouter {
         // 用 toDecodingSchema 而非原始 Schema：大 maxLength 会让 Ollama 编译
         // GBNF 失败并整个请求 400。校验时仍用原始 Schema，约束没有被放松。
         jsonSchema: requiresJson && schemaId ? toDecodingSchema(getSchema(schemaId)) : undefined,
-        onToken: request.onToken,
+        onToken: request.onToken ? (delta, reset) => {
+          if (!request.signal?.aborted) request.onToken?.(delta, reset);
+        } : undefined,
+        signal: request.signal,
 
         temperature: request.modelPolicy?.temperature ?? config.temperature,
         maxTokens: request.modelPolicy?.maxTokens ?? config.maxTokens,
       });
 
     } catch (error) {
+      request.signal?.throwIfAborted();
       return {
         ok: false,
         error: { kind: 'model_error', message: error instanceof Error ? error.message : String(error) },
       };
     }
 
-    const meta = { tier, model: resolveModel(tier), promptVersion: promptId, schemaId };
+    const meta = { tier, model, promptVersion: promptId, schemaId };
 
     // 自由文本任务（复盘草稿之外的教练类输出）直接返回原文
     if (!requiresJson) {
+      if (!raw.trim()) {
+        return { ok: false, error: { kind: 'model_error', message: '模型返回了空内容，请检查本地模型或重试' } };
+      }
       return {
         ok: true,
         result: { ok: true, output: raw.trim() as unknown as O, raw, attempts: 1, degraded: false, ...meta },

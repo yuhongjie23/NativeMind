@@ -19,6 +19,7 @@ interface SceneViewportProps {
   onPetPositionChange?: (rect: { x: number; y: number; width: number; height: number }) => void;
   /** 调模型生成回应中 → 宠物右上角转圈 */
   petGenerating?: boolean;
+  pendingQuestion?: boolean;
 }
 
 export function SceneViewport({
@@ -28,6 +29,7 @@ export function SceneViewport({
   onPetInteract,
   onPetPositionChange,
   petGenerating = false,
+  pendingQuestion = false,
 }: SceneViewportProps) {
   const manifest = getSceneManifest(sceneState.sceneId);
   const { pet } = manifest.anchors;
@@ -49,7 +51,7 @@ export function SceneViewport({
         } as React.CSSProperties
       }
     >
-      <ImageBackground weather={sceneState.weather} timePhase={sceneState.timePhase} scene={sceneState.sceneId} />
+      <ImageBackground weather={sceneState.weather} timePhase={sceneState.timePhase} scene={sceneState.sceneId} paused={sceneState.focusState !== 'idle' || sceneState.reducedMotion} />
       <TimeLightingLayer phase={sceneState.timePhase} />
       {showPet ? (
         <PetActor
@@ -57,6 +59,7 @@ export function SceneViewport({
           onInteract={onPetInteract}
           onPositionChange={onPetPositionChange}
           generating={petGenerating}
+          pendingQuestion={pendingQuestion}
         />
       ) : null}
       <div className="layer-vignette" aria-hidden="true" />

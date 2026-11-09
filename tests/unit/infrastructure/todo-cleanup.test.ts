@@ -35,12 +35,12 @@ describe('replaceAll', () => {
     expect(await repo.findById('other')).not.toBeNull();
   });
 
-  it('替换成空列表等于只删除原任务（全部子任务为空标题时）', async () => {
+  it('空拆分不能充当删除操作，原任务保留', async () => {
     const repo = new InMemoryTodoRepository();
     await repo.save(base({ id: 'original', title: '原始目标' }));
 
-    await repo.replaceAll('original', []);
+    await expect(repo.replaceAll('original', [])).rejects.toThrow('不能为空');
 
-    expect(await repo.findById('original')).toBeNull();
+    expect(await repo.findById('original')).not.toBeNull();
   });
 });

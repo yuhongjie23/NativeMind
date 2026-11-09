@@ -24,6 +24,8 @@ import {
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 
 export interface DeepSeekOptions {
+  /** Immutable runtime policy; local-only apps cannot enable cloud calls via settings. */
+  allowRemote?: boolean;
   /** 用户 API key（设置页配置，明文存本地 SQLite） */
   apiKey?: string;
   /** 默认档位模型，留空用 deepseek-v4-flash */
@@ -41,12 +43,14 @@ export class DeepSeekProvider implements ModelRuntime {
 
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly allowRemote: boolean;
   private key: string | undefined;
   private model: string;
   private thinking: boolean;
 
   constructor(options: DeepSeekOptions = {}) {
-    this.key = options.apiKey;
+    this.allowRemote = options.allowRemote ?? true;
+    this.key = this.allowRemote ? options.apiKey : undefined;
     this.model = options.model ?? 'deepseek-v4-flash';
     this.thinking = options.thinking ?? false;
     this.timeoutMs = options.timeoutMs ?? 60_000;
@@ -55,6 +59,7 @@ export class DeepSeekProvider implements ModelRuntime {
 
   /** 设置页配置新 key / 档位 / 思考模式后热切换（无需重启） */
   configure(patch: { apiKey?: string; model?: string; thinking?: boolean }): void {
+    if (!this.allowRemote) return;
     if (patch.apiKey !== undefined) this.key = patch.apiKey;
     if (patch.model !== undefined) this.model = patch.model;
     if (patch.thinking !== undefined) this.thinking = patch.thinking;
@@ -66,12 +71,12 @@ export class DeepSeekProvider implements ModelRuntime {
 
   /** key 未配置 = 不可用（ModelRouter 据此降级到本地） */
   async isAvailable(_model: string): Promise<boolean> {
-    return Boolean(this.key?.trim());
+    return this.allowRemote && Boolean(this.key?.trim());
   }
 
   /** 真实打一次 /models 验证 key 有效（设置页「测试」用） */
   async isReady(): Promise<boolean> {
-    if (!this.key?.trim()) return false;
+    if (!this.allowRemote || !this.key?.trim()) return false;
     try {
       const response = await fetchWithTimeout(
         this.fetchImpl,
@@ -92,6 +97,7 @@ export class DeepSeekProvider implements ModelRuntime {
   }
 
   async listModels(): Promise<InstalledModel[]> {
+    if (!this.allowRemote) return [];
     return [
       { name: 'deepseek-v4-flash', parameterSize: 'V4-Flash' },
       { name: 'deepseek-v4-pro', parameterSize: 'V4-Pro' },
@@ -107,10 +113,29 @@ export class DeepSeekProvider implements ModelRuntime {
 
   /** OpenAI 兼容的 thinking 参数：reasoning_effort 或 extra body 开关 */
   private thinkingParam(): Record<string, unknown> {
-    return this.thinking ? { thinking: { type: 'enabled' } } : {};
+    return { thinking: { type: this.thinking ? 'enabled' : 'disabled' } };
   }
 
   async complete(request: ModelCompletionRequest): Promise<string> {
+    if (!this.allowRemote) throw new Error('当前运行环境仅使用本地模型，不允许上传内容到云端模型');
+    if (!this.key?.trim()) throw new Error('DeepSeek API key 未配置');
+    request.signal?.throwIfAborted();
+    // Keep cancellation and the deadline active through response-body consumption.
+    const controller = new AbortController();
+    const abort = (): void => controller.abort(request.signal?.reason);
+    request.signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(() => controller.abort(new DOMException('DeepSeek 请求超时', 'TimeoutError')), this.timeoutMs);
+    try {
+      const output = await this.completeRequest({ ...request, signal: controller.signal });
+      controller.signal.throwIfAborted();
+      return output;
+    } finally {
+      clearTimeout(timer);
+      request.signal?.removeEventListener('abort', abort);
+    }
+  }
+
+  private async completeRequest(request: ModelCompletionRequest): Promise<string> {
     if (request.onToken) return this.streamComplete(request);
 
     const data = await this.post<{ choices?: { message?: { content?: string } }[] }>(
@@ -124,18 +149,19 @@ export class DeepSeekProvider implements ModelRuntime {
         response_format: request.json ? { type: 'json_object' } : undefined,
         ...this.thinkingParam(),
         stream: false,
-      }
+      },
+      request.signal
     );
     return data.choices?.[0]?.message?.content ?? '';
   }
 
   /** 流式生成（SSE），与本地 provider 同语义 */
   private async streamComplete(request: ModelCompletionRequest): Promise<string> {
-    const response = await fetchWithTimeout(
-      this.fetchImpl,
+    const response = await this.fetchImpl(
       `${DEEPSEEK_BASE_URL}/v1/chat/completions`,
       {
         method: 'POST',
+        signal: request.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.key?.trim() ?? ''}`,
@@ -149,8 +175,7 @@ export class DeepSeekProvider implements ModelRuntime {
           ...this.thinkingParam(),
           stream: true,
         }),
-      },
-      this.timeoutMs
+      }
     );
     if (!response.ok) throw new Error(`DeepSeek /v1/chat/completions 返回 ${response.status}`);
     if (!response.body) {
@@ -165,22 +190,26 @@ export class DeepSeekProvider implements ModelRuntime {
     const onToken = request.onToken!;
     try {
       const feed = (chunk: string): void => {
+        request.signal?.throwIfAborted();
         const payload = chunk.trim().replace(/^data:\s*/i, '');
         if (!payload || payload === '[DONE]' || payload.startsWith(':')) return;
+        let parsed: { choices?: { delta?: { content?: string } }[] };
         try {
-          const parsed = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] };
-          const delta = parsed.choices?.[0]?.delta?.content ?? '';
-          if (delta) {
-            full += delta;
-            onToken(delta);
-          }
+          parsed = JSON.parse(payload) as typeof parsed;
         } catch {
           // 容忍半行 / 非 JSON 噪音
+          return;
+        }
+        const delta = parsed.choices?.[0]?.delta?.content ?? '';
+        if (delta) {
+          full += delta;
+          onToken(delta);
         }
       };
 
       for (;;) {
         const { done, value } = await reader.read();
+        request.signal?.throwIfAborted();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const events = buffer.split('\n\n');
@@ -189,33 +218,39 @@ export class DeepSeekProvider implements ModelRuntime {
       }
       if (buffer.trim()) feed(buffer);
     } finally {
+      if (request.signal?.aborted) await reader.cancel().catch(() => undefined);
       reader.releaseLock();
     }
     return full;
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
     if (!this.key?.trim()) throw new Error('DeepSeek API key 未配置');
-    const response = await fetchWithTimeout(
-      this.fetchImpl,
+    const response = await this.fetchImpl(
       `${DEEPSEEK_BASE_URL}${path}`,
       {
         method: 'POST',
+        signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.key.trim()}`,
         },
         body: JSON.stringify(body),
-      },
-      this.timeoutMs
+      }
     );
     if (!response.ok) throw new Error(`DeepSeek ${path} 返回 ${response.status}`);
     return (await response.json()) as T;
   }
 
   private buildMessages(request: ModelCompletionRequest): { role: string; content: string }[] {
+    // JSON mode only guarantees syntax; unlike local constrained decoding, it
+    // does not communicate field names/types unless we include the schema.
+    const format = request.json && request.jsonSchema
+      ? `只输出符合以下 JSON Schema 的 JSON 数据，不输出 Schema 本身：\n${JSON.stringify(request.jsonSchema)}`
+      : '';
+    const system = [request.system, format].filter(Boolean).join('\n\n');
     return [
-      ...(request.system ? [{ role: 'system', content: request.system }] : []),
+      ...(system ? [{ role: 'system', content: system }] : []),
       { role: 'user', content: request.prompt },
     ];
   }

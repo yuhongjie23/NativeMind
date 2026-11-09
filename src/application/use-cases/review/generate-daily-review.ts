@@ -13,11 +13,14 @@ import type {
   ReviewGeneratorPort,
   ReviewLog,
   ReviewRepository,
+  ReviewFollowUp,
   TodoRepository,
 } from '../../ports';
 import type { FocusModePolicy } from '../../policies/focus-mode-policy';
 import { newId, now, today } from '../../shared/utils';
 import { fetchKnowledgeSummary } from './review-knowledge';
+import { readReviewFollowUps } from './review-follow-ups';
+import { completedByDate } from './review-completion';
 export const draftToReviewLog = (
   draft: ReviewDraft,
   reviewType: 'daily' | 'weekly' | 'monthly',
@@ -36,6 +39,7 @@ export const draftToReviewLog = (
     statistics,
     insights: draft.insights,
     nextTodos: draft.nextTodos,
+    evidence: draft.evidence,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -59,7 +63,8 @@ export class GenerateDailyReviewUseCase {
    * 生成日复盘。
    * @returns ReviewLog 已生成；null 用户拒绝/未确认；undefined 专注中被拦（调用方提示原因）
    */
-  async execute(input: { date?: string } = {}): Promise<ReviewLog | null | undefined> {
+  async execute(input: { date?: string; signal?: AbortSignal; onCommit?: () => void; learningContext?: string; learningFollowUps?: ReviewFollowUp[] } = {}): Promise<ReviewLog | null | undefined> {
+    input.signal?.throwIfAborted();
     // 专注期间不做 AI 主动生成。但生成复盘是用户主动点按钮，不是 AI 自发打扰，
     // 这里区分两种「没生成」：专注拦截返回 undefined（store 据此提示原因），
     // 用户拒绝确认返回 null（提示「已取消」）
@@ -90,6 +95,7 @@ export class GenerateDailyReviewUseCase {
     // 已确认的知识链接摘要（⑤）：复盘时可引用显式关系。失败/无链接 → 空摘要，不阻塞。
     const knowledgeSummary = await fetchKnowledgeSummary(this.linkRepo, this.noteRepo);
 
+    input.signal?.throwIfAborted();
     const draft = await this.generator.generate({
       reviewType: 'daily',
       date,
@@ -97,16 +103,18 @@ export class GenerateDailyReviewUseCase {
       focusSessions,
       usageMinutes: appUsageMinutes,
       focusUsageMinutes: usageFocusMinutes,
-      knowledgeSummary,
-    });
+      knowledgeSummary: [input.learningContext, knowledgeSummary].filter(Boolean).join('\n') || undefined,
+      followUps: input.learningFollowUps ?? await readReviewFollowUps(this.reviewRepo, date),
+    }, { signal: input.signal });
+    input.signal?.throwIfAborted();
 
     const statistics = {
       focusMinutes: focusSessions
         .filter((s) => s.status === 'completed')
         .reduce((sum, s) => sum + (s.actualMinutes ?? s.durationMinutes), 0),
-      tasksCompleted: todos.filter((t) => t.status === 'completed').length,
+      tasksCompleted: todos.filter((t) => completedByDate(t, date)).length,
       tasksTotal: todos.length,
-      appMinutes: appUsageMinutes ?? 0,
+      ...(appUsageMinutes === undefined ? {} : { appMinutes: appUsageMinutes }),
     };
 
     // 复用已有行的 id：UPSERT 不会更新 id，重新生成时新 id 与库里行对不上，
@@ -125,7 +133,8 @@ export class GenerateDailyReviewUseCase {
         review.sourceProposalId = proposalId;
         await this.reviewRepo.save(review);
         return review;
-      }
+      },
+      { signal: input.signal, onCommit: input.onCommit }
     );
 
     if (!confirmed || !result) return null;

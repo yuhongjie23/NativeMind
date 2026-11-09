@@ -5,47 +5,11 @@
  */
 import type { ConfirmationService } from '../../confirmation/confirmation-service';
 import type { EventBus } from '../../events/event-bus';
-import type { Todo, TodoDraft, TodoRepository, TodoStructuringPort } from '../../ports';
+import type { Todo, TodoDraft, TodoRepository, TodoStructuringPort, TodoStructuringOptions } from '../../ports';
 import type { UUID } from '@shared-types/common';
-import { newId, now } from '../../shared/utils';
-
-export interface CreateTodoInput extends TodoDraft {
-  scheduledDate?: string;
-  linkedNoteIds?: string[];
-}
-
-const toTodo = (draft: CreateTodoInput): Todo => {
-  const title = draft.title.trim();
-  if (!title) throw new Error('Todo 标题不能为空');
-
-  const timestamp = now();
-  return {
-    id: newId(),
-    title,
-    description: draft.description,
-    status: 'pending',
-    priority: draft.priority ?? 'medium',
-    estimatedMinutes: draft.estimatedMinutes,
-    scheduledDate: draft.scheduledDate,
-    tags: draft.tags ?? [],
-    linkedNoteIds: draft.linkedNoteIds ?? [],
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-};
-
-/**
- * 过滤掉空标题的 AI 草稿（本地小模型偶尔输出空字段，硬抛错会把「替换为拆分」停在半途，
- * 原任务可能已被删）。
- * 全部为空时抛明确错误，调用方不会进入删除流程。
- */
-const filterDraftTitles = (drafts: CreateTodoInput[]): CreateTodoInput[] => {
-  const valid = drafts.filter((draft) => (draft.title ?? '').trim().length > 0);
-  if (valid.length === 0) {
-    throw new Error('AI 拆出的任务标题都是空的，已保留原任务。可手动添加。');
-  }
-  return valid;
-};
+import { formatLocalDate, newId, now } from '../../shared/utils';
+import { filterDraftTitles, toTodo, type CreateTodoInput } from './todo-draft';
+export type { CreateTodoInput } from './todo-draft';
 
 export class CreateTodoUseCase {
   constructor(
@@ -71,10 +35,12 @@ export class CreateTodoUseCase {
   }
 
   /** 由自然语言目标拆解出多个 Todo，确认后写入 */
-  async executeFromGoal(goal: string, scheduledDate?: string): Promise<Todo[]> {
+  async executeFromGoal(goal: string, scheduledDate?: string, options?: TodoStructuringOptions): Promise<Todo[]> {
     if (!this.structuring) throw new Error('未配置 TodoStructuringPort');
 
-    const drafts = await this.structuring.structure(goal);
+    options?.signal?.throwIfAborted();
+    const drafts = await this.structuring.structure(goal, options);
+    options?.signal?.throwIfAborted();
 
     // 拆不出东西必须让用户知道。
     // 这里原本静默 return []，于是模型不可用、输出不合 Schema、被降级链兜住
@@ -98,7 +64,8 @@ export class CreateTodoUseCase {
         );
         await this.todoRepo.saveMany(todos);
         return todos;
-      }
+      },
+      options
     );
 
     if (!confirmed || !result) return [];
@@ -114,10 +81,12 @@ export class CreateTodoUseCase {
   }
 
   /** 只拆不写：返回 AI 拆出的草稿，供页面预览，用户选择「采用拆分/直接加入」后再落库 */
-  async structureGoal(goal: string): Promise<TodoDraft[]> {
+  async structureGoal(goal: string, options?: TodoStructuringOptions): Promise<TodoDraft[]> {
     if (!this.structuring) throw new Error('未配置 TodoStructuringPort');
 
-    const drafts = await this.structuring.structure(goal);
+    options?.signal?.throwIfAborted();
+    const drafts = await this.structuring.structure(goal, options);
+    options?.signal?.throwIfAborted();
     if (drafts.length === 0) {
       throw new Error('没能拆出任务。可能是本地模型未就绪或返回格式不对，可直接加入。');
     }
@@ -179,7 +148,11 @@ export class CreateTodoUseCase {
     sourceGoalId?: string,
     scheduledDate?: string
   ): Promise<Todo[]> {
-    const groupId = sourceGoalId ?? newId();
+    const original = await this.todoRepo.findById(originalId);
+    if (!original || (original.status !== 'pending' && original.status !== 'in_progress')) {
+      throw new Error('原任务已删除、已拆分或已结束，请刷新后再试。');
+    }
+    const groupId = sourceGoalId ?? original.sourceGoalId ?? newId();
 
     const { confirmed, result } = await this.confirmation.confirmAndCommit(
       {
@@ -190,7 +163,14 @@ export class CreateTodoUseCase {
       },
       async (payload) => {
         const todos = filterDraftTitles(payload).map((draft) => ({
-          ...toTodo({ ...draft, scheduledDate }),
+          ...toTodo({
+            ...draft,
+            description: draft.description ?? original.description,
+            priority: draft.priority ?? original.priority,
+            scheduledDate: scheduledDate ?? original.scheduledDate ?? formatLocalDate(new Date(original.createdAt)),
+            tags: [...new Set([...original.tags, ...(draft.tags ?? [])])],
+            linkedNoteIds: original.linkedNoteIds,
+          }),
           sourceGoalId: groupId,
         }));
         await this.todoRepo.replaceAll(originalId, todos);

@@ -45,12 +45,12 @@
   --sky-night-low: #4a6070;
 
   position: relative;
-  width: 100vw;
+  width: 100%;
   height: 100dvh;
   /* 最小尺寸放宽：场景（含宠物/女孩，百分比锚定）随窗口缩放，
      否则窗口缩到 1180 以下时右侧被裁、锚在 70% 的宠物会跑到窗口外丢失 */
-  min-width: 720px;
-  min-height: 520px;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   isolation: isolate;
   background: #2c3631;
@@ -108,6 +108,19 @@
   --hud-border-dark: rgba(255, 255, 255, 0.26);
   --text-dark: #f5f4ee;
   --text-muted-dark: #cfd6cf;
+}
+
+/* Modal portals retain the scene palette without inheriting sheet clipping. */
+.fullscreen-cozy-home .modal {
+  --surface: #fbf9f2;
+  --bg: var(--surface);
+  --text: var(--text-dark);
+  --text-muted: var(--text-muted-dark);
+  --border: var(--hud-border-dark);
+}
+
+.fullscreen-cozy-home[data-hud='dark'] .modal {
+  --surface: #262e2a;
 }
 
 /* 透明 HUD：文字统一加光晕 + 加粗，保证在任何背景图上都比主页正文清晰 */
@@ -3160,7 +3173,9 @@
   color: var(--text-dark);
   box-shadow: 0 18px 48px rgba(22, 29, 25, 0.16);
   backdrop-filter: blur(14px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: sheet-rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -3176,6 +3191,7 @@
 }
 
 .demo-sheet__header {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -3248,6 +3264,10 @@
 
 .demo-sheet__body {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
 }
 
 .panel-section-title {
@@ -5951,6 +5971,10 @@ select.cozy-focus-task {
   outline: none;
 }
 
+.anna-backup-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 14px; }
+.anna-backup-controls label { display: flex; flex: 1 1 240px; min-width: 0; flex-direction: column; gap: 6px; }
+.anna-backup-controls .cozy-model-field__input { max-width: none; }
+
 /* ============ 环境动画开关 ============ */
 
 .fullscreen-cozy-home[data-env='false'] .weather-rain,
@@ -6055,6 +6079,45 @@ select.cozy-focus-task {
   .top-hud__date {
     display: none;
   }
+}
+
+/* Browser/Anna frames can be narrower than a desktop window, especially at zoom. */
+@media (max-width: 1100px) {
+  .top-hud { height: auto; align-items: flex-start; }
+  .top-hud__right { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+  .top-hud__brand { flex-shrink: 0; }
+  .top-hud__scene { display: none; }
+  .feature-dock__flyout {
+    right: auto; left: 50%; bottom: calc(100% + 10px);
+    width: max-content; max-width: calc(100vw - 24px);
+    flex-wrap: wrap; justify-content: center;
+    transform: translate(-50%, 8px);
+  }
+  .feature-dock__flyout[data-open='true'] { transform: translate(-50%, 0); }
+  .lofi-hud { width: min(270px, calc(50vw - 54px)); right: 12px; }
+  .cozy-settings-row, .cozy-model-field { flex-wrap: wrap; }
+  .cozy-model-field { min-width: 0; }
+  .cozy-model-field__input { min-width: 0; }
+}
+
+@media (max-width: 720px) {
+  .top-hud { top: 10px; left: 10px; right: 10px; gap: 8px; flex-wrap: wrap; }
+  .top-hud__right { flex: 1 1 100%; justify-content: flex-start; gap: 5px; }
+  .top-hud__brand { height: 32px; }
+  .top-hud__time { margin-left: auto; }
+  .feature-dock { left: 12px; bottom: 12px; transform: none; }
+  .feature-dock__flyout { left: 0; max-width: calc(100vw - 24px); transform: translateY(8px); }
+  .feature-dock__flyout[data-open='true'] { transform: translateY(0); }
+  .lofi-hud { bottom: 16px; width: min(300px, calc(100vw - 94px)); }
+  .demo-sheet { width: calc(100% - 16px); margin-bottom: 82px; padding: 16px; max-height: calc(100dvh - 102px); }
+  .demo-sheet__header { gap: 8px; padding-bottom: 10px; margin-bottom: 12px; }
+  .demo-sheet__poem { display: none; }
+  .cozy-settings-row > .cozy-settings-row__label { flex-basis: 100%; }
+}
+
+@media (max-height: 540px) {
+  .demo-sheet { margin-bottom: 76px; max-height: calc(100dvh - 90px); padding: 12px 16px; }
+  .demo-sheet__header { padding-bottom: 8px; margin-bottom: 8px; }
 }
 
 @media (max-height: 760px) {
@@ -6533,3 +6596,45 @@ select.cozy-focus-task {
 .pet-art__blush {
   display: none !important; /* 鸭子没腮红 */
 }
+
+.focus-finished-notice {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  max-width: min(360px, calc(100vw - 40px));
+  padding: 14px 18px;
+  border: 1px solid var(--border, #e3e0d9);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  color: var(--text, #23201c);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .15);
+}
+
+.focus-finished-notice p { margin: 0 0 8px; }
+.cozy-note-index { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+
+/* Quiet companion notices stay small and never cover the active workspace. */
+.speech-bubble { max-width: min(240px, calc(100vw - 32px)); max-height: 150px; overflow: hidden; pointer-events: none; }
+.speech-bubble__text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.speech-bubble__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.speech-bubble__actions button { pointer-events: auto; border: 0; border-radius: 6px; padding: 2px 7px; color: inherit; background: transparent; cursor: pointer; }
+.pet-question-dot { position: absolute; top: 15%; right: 18%; width: 8px; height: 8px; border-radius: 50%; background: var(--accent, #d7b974); pointer-events: none; }
+
+/* Local video preferences use the same readable palette as the settings sheet. */
+.cozy-background-settings { padding: 14px 0; border-block: 1px solid rgba(255,255,255,.14); margin: 8px 0; }
+.cozy-background-settings h4 { margin: 0 0 8px; }
+.cozy-background-settings__file { overflow-wrap: anywhere; font-size: 13px; }
+.cozy-background-settings__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.startup-check__items { list-style: none; padding: 0; margin: 12px 0; }
+.startup-check__items li { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.12); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.startup-check__items p, .startup-check__items details { width: 100%; margin: 4px 0; }
+.startup-check code { overflow-wrap: anywhere; }
+.startup-check__command { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
+.startup-check-notice { position: absolute; z-index: 25; top: 90px; right: 24px; max-width: min(400px, calc(100% - 48px)); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(31,43,39,.94); color: #f4f1df; font-size: 13px; }
+.startup-check-notice button { color: inherit; background: transparent; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 5px 8px; cursor: pointer; }
+
+.startup-check__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.startup-check__header h3 { margin: 0; }
+.startup-check > p { margin: 4px 0; }

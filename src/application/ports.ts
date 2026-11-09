@@ -50,11 +50,18 @@ export interface Note {
   sourceType: NoteSourceType;
   sourceUri?: string;
   indexStatus: 'pending' | 'parsing' | 'chunking' | 'indexing' | 'indexed' | 'failed' | 'stale';
+  indexError?: string;
   tags: string[];
   /** PDF 的页 → 字符区间，查看长文时定位页码用 */
   pageRanges?: NotePageRange[];
   createdAt: ISO8601DateTime;
   updatedAt: ISO8601DateTime;
+}
+
+/** User-requested repair of the derived search index. */
+export interface NoteIndexRetryPort {
+  /** Atomically enqueue from the saved body; do not duplicate pending/running work. */
+  retryIndex(noteId: UUID): Promise<'queued' | 'busy' | 'missing' | 'empty'>;
 }
 
 /** PDF 解析出的页与字符区间（start/end 是拼接后正文里的字符偏移） */
@@ -73,10 +80,41 @@ export interface ReviewLog {
   statistics?: Record<string, number>;
   insights: string[];
   nextTodos: string[];
+  evidence?: ReviewTrace;
   /** 写入此复盘草稿的确认提案 id（崩溃恢复时精确判定 commit 是否已完成） */
   sourceProposalId?: string;
   createdAt: ISO8601DateTime;
   updatedAt: ISO8601DateTime;
+}
+
+/** 生成时的本地证据快照，之后任务状态变化不改写历史依据。 */
+export interface ReviewEvidenceSource {
+  id: string;
+  kind: 'period' | 'coverage' | 'day' | 'task' | 'follow_up' | 'knowledge';
+  description: string;
+}
+
+export interface ReviewObservation {
+  text: string;
+  evidenceIds: string[];
+}
+
+export interface ReviewTrace {
+  observations: ReviewObservation[];
+  suggestions: ReviewObservation[];
+  sources: ReviewEvidenceSource[];
+  limitations: string[];
+}
+
+export interface ReviewFollowUp {
+  id: string;
+  reviewId: string;
+  suggestion: string;
+  todoId?: string;
+  adoptedAt: string;
+  /** 当前任务状态；deleted 保留采用记录，避免再次点击意外重建。 */
+  status: TodoStatus | 'deleted';
+  completedAt?: string;
 }
 
 export interface CompanionInteraction {
@@ -175,6 +213,22 @@ export interface KnowledgeLinkQuery {
 
 /* ---------- Repository 端口 ---------- */
 
+export type { LearningReminder, ReminderKind, ReminderRepeat, ReminderAction, LearningKnowledge, KnowledgeObservation, RecallRating } from '../domain/learning';
+
+export interface LearningRepository {
+  listReminders(): Promise<import('../domain/learning').LearningReminder[]>;
+  findReminder(id: string): Promise<import('../domain/learning').LearningReminder | null>;
+  saveReminder(value: import('../domain/learning').LearningReminder, expectedRevision: number | null): Promise<boolean>;
+  listKnowledge(): Promise<import('../domain/learning').LearningKnowledge[]>;
+  findKnowledge(id: string): Promise<import('../domain/learning').LearningKnowledge | null>;
+  saveKnowledge(value: import('../domain/learning').LearningKnowledge, expectedRevision: number | null): Promise<boolean>;
+}
+
+export interface ReminderDeliveryStatus { supported: boolean; enabled: boolean; message: string; scheduled: number }
+export interface ReminderNotificationPort {
+  sync(reminders: { id: string; title: string; dueAt: string }[]): Promise<ReminderDeliveryStatus>;
+}
+
 export interface TodoRepository {
   findById(id: UUID): Promise<Todo | null>;
   findByDate(date: string): Promise<Todo[]>;
@@ -184,7 +238,7 @@ export interface TodoRepository {
   save(todo: Todo): Promise<void>;
   saveMany(todos: Todo[]): Promise<void>;
   delete(id: UUID): Promise<void>;
-  /** 事务化替换：删除原任务并把新任务整批写入（拆解「替换为拆分」用，避免删了写不进丢数据） */
+  /** 原子拆分：仅替换仍存在且未结束的原任务，拒绝空批次；失败完整回滚。 */
   replaceAll(deleteId: UUID, todos: Todo[]): Promise<void>;
 }
 
@@ -218,10 +272,14 @@ export interface NoteVectorCleanupPort {
 }
 
 export interface ReviewRepository {
+  listAll(limit?: number): Promise<ReviewLog[]>;
   findById(id: UUID): Promise<ReviewLog | null>;
   findByDate(date: string, reviewType: 'daily' | 'weekly' | 'monthly'): Promise<ReviewLog | null>;
   save(review: ReviewLog): Promise<void>;
   delete(id: UUID): Promise<void>;
+  /** 原子提交任务和来源；同一复盘的同一建议只采用一次。 */
+  adoptSuggestion(reviewId: UUID, suggestion: string, todo: Todo): Promise<{ followUp: ReviewFollowUp; created: boolean }>;
+  listFollowUps(limit?: number): Promise<ReviewFollowUp[]>;
 }
 
 export interface CompanionInteractionRepository {
@@ -295,7 +353,8 @@ export interface KnowledgeLinkSuggestionPort {
     excludeNoteIds: UUID[],
     limit?: number,
     /** 新笔记已有的标签：并入 HyDE 假设标签一起检索（标签是用户打的摘要，相关性有保证） */
-    existingTags?: string[]
+    existingTags?: string[],
+    options?: GenerationOptions
   ): Promise<LinkSuggestionCandidate[]>;
 }
 
@@ -319,14 +378,28 @@ export interface SearchHit {
   charStart?: number;
 }
 
+export interface KnowledgeProgress {
+  stage: 'candidates' | 'keywords' | 'rewrite' | 'embedding' | 'vector' | 'rerank' | 'generating' | 'judging';
+  state: 'running' | 'finished';
+  durationMs?: number;
+}
+
+export interface NoteSearchOptions {
+  signal?: AbortSignal;
+  onProgress?: (progress: KnowledgeProgress) => void;
+  onPartial?: (hits: SearchHit[]) => void;
+}
+
 export interface NoteSearchPort {
   /** deep=true 时走深度检索（LLM Multi-Query + HyDE），慢但更准 */
-  search(query: string, limit: number, deep?: boolean): Promise<SearchHit[]>;
+  search(query: string, limit: number, deep?: boolean, options?: NoteSearchOptions): Promise<SearchHit[]>;
 }
 
 /* ---------- 深度问答（Self-RAG）：检索 + 生成 + 自我评判，只读不写库 ---------- */
 
 export interface AskNotesQuestion {
+  onProgress?: (progress: KnowledgeProgress) => void;
+  signal?: AbortSignal;
   question: string;
   /** 深度检索（Multi-Query + HyDE + 重排）；深度问答本身就走慢路径，默认 true */
   deep?: boolean;
@@ -373,12 +446,14 @@ export interface FloraReply {
   reply: string;
   emotion?: FloraEmotion;
   verified: boolean;
+  /** 旧适配器未提供时视为未检查；verified 仅在明确通过时为 true。 */
+  verificationStatus?: 'passed' | 'failed' | 'not_checked';
   regenerated: boolean;
   ok: boolean;
 }
 
 export interface FloraPort {
-  sendLetter(input: { letter: string; language: FloraLanguage }): Promise<FloraReply>;
+  sendLetter(input: { letter: string; language: FloraLanguage }, options?: GenerationOptions): Promise<FloraReply>;
 }
 
 /* ---------- Flora 信件（排队，半天后回信） ---------- */
@@ -523,12 +598,12 @@ export interface SearchResultEnhancerPort {
    * 先对每条结果用快速模型异步出摘要，再用教师模型做软推荐排序。
    * 任一模型不可用时应降级：摘要用截断原文、排名保持原顺序，不抛错。
    */
-  enhance(results: { id: string; title: string; text: string }[]): Promise<SearchResultEnhancement[]>;
+  enhance(results: { id: string; title: string; text: string }[], options?: GenerationOptions): Promise<SearchResultEnhancement[]>;
 }
 
 /** 按月归纳：把某个月的笔记（标题+片段）压成一段小结 */
 export interface MonthlyDigestPort {
-  summarizeMonth(notes: { title: string; content: string }[], yearMonth: string): Promise<string | undefined>;
+  summarizeMonth(notes: { title: string; content: string }[], yearMonth: string, options?: GenerationOptions): Promise<string | undefined>;
 }
 
 export interface TodoDraft {
@@ -544,15 +619,27 @@ export interface ReviewDraft {
   summary?: string;
   insights: string[];
   nextTodos: string[];
+  evidence?: ReviewTrace;
   /** 生成时附带的目标日期（恢复崩溃前草稿时定位用） */
   date?: string;
   /** 生成时附带的复盘类型（恢复崩溃前草稿时定位用） */
   reviewType?: 'daily' | 'weekly' | 'monthly';
 }
 
+/** Request-local controls; never persist these with generated content. */
+export interface GenerationOptions {
+  signal?: AbortSignal;
+  onToken?: (delta: string, reset?: boolean) => void;
+}
+
 export interface TodoStructuringPort {
   /** 把自然语言目标拆解为 Todo 草稿 */
-  structure(input: string): Promise<TodoDraft[]>;
+  structure(input: string, options?: TodoStructuringOptions): Promise<TodoDraft[]>;
+}
+
+export interface TodoStructuringOptions extends GenerationOptions {
+  /** 用户明确给出的本次可用分钟数；未提供时不假定每日预算。 */
+  availableMinutes?: number;
 }
 
 export interface ReviewGeneratorPort {
@@ -571,7 +658,9 @@ export interface ReviewGeneratorPort {
     usageByDate?: Map<string, number>;
     /** 已确认的知识链接摘要（程序生成，确定性文本），复盘可引用显式关系 */
     knowledgeSummary?: string;
-  }): Promise<ReviewDraft>;
+    /** 当前采用状态快照；重生成历史日期时不传，避免泄漏未来状态。 */
+    followUps?: ReviewFollowUp[];
+  }, options?: GenerationOptions): Promise<ReviewDraft>;
 }
 
 /** 宠物一句话的完整产出：文本 + 情绪（驱动动画）+ 意图（驱动下一步）+ 快捷回应 */
@@ -615,7 +704,7 @@ export interface SocraticQuestionPort {
   askQuestion(input: {
     topic: string;
     history: SocraticExchange[];
-  }): Promise<{ question: string; feedback?: string }>;
+  }, options?: GenerationOptions): Promise<{ question: string; feedback?: string }>;
 }
 
 /* ---------- 文件解析与后台任务端口 ---------- */
@@ -641,14 +730,28 @@ export type ImportSource =
   | { kind: 'text'; content: string; title?: string; tags?: string[] };
 
 export interface FileImportPort {
-  parse(source: ImportSource): Promise<ParsedFile>;
+  parse(source: ImportSource, options?: { signal?: AbortSignal }): Promise<ParsedFile>;
 
   hash(content: string): Promise<string>;
+}
+
+export interface NoteImportOptions {
+  signal?: AbortSignal;
+  onPhase?: (phase: 'parsing' | 'checking' | 'saving') => void;
+  onDuplicate?: () => void;
+}
+
+export interface NoteImportRepository {
+  findByContentHash(hash: string): Promise<Note | null>;
+  /** Recheck the hash at commit. Return the existing note or save note + first index job together. */
+  commitImport(note: Note): Promise<Note>;
 }
 
 export type JobType = 'parse_note' | 'chunk_note' | 'embed_chunks' | 'reindex_note' | 'rebuild_index';
 
 export interface JobQueuePort {
+  /** Pause background work until this idempotent release is called. */
+  prioritizeInteractive?(): () => void;
   enqueue(job: { type: JobType; entityId: UUID; payload?: Record<string, unknown> }): Promise<void>;
 }
 

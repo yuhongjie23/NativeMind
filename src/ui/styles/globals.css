@@ -338,26 +338,54 @@ legend {
 }
 
 .modal {
-  /* 弹窗渲染在 app 内部，必须显式用主题文字色，否则会继承主场景深色字导致看不清；
-     半透明 + 毛玻璃，背景再乱文字也清晰 */
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  /* 弹窗使用一致且不透明的主题背景，避免正文与场景配色混用。 */
+  background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 22px 24px;
   max-width: 520px;
   width: 100%;
-  max-height: 80vh;
-  overflow-y: auto;
-  backdrop-filter: blur(18px);
+  max-height: min(80dvh, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  margin-bottom: 12px;
 }
 
 .modal-title {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.modal-close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-footer {
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
   gap: 8px;

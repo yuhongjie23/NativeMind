@@ -1,0 +1,12 @@
+{
+  "$id": "companion-turn.v1",
+  "type": "object",
+  "required": ["intent", "emotion", "text", "quickReplies"],
+  "additionalProperties": false,
+  "properties": {
+    "intent": { "type": "string", "enum": ["acknowledge", "clarify", "suggest_one_step", "close"] },
+    "emotion": { "type": "string", "enum": ["calm", "curious", "happy", "concerned"] },
+    "text": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "quickReplies": { "type": "array", "maxItems": 3, "items": { "type": "string", "minLength": 1, "maxLength": 16 } }
+  }
+}

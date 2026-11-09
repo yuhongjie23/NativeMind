@@ -37,6 +37,8 @@ import type {
   KnowledgeLinkRepository,
   KnowledgeLinkSuggestionPort,
   NoteRepository,
+  NoteImportRepository,
+  NoteIndexRetryPort,
   NoteSearchPort,
   NoteVectorCleanupPort,
   ReviewGeneratorPort,
@@ -83,9 +85,11 @@ import { GenerateMonthlyReviewUseCase } from './use-cases/review/generate-monthl
 import { RecoverPendingReviewUseCase } from './use-cases/review/recover-pending-review';
 import { DeleteReviewUseCase } from './use-cases/review/delete-review';
 import { UpdateReviewUseCase } from './use-cases/review/update-review';
+import { AdoptReviewSuggestionUseCase } from './use-cases/review/adopt-review-suggestion';
 import { ProactiveCompanionTickUseCase } from './use-cases/companion/proactive-tick';
 import { CompanionContextBuilder } from './use-cases/companion/companion-context';
 import { DeleteNoteUseCase } from './use-cases/note/delete-note';
+import { RetryNoteIndexUseCase } from './use-cases/note/retry-note-index';
 import { AbandonSocraticSessionUseCase } from './use-cases/socratic/abandon-session';
 import { AskSocraticQuestionUseCase } from './use-cases/socratic/ask-question';
 import { CompleteSocraticSessionUseCase } from './use-cases/socratic/complete-session';
@@ -95,12 +99,15 @@ import { CompleteTodoUseCase } from './use-cases/todo/complete-todo';
 import { CreateTodoUseCase } from './use-cases/todo/create-todo';
 import { DeleteTodoUseCase } from './use-cases/todo/delete-todo';
 import { UpdateTodoUseCase } from './use-cases/todo/update-todo';
+import { ManageRemindersUseCase, TrackKnowledgeUseCase, ReviewLearningUseCase } from './use-cases/learning';
+import type { LearningRepository, ReminderNotificationPort } from './ports';
 
 export interface ApplicationDeps {
   repositories: {
+    learning?: LearningRepository;
     todo: TodoRepository;
     focus: FocusRepository;
-    note: NoteRepository;
+    note: NoteRepository & NoteImportRepository;
     review: ReviewRepository;
     companionInteraction: CompanionInteractionRepository;
     socratic: SocraticRepository;
@@ -132,8 +139,10 @@ export interface ApplicationDeps {
     searchBrief?: (query: string) => Promise<string | null>;
   };
   infrastructure: {
+    reminderNotifications?: ReminderNotificationPort;
     fileImport: FileImportPort;
     jobQueue: JobQueuePort;
+    noteIndexRetry?: NoteIndexRetryPort;
     companionStateMachine: CompanionStateMachinePort;
     /** 删除笔记时清理向量（可选，web 演示没有向量库） */
     vectorCleanup?: NoteVectorCleanupPort;
@@ -156,6 +165,9 @@ export interface Application {
   };
   confirmation: ConfirmationService;
   useCases: {
+    learningReminders?: ManageRemindersUseCase;
+    trackKnowledge?: TrackKnowledgeUseCase;
+    reviewLearning?: ReviewLearningUseCase;
     createTodo: CreateTodoUseCase;
     completeTodo: CompleteTodoUseCase;
     updateTodo: UpdateTodoUseCase;
@@ -164,6 +176,7 @@ export interface Application {
     completeFocus: CompleteFocusUseCase;
     abortFocus: AbortFocusUseCase;
     importNote: ImportNoteUseCase;
+    retryNoteIndex: RetryNoteIndexUseCase;
     updateNote: UpdateNoteUseCase;
     deleteNote: DeleteNoteUseCase;
     searchNotes: SearchNotesUseCase;
@@ -188,6 +201,7 @@ export interface Application {
     recoverPendingReview: RecoverPendingReviewUseCase;
     deleteReview: DeleteReviewUseCase;
     updateReview: UpdateReviewUseCase;
+    adoptReviewSuggestion: AdoptReviewSuggestionUseCase;
     triggerInteraction: TriggerInteractionUseCase;
     handleUserResponse: HandleUserResponseUseCase;
     proactiveCompanionTick: ProactiveCompanionTickUseCase;
@@ -254,6 +268,7 @@ export function createApplication(deps: ApplicationDeps): Application {
   );
 
   const useCases: Application['useCases'] = {
+    adoptReviewSuggestion: new AdoptReviewSuggestionUseCase(repos.review, confirmation, eventBus),
     createTodo: new CreateTodoUseCase(repos.todo, eventBus, confirmation, ai.todoStructuring),
     completeTodo: new CompleteTodoUseCase(repos.todo, eventBus),
     updateTodo: new UpdateTodoUseCase(repos.todo, eventBus),
@@ -262,11 +277,12 @@ export function createApplication(deps: ApplicationDeps): Application {
     completeFocus: new CompleteFocusUseCase(repos.focus, eventBus, focusPolicy),
     abortFocus: new AbortFocusUseCase(repos.focus, eventBus, focusPolicy),
     importNote: new ImportNoteUseCase(repos.note, infra.fileImport, eventBus),
+    retryNoteIndex: new RetryNoteIndexUseCase(infra.noteIndexRetry),
     updateNote: new UpdateNoteUseCase(repos.note, infra.fileImport, eventBus),
     deleteNote: new DeleteNoteUseCase(repos.note, infra.vectorCleanup, confirmation, eventBus, repos.knowledgeLink),
-    searchNotes: new SearchNotesUseCase(ai.noteSearch, privacyPolicy, focusPolicy, deps.ai.searchGate),
+    searchNotes: new SearchNotesUseCase(ai.noteSearch, privacyPolicy, focusPolicy, deps.ai.searchGate, 3, deps.infrastructure.jobQueue),
     askNotes: new AskNotesUseCase(
-      ai.askNotes ?? { ask: async () => emptyAskNotesAnswer }
+      ai.askNotes ?? { ask: async () => emptyAskNotesAnswer }, emptyAskNotesAnswer, deps.infrastructure.jobQueue
     ),
     saveAskSession: new SaveAskSessionUseCase(repos.ask),
     listAskSessions: new ListAskSessionsUseCase(repos.ask),
@@ -364,6 +380,13 @@ export function createApplication(deps: ApplicationDeps): Application {
     appUsage: new AppUsageTracker(repos.appUsage),
   };
 
+
+  if (repos.learning) {
+    useCases.learningReminders = new ManageRemindersUseCase(repos.learning, repos.settings,
+      infra.reminderNotifications ?? { sync: async () => ({ supported: false, enabled: false, scheduled: 0, message: '此环境仅支持应用打开时查看提醒。' }) }, focusPolicy);
+    useCases.trackKnowledge = new TrackKnowledgeUseCase(repos.learning, repos.note);
+    useCases.reviewLearning = new ReviewLearningUseCase(repos.learning, repos.review, useCases.generateDailyReview, useCases.learningReminders);
+  }
 
   const unsubscribes = [
     registerAuditSubscriber(eventBus, repos.audit),

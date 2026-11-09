@@ -50,18 +50,26 @@ export type TaskType =
 /* ---------- 版本化标识（§17.2） ---------- */
 
 export type PromptId =
+  | 'review-grounded.v1'
+  | 'companion-dialogue.v1'
   | 'intent.v1'
   | 'todo-structuring.v1'
+  | 'todo-structuring.v2'
   | 'review-daily.v1'
   | 'review-weekly.v1'
   | 'review-monthly.v1'
   | 'rag-relation.v1'
   | 'socratic.v1'
+  | 'socratic.v2'
   | 'query-rewrite.v1';
 
 export type SchemaId =
+  | 'review-grounded.v1'
+  | 'companion-turn.v1'
   | 'intent.v1'
   | 'todo.v1'
+  | 'todo.v2'
+  | 'todo-budgeted.v1'
   | 'review-log.v1'
   | 'knowledge-link.v1'
   | 'link-hyde.v1'
@@ -94,6 +102,7 @@ export interface AIRequest<I = unknown, C = unknown> {
   context?: C;
   modelPolicy?: ModelPolicy;
   /** 流式预览回调，透传给 provider.complete 的 onToken（可选）；reset=true 表示新一轮生成、清空旧预览 */
+  signal?: AbortSignal;
   onToken?: (delta: string, reset?: boolean) => void;
 }
 
@@ -141,6 +150,7 @@ export interface ModelCompletionRequest {
    * 约定：onToken 只是预览，最终以返回值（完整文本）为准。
    * reset=true：新一轮生成开始（如重生成精修稿），调用方应先清空旧预览再继续累积。
    */
+  signal?: AbortSignal;
   onToken?: (delta: string, reset?: boolean) => void;
   /**
    * 目标结构的 JSON Schema，交给运行时做**约束解码**（Ollama 的 format=<schema>）。
@@ -167,7 +177,7 @@ export interface ModelProvider {
 export interface EmbeddingProvider {
   /** embedding 版本号，写入 note.embedding_version，升级时触发 RebuildIndexJob（§13.4） */
   readonly version: string;
-  embed(texts: string[]): Promise<number[][]>;
+  embed(texts: string[], signal?: AbortSignal, purpose?: 'document' | 'query'): Promise<number[][]>;
 }
 
 export interface VectorMatch {

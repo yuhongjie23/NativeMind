@@ -8,9 +8,9 @@
  *
  * 不真连模型：fake provider 记录调用，验证路由选择。
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAILayer, type AILayerDeps } from '@ai/index';
-import { setModelConfig } from '@ai/router/model-config';
+import { getModelConfig, setModelConfig } from '@ai/router/model-config';
 import type { ModelProvider, VectorStorePort, EmbeddingProvider } from '@ai/types';
 import type { CandidateProvider } from '@ai/rag/rag-orchestrator';
 
@@ -42,8 +42,44 @@ const makeDeps = (local: ModelProvider, deepseek?: ModelProvider): AILayerDeps =
 });
 
 describe('createAILayer 双 provider 兜底路由', () => {
+  const originalConfig = { ...getModelConfig() };
+  afterEach(() => setModelConfig(originalConfig));
   beforeEach(() => {
     setModelConfig({ providerMode: 'local', apiKey: undefined, deepseekModel: 'deepseek-v4-flash' });
+  });
+
+  it('Anna 本地策略忽略旧云端选择，所有档位使用当前本地模型且不改写设置', async () => {
+    setModelConfig({ small: 'local-fast', big: 'qwen3:14b', providerMode: 'deepseek', apiKey: 'saved-test-key' });
+    const saved = { ...getModelConfig() };
+    const local = fakeProvider('local');
+    const available = vi.fn(async (model: string) => ['local-fast', 'qwen3:14b', 'new-local'].includes(model));
+    const cloud = { isAvailable: vi.fn(async () => true), complete: vi.fn(async () => 'cloud') };
+    const layer = createAILayer({ ...makeDeps({ ...local, isAvailable: available }, cloud), localOnly: true });
+    for (const tier of ['fast', 'coach', 'deep'] as const) {
+      expect(await layer.router.isTierAvailable(tier)).toBe(true);
+      const result = await layer.router.run({ taskType: 'light_summary', input: {}, inlinePrompt: { user: 'test' }, modelPolicy: { preferredTier: tier, noFallback: true } });
+      expect(result.ok).toBe(true);
+      expect(result.model).toBe(tier === 'fast' ? 'local-fast' : 'qwen3:14b');
+    }
+    expect(local.calls).toEqual(['local-fast', 'qwen3:14b', 'qwen3:14b']);
+    expect(cloud.isAvailable).not.toHaveBeenCalled();
+    expect(cloud.complete).not.toHaveBeenCalled();
+    expect(getModelConfig()).toEqual(saved);
+    setModelConfig({ big: 'new-local' });
+    const updated = await layer.router.run({ taskType: 'socratic_question', input: {} });
+    expect(updated.model).toBe('new-local');
+  });
+
+  it('Anna 本地模型缺失时不会借用可用云模型', async () => {
+    setModelConfig({ providerMode: 'deepseek', apiKey: 'saved-test-key' });
+    const local = fakeProvider('local', { available: false });
+    const cloud = { isAvailable: vi.fn(async () => true), complete: vi.fn(async () => 'cloud') };
+    const layer = createAILayer({ ...makeDeps(local, cloud), localOnly: true });
+    const result = await layer.router.run({ taskType: 'socratic_question', input: {} });
+    expect(result.ok).toBe(false);
+    expect(result.error?.kind).toBe('model_unavailable');
+    expect(cloud.isAvailable).not.toHaveBeenCalled();
+    expect(cloud.complete).not.toHaveBeenCalled();
   });
 
   it('本地不可用 + 配 DeepSeek → fast 任务兜底走 DeepSeek', async () => {

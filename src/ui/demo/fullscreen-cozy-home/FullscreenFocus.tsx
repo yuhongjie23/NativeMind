@@ -1,3 +1,5 @@
+import { useAnnaFileTransfer } from '../../hooks/use-anna-file-transfer';
+import { AnnaTransferStatus } from '../../components/common/AnnaTransferStatus';
 /**
  * 全屏极简专注模式（demo）。
  *
@@ -11,6 +13,8 @@
  */
 import { Check, FolderOpen, Music, Pause, Play, RotateCcw, Volume2, VolumeX, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { isAnna, pickAnnaAudio } from '@infrastructure/anna';
+import { canFullscreen, subscribeFullscreen, toggleFullscreen } from '@infrastructure/window-api';
 import { useFocusMode } from '../../hooks/use-focus-mode';
 import { useT } from '../../i18n';
 import { useConfirmationStore } from '../../stores/confirmation-store';
@@ -24,7 +28,7 @@ import { useToastStore } from '../../stores/toast-store';
 
 const fileName = (path: string): string => path.split(/[\\/]/).pop() ?? path;
 
-const canPick = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const canPick = isAnna() || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
 
 const DURATION_OPTIONS = [15, 25, 45, 60];
 
@@ -39,6 +43,7 @@ interface FullscreenFocusProps {
 
 export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onToggleMute }: FullscreenFocusProps) {
   const t = useT();
+  const fileTransfer = useAnnaFileTransfer();
   const active = useFocusStore((state) => state.active);
   const start = useFocusStore((state) => state.start);
   const complete = useFocusStore((state) => state.complete);
@@ -94,6 +99,8 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
   };
   // 时长选择：想 45 分钟不用退出全屏去设置里改默认值
   const [duration, setDuration] = useState(defaultMinutes);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => subscribeFullscreen(setFullscreen), []);
 
   const isActive = Boolean(active);
   const paused = Boolean(pausedAt);
@@ -201,8 +208,16 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
 
   /** 从本地文件选择 → 复制进数据目录 → 应用 */
   const pickFromLocal = async () => {
-    if (!canPick) return;
+    if (!canPick || fileTransfer.busy) return;
     try {
+      if (isAnna()) {
+        const file = await pickAnnaAudio();
+        if (file) {
+          const path = await fileTransfer.stage(file, 'audio');
+          if (path) await applyAsFocusMusic(path);
+        }
+        return;
+      }
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         multiple: false,
@@ -223,6 +238,10 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
   const pickFromLibrary = async (trackPath: string) => {
     if (!canPick) return;
     try {
+      if (isAnna()) {
+        await applyAsFocusMusic(trackPath);
+        return;
+      }
       const { invoke } = await import('@tauri-apps/api/core');
       const readable = await invoke<string>('file_import_into_data_dir', { path: trackPath });
       await applyAsFocusMusic(readable);
@@ -301,6 +320,11 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
         {error ? <p className="focus-overlay__error">{error}</p> : null}
 
         <div className="focus-overlay__actions">
+          {isAnna() && canFullscreen() && <button type="button" className="focus-overlay__ghost" onClick={() => {
+            void toggleFullscreen().then(setFullscreen).catch(() => {
+              useToastStore.getState().show(t('无法进入全屏，请使用宿主窗口的全屏操作。'), 'info');
+            });
+          }}>{t(fullscreen ? '退出全屏' : '进入全屏')}</button>}
           {!isActive ? (
             <>
               <label className="focus-overlay__todo-pick">
@@ -429,10 +453,11 @@ export function FullscreenFocus({ onClose, volume, muted, onVolumeChange, onTogg
                 ))}
               </div>
             ) : null}
-            <button type="button" role="menuitem" disabled={!canPick} onClick={() => void pickFromLocal()}>
+            <button type="button" role="menuitem" disabled={!canPick || fileTransfer.busy} onClick={() => void pickFromLocal()}>
               <FolderOpen size={13} strokeWidth={2} aria-hidden="true" />
               <span>从本地文件选择…</span>
             </button>
+            <AnnaTransferStatus transfer={fileTransfer} />
             <button type="button" role="menuitem" onClick={() => setPickerOpen(false)}>
               取消
             </button>

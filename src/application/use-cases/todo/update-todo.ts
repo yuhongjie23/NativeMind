@@ -9,6 +9,7 @@ import type { UUID } from '@shared-types/common';
 import type { EventBus } from '../../events/event-bus';
 import type { Todo, TodoRepository, TodoStatus } from '../../ports';
 import { now } from '../../shared/utils';
+import { normalizeTodoTitle, validateTodoMinutes } from './todo-draft';
 
 export type UpdateTodoPatch = Partial<
   Pick<
@@ -43,13 +44,9 @@ export class UpdateTodoUseCase {
     if (!todo) throw new Error(`Todo 不存在: ${todoId}`);
 
     if (patch.title !== undefined) {
-      const title = patch.title.trim();
-      if (!title) throw new Error('Todo 标题不能为空');
-      if (title.length > 200) throw new Error('Todo 标题不能超过 200 字符');
+      normalizeTodoTitle(patch.title);
     }
-    if (patch.estimatedMinutes !== undefined && patch.estimatedMinutes <= 0) {
-      throw new Error('估计时长必须为正数');
-    }
+    validateTodoMinutes(patch.estimatedMinutes);
     if (patch.status !== undefined && patch.status !== todo.status) {
       const allowed = ALLOWED_TRANSITIONS[todo.status] ?? [];
       if (!allowed.includes(patch.status)) {
@@ -61,8 +58,9 @@ export class UpdateTodoUseCase {
     const updated: Todo = {
       ...todo,
       ...patch,
+      title: patch.title === undefined ? todo.title : normalizeTodoTitle(patch.title),
       // 完成时记录完成时间；否则保持原值
-      completedAt: patch.status === 'completed' ? timestamp : todo.completedAt,
+      completedAt: patch.status === 'completed' && todo.status !== 'completed' ? timestamp : todo.completedAt,
       updatedAt: timestamp,
     };
     await this.todoRepo.save(updated);

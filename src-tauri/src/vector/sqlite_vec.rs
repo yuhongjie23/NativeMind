@@ -109,7 +109,9 @@ mod tests {
     /// 这决定了 RAG 向量检索是否可用，值得单独一条测试盯着。
     #[test]
     fn bundled_vec0_loads() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+        let dir = option_env!("NATIVEMIND_BUNDLED_RESOURCES")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resources"));
         let db = crate::db::DbConnection::open(":memory:").expect("内存库应能打开");
         let status = load(&db, &dir);
         assert!(

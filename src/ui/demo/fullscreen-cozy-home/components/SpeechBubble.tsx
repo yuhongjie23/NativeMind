@@ -5,6 +5,7 @@
  * 不再内联回复输入框（主页面保持低打扰，回复移入陪伴面板）。
  */
 import type { NormalizedPoint } from '../types';
+import { useT } from '../../../i18n';
 
 export interface BubbleLine {
   id: number;
@@ -18,9 +19,11 @@ interface SpeechBubbleProps {
   /** 保留：主页面不再内联输入框，回复移入陪伴面板；onDismiss 用于气泡消失 */
   onRespond?: (text: string) => void;
   onDismiss?: () => void;
+  onOpen?: () => void;
 }
 
-export function SpeechBubble({ line, anchor }: SpeechBubbleProps) {
+export function SpeechBubble({ line, anchor, onDismiss, onOpen }: SpeechBubbleProps) {
+  const t = useT();
   if (!line) return null;
 
   return (
@@ -30,12 +33,16 @@ export function SpeechBubble({ line, anchor }: SpeechBubbleProps) {
       role="status"
       style={
         {
-          '--bubble-x': `${anchor.x * 100}%`,
+          '--bubble-x': `${Math.max(12, Math.min(88, anchor.x * 100))}%`,
           '--bubble-y': `${(1 - anchor.y) * 100}%`,
         } as React.CSSProperties
       }
     >
-      <p className="speech-bubble__text">{line.text}</p>
+      <p className="speech-bubble__text">{line.requiresResponse ? t('有个小问题，方便时再聊。') : line.text}</p>
+      <div className="speech-bubble__actions">
+        {line.requiresResponse && <button type="button" onClick={onOpen}>{t('查看')}</button>}
+        <button type="button" aria-label={t('收起宠物提示')} onClick={onDismiss}>×</button>
+      </div>
     </div>
   );
 }

@@ -5,7 +5,7 @@
  * 当本地结果不足（默认 < 3 条）且外部搜索可用时，自动触发外部搜索作为补充。
  * 外部搜索结果不落库，用户手动选择保存的才会写库。
  */
-import type { NoteSearchPort, SearchHit } from '../../ports';
+import type { NoteSearchPort, SearchHit, NoteSearchOptions, JobQueuePort } from '../../ports';
 import type { FocusModePolicy } from '../../policies/focus-mode-policy';
 import type { PrivacyPolicy } from '../../policies/privacy-policy';
 import type { RankedResult } from '@ai/search/result-filter';
@@ -35,14 +35,16 @@ export class SearchNotesUseCase {
     /** 不注入 = 外部搜索整体关闭 */
     private readonly searchGate?: SearchGate,
     /** 本地结果 >= 此数时跳过外部搜索 */
-    private readonly localThreshold = 3
+    private readonly localThreshold = 3,
+    private readonly jobs?: JobQueuePort
   ) {}
 
   async execute(
     query: string,
     limit = 10,
     trigger: SearchTrigger = 'user_explicit',
-    deep?: boolean
+    deep?: boolean,
+    options?: NoteSearchOptions
   ): Promise<SearchNotesResult> {
     const keyword = query.trim();
     const empty = {
@@ -55,7 +57,7 @@ export class SearchNotesUseCase {
     };
     if (!keyword) return empty;
 
-    const hits = await this.noteSearch.search(keyword, limit, deep);
+    const hits = await this.searchLocal(keyword, limit, deep, options);
     // Self-RAG 信号：最高分命中仍偏低 → 结果可能不完整
     const localLowConfidence = hits.length === 0 || hits[0].score < 0.4;
 
@@ -126,7 +128,7 @@ export class SearchNotesUseCase {
     trigger: SearchTrigger = 'user_explicit'
   ): Promise<SearchNotesResult> {
     const keyword = query.trim();
-    const hits = await this.noteSearch.search(keyword, 10);
+    const hits = await this.searchLocal(keyword, 10);
 
     if (!this.focusPolicy.canInterrupt('external_search')) {
       return {
@@ -166,6 +168,16 @@ export class SearchNotesUseCase {
     }
 
     return this.performExternalSearch(keyword, hits, trigger);
+  }
+
+  private async searchLocal(query: string, limit: number, deep?: boolean, options?: NoteSearchOptions): Promise<SearchHit[]> {
+    const release = this.jobs?.prioritizeInteractive?.();
+    try {
+      options?.signal?.throwIfAborted();
+      const hits = await this.noteSearch.search(query, limit, deep, options);
+      options?.signal?.throwIfAborted();
+      return hits;
+    } finally { release?.(); }
   }
 
   private async performExternalSearch(

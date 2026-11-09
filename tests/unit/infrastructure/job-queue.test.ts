@@ -2,7 +2,7 @@
  * 队列行为单测：重试、放弃、专注期间暂停、启动恢复
  * 这几条直接决定「导入的笔记会不会永远卡在索引中」，所以必须覆盖。
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Database } from '@infrastructure/db/database';
 import { JobQueue, type Job, type JobHandler } from '@infrastructure/background-jobs/job-queue';
 import { MemoryDriver } from './memory-driver';
@@ -41,6 +41,45 @@ describe('JobQueue', () => {
   beforeEach(() => {
     driver = new MemoryDriver();
     db = new Database(driver);
+  });
+
+  it('interactive requests preempt active work without retries and resume only after every lease releases', async () => {
+    driver.stub(PENDING_QUERY, [pendingRow({ job_type: 'embed_chunks' })]);
+    const queue = new JobQueue(db);
+    let started!: () => void;
+    const ready = new Promise<void>(resolve => { started = resolve; });
+    const run = vi.fn(async (_job: Job, signal?: AbortSignal) => {
+      started();
+      await new Promise<void>((_resolve, reject) => signal?.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    });
+    queue.register({ type: 'embed_chunks', run });
+    const draining = queue.drain();
+    await ready;
+    const releaseA = queue.prioritizeInteractive();
+    const releaseB = queue.prioritizeInteractive();
+    expect(await draining).toBe(0);
+    expect(driver.findCall('retry_count = retry_count + 1')).toBeUndefined();
+    expect(driver.findCall("status = 'pending', started_at = NULL WHERE id = ?")).toBeDefined();
+    releaseA(); releaseA();
+    expect(await queue.drain()).toBe(0);
+    releaseB();
+    run.mockImplementation(async () => undefined);
+    expect(await queue.drain()).toBe(1);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('a foreground lease arriving during an async policy check prevents starting a job', async () => {
+    driver.stub(PENDING_QUERY, [pendingRow()]);
+    let allow!: (allowed: boolean) => void;
+    const queue = new JobQueue(db, { canRun: () => new Promise(resolve => { allow = resolve; }) });
+    const handler = new RecordingHandler();
+    queue.register(handler);
+    const work = queue.drain();
+    const release = queue.prioritizeInteractive();
+    allow(true);
+    expect(await work).toBe(0);
+    expect(handler.seen).toEqual([]);
+    release();
   });
 
   it('成功后标记 completed', async () => {
@@ -103,6 +142,54 @@ describe('JobQueue', () => {
     await queue.recoverStaleJobs();
 
     expect(driver.findCall("WHERE status = 'running'")).toBeDefined();
+  });
+
+  it('异步专注检查期间并发消费只执行一次任务', async () => {
+    driver.stub(PENDING_QUERY, [pendingRow()]);
+    let allow!: (value: boolean) => void;
+    const policy = new Promise<boolean>(resolve => { allow = resolve; });
+    const queue = new JobQueue(db, { canRun: () => policy });
+    const handler = new RecordingHandler();
+    queue.register(handler);
+    const first = queue.drain();
+    const second = queue.drain();
+    allow(true);
+    expect(await Promise.all([first, second])).toEqual([1, 0]);
+    expect(handler.seen).toEqual(['note-1']);
+    expect(driver.calls.filter(call => call.sql.includes(PENDING_QUERY))).toHaveLength(1);
+  });
+
+  it('专注检查拒绝后释放消费锁，退出专注可继续', async () => {
+    driver.stub(PENDING_QUERY, [pendingRow()]);
+    const canRun = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
+    const queue = new JobQueue(db, { canRun });
+    const handler = new RecordingHandler();
+    queue.register(handler);
+    expect(await queue.drain()).toBe(0);
+    expect(await queue.drain()).toBe(1);
+    expect(handler.seen).toEqual(['note-1']);
+  });
+
+  it('异步检查抛错后释放消费锁，允许下轮重试', async () => {
+    driver.stub(PENDING_QUERY, [pendingRow()]);
+    const canRun = vi.fn().mockRejectedValueOnce(new Error('policy failed')).mockResolvedValue(true);
+    const queue = new JobQueue(db, { canRun });
+    const handler = new RecordingHandler();
+    queue.register(handler);
+    await expect(queue.drain()).rejects.toThrow('policy failed');
+    expect(await queue.drain()).toBe(1);
+    expect(handler.seen).toEqual(['note-1']);
+  });
+
+  it('一批任务中途进入专注时，后续任务保持待处理', async () => {
+    driver.stub(PENDING_QUERY, [pendingRow(), pendingRow({ id: 'job-2', entity_id: 'note-2' })]);
+    const canRun = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(true).mockResolvedValue(false);
+    const queue = new JobQueue(db, { canRun });
+    const handler = new RecordingHandler();
+    queue.register(handler);
+    expect(await queue.drain()).toBe(1);
+    expect(handler.seen).toEqual(['note-1']);
+    expect(driver.calls.some(call => call.sql.includes("status = 'running'") && call.params.includes('job-2'))).toBe(false);
   });
 
   it('入队写入 pending 记录', async () => {

@@ -39,14 +39,14 @@ describe('ModelRouter 传递 jsonSchema', () => {
 
     const request = complete.mock.calls[0][0];
     expect(request.json).toBe(true);
-    // 传下去的是净化版；todo.v1 的 maxLength 都不大，净化后与原始一致
-    expect(request.jsonSchema).toEqual(toDecodingSchema(getSchema('todo.v1')));
+    // 当前任务使用 v2，旧 v1 仍可读取以回放历史结果。
+    expect(request.jsonSchema).toEqual(toDecodingSchema(getSchema('todo.v2')));
   });
 
   it('复盘任务传下去的 schema 已剔除大 maxLength', async () => {
-    // 合法的 review-log.v1 输出
+    // 当前有据复盘的合法结构
     const { provider, complete } = makeProvider(
-      JSON.stringify({ content: 'x'.repeat(50), insights: [], nextTodos: [] })
+      JSON.stringify({ content: 'x'.repeat(50), summary: '', observations: [], nextSteps: [], limitations: [] })
     );
     const router = new ModelRouter(provider);
 
@@ -64,7 +64,7 @@ describe('ModelRouter 传递 jsonSchema', () => {
     // content 原本是 maxLength 4000，会让 Ollama 编译 GBNF 失败并整个请求 400
     expect(sent.properties.content).not.toHaveProperty('maxLength');
     // 其余约束要保留，否则约束解码就没意义了
-    expect(sent.properties.content).toMatchObject({ type: 'string', minLength: 20 });
+    expect(sent.properties.content).toMatchObject({ type: 'string', minLength: 1 });
   });
 
 

@@ -1,3 +1,5 @@
+import type { NoteSearchOptions } from '@application/ports';
+import type { GenerationOptions } from '@application/ports';
 /**
  * 端口适配器 - AI 层 → application 层接口的对接
  *
@@ -25,15 +27,16 @@ import type {
   MonthlyDigestPort,
   NoteSearchPort,
   ReviewDraft,
+  ReviewFollowUp,
+  ReviewObservation,
   ReviewGeneratorPort,
   SearchHit,
   SearchResultEnhancement,
   SearchResultEnhancerPort,
-  SocraticExchange,
-  SocraticQuestionPort,
   Todo,
   TodoDraft,
   TodoStructuringPort,
+  TodoStructuringOptions,
 } from '@application/ports';
 import type { UUID } from '@shared-types/common';
 import { InteractionGenerator, type CompanionScene } from './companion/interaction-generator';
@@ -42,21 +45,13 @@ import type { RAGOrchestrator } from './rag/rag-orchestrator';
 import type { SelfRag } from './rag/self-rag';
 import { LinkHydeGenerator } from './rag/link-hyde';
 import { buildReviewEvidence } from './rag/review-evidence';
+import { buildReviewSources } from './rag/review-sources';
 import type { ModelRouter } from './router/model-router';
 import { truncate } from './shared/utils';
 
-/** 模型未安装 / 显存不足。UI 应提示安装指南，不当成崩溃处理 */
-export class ModelUnavailableError extends Error {
-  constructor(feature: string) {
-    super(`${feature}需要本地模型，请在设置中检查模型状态`);
-    this.name = 'ModelUnavailableError';
-  }
-}
+export { SocraticQuestionAdapter, ModelUnavailableError } from './socratic';
 
 /* ---------- Todo 拆解 ---------- */
-
-/** 今日任务时长预算，超出会让「只做今天做得完的事」失效 */
-const DAILY_BUDGET_MINUTES = 120;
 
 export class TodoStructuringAdapter implements TodoStructuringPort {
   constructor(
@@ -65,29 +60,47 @@ export class TodoStructuringAdapter implements TodoStructuringPort {
     private readonly rag?: RAGOrchestrator
   ) {}
 
-  async structure(input: string): Promise<TodoDraft[]> {
-    const relatedNotes = await this.collectRelatedNotes(input);
+  async structure(input: string, options?: TodoStructuringOptions): Promise<TodoDraft[]> {
+    const budget = options?.availableMinutes;
+    if (budget !== undefined && (!Number.isInteger(budget) || budget < 5 || budget > 1440 || budget % 5 !== 0)) {
+      throw new Error('可用时间请填写 5～1440 分钟，且为 5 的倍数。');
+    }
+    const relatedNotes = await this.collectRelatedNotes(input, options?.signal);
 
     const result = await this.router.run<{ goal: string }, TodoDraft[]>({
       taskType: 'todo_structuring',
+      schemaOverride: budget === undefined ? undefined : 'todo-budgeted.v1',
+      signal: options?.signal,
       input: { goal: input },
       promptVars: {
         goal: input,
         relatedNotes: relatedNotes || '（无）',
-        dailyBudgetMinutes: DAILY_BUDGET_MINUTES,
+        timeConstraint: budget === undefined
+          ? '未提供本次时间上限，不得假定用户有 120 分钟。尊重目标中明确写出的时间；无法估计则省略 estimatedMinutes。'
+          : `本次最多 ${budget} 分钟，每项必须给出 estimatedMinutes，合计不得超过 ${budget}。不缩短用户明确指定的时长；无法同时满足时返回空数组。`,
       },
     });
 
     // 失败返回空数组，CreateTodoUseCase 会直接结束，用户可手动新建
-    return result.output ?? [];
+    const drafts = result.ok ? result.output ?? [] : [];
+    const titles = drafts.map(draft => draft.title.trim());
+    if (titles.some(title => !title) || new Set(titles).size !== titles.length) {
+      throw new Error('拆解结果包含空白或重复任务，请重试或保留原任务。');
+    }
+    if (budget !== undefined && (drafts.some(draft => draft.estimatedMinutes === undefined)
+      || drafts.reduce((total, draft) => total + (draft.estimatedMinutes ?? 0), 0) > budget)) {
+      throw new Error('拆解结果未满足本次可用时间，请调整目标或保留原任务。');
+    }
+    return drafts.map(draft => ({ ...draft, title: draft.title.trim() }));
   }
 
-  private async collectRelatedNotes(goal: string): Promise<string> {
+  private async collectRelatedNotes(goal: string, signal?: AbortSignal): Promise<string> {
     if (!this.rag) return '';
     try {
-      const candidates = await this.rag.retrieve({ text: goal }, 3);
+      const candidates = await this.rag.retrieve({ text: goal, signal }, 3);
       return candidates.map((c) => `- ${truncate(c.text, 150)}`).join('\n');
     } catch (error) {
+      signal?.throwIfAborted();
       console.warn('[TodoStructuringAdapter] 检索相关笔记失败，跳过:', error);
       return '';
     }
@@ -109,7 +122,8 @@ export class ReviewGeneratorAdapter implements ReviewGeneratorPort {
     focusUsageMinutes?: number;
     usageByDate?: Map<string, number>;
     knowledgeSummary?: string;
-  }): Promise<ReviewDraft> {
+    followUps?: ReviewFollowUp[];
+  }, options?: GenerationOptions): Promise<ReviewDraft> {
     // 证据构建：按日分桶 + 程序计算趋势/信号，模型只做语言组织。
     // 周/月用完整证据文本（每日明细+信号）；日复盘也用同一构建器（单日）。
     const usageByDate =
@@ -125,13 +139,20 @@ export class ReviewGeneratorAdapter implements ReviewGeneratorPort {
       usageByDate,
     });
     const evidenceText = evidence.text;
-    // 使用时长覆盖度：避免「无记录」被解释成「没使用」
-    const usageSummary =
-      input.usageMinutes !== undefined
-        ? `应用使用约 ${input.usageMinutes} 分钟（覆盖 ${evidence.coverage.usageRecordedDays}/${evidence.period.expectedDays} 天），其中专注 ${input.focusUsageMinutes ?? 0} 分钟`
-        : '（无使用时长记录——仅表示未采集，不代表未使用）';
+    const sources = buildReviewSources(evidence, input.todos, input.followUps, input.knowledgeSummary);
+    if (!input.todos.length && !input.focusSessions.length && !input.followUps?.length && !input.knowledgeSummary?.trim()) {
+      return {
+        content: `${evidence.period.startDate} 至 ${evidence.period.endDate}，本地没有任务、专注或已采用建议的学习记录。没有记录不代表没有学习，目前无法据此判断学习进度。`,
+        summary: '记录不足，暂不生成学习建议', insights: [], nextTodos: [],
+        evidence: { observations: [], suggestions: [], sources, limitations: ['缺少可用于复盘的学习记录。'] },
+      };
+    }
 
-    const result = await this.router.run<typeof input, ReviewDraft>({
+    const result = await this.router.run<typeof input, {
+      content: string; summary: string; observations: ReviewObservation[]; nextSteps: ReviewObservation[]; limitations: string[];
+    }>({
+      signal: options?.signal,
+      modelPolicy: { temperature: 0.2 },
       // 日复盘走 coach 层，周/月复盘走 deep 层（14B），由路由表决定。
       // 之前把 monthly 落进 daily 分支，生成内容与时间窗都是「当日复盘」。
       taskType:
@@ -148,35 +169,40 @@ export class ReviewGeneratorAdapter implements ReviewGeneratorPort {
             : input.reviewType === 'monthly'
               ? '月度复盘'
               : '日复盘',
-        dateRange:
-          input.reviewType === 'weekly'
-            ? `截至 ${input.date} 的 7 天`
-            : input.reviewType === 'monthly'
-              ? `截至 ${input.date} 的 30 天`
-              : input.date,
+        dateRange: `${evidence.period.startDate} 至 ${evidence.period.endDate}（${evidence.period.expectedDays} 天）`,
         // 数字与趋势由程序计算，模型只负责选重点和表达——长度收紧，
         // 避免 14B 在长正文 + JSON 转义下输出重复/截断
         contentLength:
           input.reviewType === 'monthly'
-            ? '500 到 900 字'
+            ? '最多 600 字'
             : input.reviewType === 'weekly'
-              ? '300 到 600 字'
-              : '120 到 250 字',
-        evidence: evidenceText,
-        usageSummary,
-        // 已确认的知识链接摘要（程序生成）：复盘可引用显式关系，如「QLoRA 是 LoRA 的延伸」
-        knowledgeSummary: input.knowledgeSummary ?? '（无已确认的知识关联）',
-        todoSummary: '',
-        focusSummary: '',
+              ? '最多 400 字'
+              : '最多 200 字',
+        sources: JSON.stringify(sources),
       },
     });
 
-    if (result.output) return result.output;
+    if (result.ok && result.output) {
+      const draft = result.output;
+      const sourceIds = new Set(sources.map(source => source.id));
+      const entries = [...draft.observations, ...draft.nextSteps];
+      if (draft.content.trim() && entries.every(entry => entry.text.trim() && entry.evidenceIds.every(id => sourceIds.has(id)))) {
+        // 采集覆盖率本身不能支持学习任务建议，避免空泛地要求用户补应用使用日志。
+        const hasPendingAdoption = input.followUps?.some(entry => entry.status === 'pending' || entry.status === 'in_progress');
+        const suggestions = hasPendingAdoption ? [] : draft.nextSteps.filter(entry => entry.evidenceIds.some(id => sources.some(source => source.id === id
+          && (source.kind === 'task' || source.kind === 'follow_up' || source.kind === 'knowledge'))));
+        return {
+          content: draft.content, summary: draft.summary,
+          insights: draft.observations.map(entry => entry.text), nextTodos: suggestions.map(entry => entry.text),
+          evidence: { observations: draft.observations, suggestions, sources, limitations: draft.limitations },
+        };
+      }
+    }
 
     // 降级：给出事实骨架，让用户自己写。比抛错强，用户至少不用重新翻数据。
     // 带上失败原因 —— 否则用户只看到「模型未生成」，无从判断是模型没装、
     // 输出格式不对还是超时，也没法据此去设置页排查。
-    const reason = result.error ? `${result.error.kind}: ${result.error.message}` : '未知原因';
+    const reason = result.error ? `${result.error.kind}: ${result.error.message}` : '观察或建议引用了不存在的依据';
     console.warn('[ReviewGenerator] 模型未产出可用草稿，已降级为数据摘要：', reason);
 
     return {
@@ -189,6 +215,7 @@ export class ReviewGeneratorAdapter implements ReviewGeneratorPort {
       summary: undefined,
       insights: [],
       nextTodos: [],
+      evidence: { observations: [], suggestions: [], sources, limitations: ['AI 未生成可核对的观察与建议；此处仅展示程序统计。'] },
     };
 
   }
@@ -268,70 +295,13 @@ export class CompanionQuestionAdapter implements CompanionQuestionPort {
   }
 }
 
-/* ---------- 苏格拉底提问 ---------- */
-
-const MAX_HISTORY_TURNS = 6;
-
-const formatHistory = (history: SocraticExchange[]): string => {
-  if (history.length === 0) return '（这是第一轮）';
-  return history
-    .slice(-MAX_HISTORY_TURNS)
-    .map((e) => `Q${e.turnNumber}: ${e.question}\nA${e.turnNumber}: ${e.userResponse ?? '（未回答）'}`)
-    .join('\n');
-};
-
-export class SocraticQuestionAdapter implements SocraticQuestionPort {
-  constructor(
-    private readonly router: ModelRouter,
-    private readonly rag?: RAGOrchestrator
-  ) {}
-
-  async askQuestion(input: {
-    topic: string;
-    history: SocraticExchange[];
-  }): Promise<{ question: string; feedback?: string }> {
-    const last = input.history[input.history.length - 1];
-    const relatedNotes = await this.collectRelatedNotes(input.topic);
-
-    const result = await this.router.run<typeof input, string>({
-      taskType: 'socratic_question',
-      input,
-      promptVars: {
-        topic: input.topic,
-        history: formatHistory(input.history),
-        relatedNotes: relatedNotes || '（无）',
-        // fillTemplate 只替换 {{word}}，不支持 Mustache 条件块：把「先回应上一轮再提问」
-        // 的完整指令直接作为 feedbackHint 值传进去，避免模板里出现没被替换的字面量
-        feedbackHint: last?.userResponse
-          ? `上一轮回答：${truncate(last.userResponse, 120)}\n先简短回应这轮回答里值得点出的地方，再提出下一个问题（总共不超过 100 字）。`
-          : '直接提出下一个要讨论的问题（总共不超过 100 字）。',
-      },
-    });
-
-    // 这是交互式功能，没有合理的兜底内容，交由 UI 提示降级
-    if (!result.output) throw new ModelUnavailableError('苏格拉底式提问');
-    return { question: result.output };
-  }
-
-  private async collectRelatedNotes(topic: string): Promise<string> {
-    if (!this.rag) return '';
-    try {
-      const candidates = await this.rag.retrieve({ text: topic }, 3);
-      return candidates.map((c) => `- ${truncate(c.text, 200)}`).join('\n');
-    } catch (error) {
-      console.warn('[SocraticQuestionAdapter] 检索相关笔记失败，跳过:', error);
-      return '';
-    }
-  }
-}
-
 /* ---------- 本地笔记检索 ---------- */
 
 export class NoteSearchAdapter implements NoteSearchPort {
   constructor(private readonly rag: RAGOrchestrator) {}
 
-  async search(query: string, limit: number, deep?: boolean): Promise<SearchHit[]> {
-    const candidates = await this.rag.retrieve({ text: query, deep }, limit);
+  async search(query: string, limit: number, deep?: boolean, options?: NoteSearchOptions): Promise<SearchHit[]> {
+    const candidates = await this.rag.retrieve({ text: query, deep, ...options, rerank: deep ?? false }, limit);
     return candidates.map((c) => ({
       chunkId: c.chunkId,
       noteId: c.noteId,
@@ -352,8 +322,10 @@ export class SearchResultEnhancerAdapter implements SearchResultEnhancerPort {
   constructor(private readonly router: ModelRouter) {}
 
   async enhance(
-    results: { id: string; title: string; text: string }[]
+    results: { id: string; title: string; text: string }[],
+    options?: GenerationOptions
   ): Promise<SearchResultEnhancement[]> {
+    options?.signal?.throwIfAborted();
     if (results.length === 0) return [];
 
     // 1) 快速模型逐条摘要；单条失败只影响该条（降级为截断原文）。
@@ -362,18 +334,21 @@ export class SearchResultEnhancerAdapter implements SearchResultEnhancerPort {
     const summarized: { id: string; title: string; text: string; summary: string }[] = [];
     const BATCH = 4;
     for (let start = 0; start < results.length; start += BATCH) {
+      options?.signal?.throwIfAborted();
       const batch = results.slice(start, start + BATCH);
       const done = await Promise.all(
         batch.map(async (item) => ({
           ...item,
-          summary: await this.summarize(item.text),
+          summary: await this.summarize(item.text, options?.signal),
         }))
       );
       summarized.push(...done);
     }
 
     // 2) 教师模型软推荐排序 + 理由；失败保持原顺序
-    const ranked = await this.rank(summarized);
+    options?.signal?.throwIfAborted();
+    const ranked = await this.rank(summarized, options?.signal);
+    options?.signal?.throwIfAborted();
 
     return summarized.map((item, index) => {
       const entry = ranked.get(item.id);
@@ -386,9 +361,10 @@ export class SearchResultEnhancerAdapter implements SearchResultEnhancerPort {
     });
   }
 
-  private async summarize(text: string): Promise<string> {
+  private async summarize(text: string, signal?: AbortSignal): Promise<string> {
     const result = await this.router.run<{ text: string }, string>({
       taskType: 'light_summary',
+      signal,
       input: { text },
       inlinePrompt: {
         system: '你是学习笔记整理助手。用一句话、不超过 30 个字，抓住内容核心要点。只输出摘要本身，不要引号。',
@@ -400,7 +376,8 @@ export class SearchResultEnhancerAdapter implements SearchResultEnhancerPort {
   }
 
   private async rank(
-    items: { id: string; title: string; text: string; summary: string }[]
+    items: { id: string; title: string; text: string; summary: string }[],
+    signal?: AbortSignal
   ): Promise<Map<string, { rank: number; reason?: string }>> {
     const out = new Map<string, { rank: number; reason?: string }>();
     const fallback = items.map((item, index) => ({ id: item.id, rank: index + 1 }));
@@ -418,6 +395,7 @@ export class SearchResultEnhancerAdapter implements SearchResultEnhancerPort {
       { index: number; reason?: string }[]
     >({
       taskType: 'search_result_ranking',
+      signal,
       input: { items },
       inlinePrompt: {
         system: '你是学习教练。根据候选结果，按「对学习最有帮助」从高到低软推荐排序，并给一句简短理由。只输出 JSON 数组。',
@@ -460,8 +438,10 @@ export class MonthlyDigestAdapter implements MonthlyDigestPort {
 
   async summarizeMonth(
     notes: { title: string; content: string }[],
-    yearMonth: string
+    yearMonth: string,
+    options?: GenerationOptions
   ): Promise<string | undefined> {
+    options?.signal?.throwIfAborted();
     if (notes.length === 0) return undefined;
 
     // 提示词压缩：只发标题 + 每篇开头片段，最多 20 篇，避免一个月塞爆上下文
@@ -476,6 +456,8 @@ export class MonthlyDigestAdapter implements MonthlyDigestPort {
 
     const result = await this.router.run<{ notes: string }, string>({
       taskType: 'light_summary',
+      signal: options?.signal,
+      onToken: options?.onToken,
       input: { notes: list },
       inlinePrompt: {
         system:
@@ -506,17 +488,20 @@ export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPo
     content: string,
     excludeNoteIds: UUID[],
     limit = 3,
-    existingTags: string[] = []
+    existingTags: string[] = [],
+    options?: GenerationOptions
   ): Promise<LinkSuggestionCandidate[]> {
     // HyDE 召回：先让模型假设「相似的旧笔记会有什么标签/主题」，
     // 再用假设标签 + 原文一起检索，字面不重叠但语义相近的笔记也能被召回。
-    const hyde = await this.hyde.generate(content, existingTags);
+    const hyde = await this.hyde.generate(content, existingTags, options?.signal);
     const { candidates, suggestions, relationJudged } = await this.rag.findConnections({
       text: content,
+      signal: options?.signal,
       tags: hyde.tags,
       excludeNoteIds,
     });
 
+    options?.signal?.throwIfAborted();
     // 模型判断成功（无论有没有关系）→ 以模型结论为准：
     // 有关系用模型的关系类型；模型认为无关系就返回空，不硬凑
     if (relationJudged) {
@@ -587,8 +572,10 @@ export class DeepQAAdapter implements AskNotesPort {
   async ask(input: AskNotesQuestion): Promise<AskNotesAnswer> {
     const result = await this.selfRag.ask(input.question, {
       deep: input.deep,
+      signal: input.signal,
       excludeNoteIds: input.excludeNoteIds,
       onToken: input.onToken,
+      onProgress: input.onProgress,
     });
     return {
       answer: result.answer,
@@ -614,12 +601,13 @@ export class DeepQAAdapter implements AskNotesPort {
 export class FloraAdapter implements FloraPort {
   constructor(private readonly agent: FloraAgent) {}
 
-  async sendLetter(input: { letter: string; language: FloraLanguage }): Promise<FloraReply> {
-    const result = await this.agent.sendLetter(input.letter, input.language);
+  async sendLetter(input: { letter: string; language: FloraLanguage }, options?: GenerationOptions): Promise<FloraReply> {
+    const result = await this.agent.sendLetter(input.letter, input.language, options);
     return {
       reply: result.reply,
       emotion: result.emotion,
       verified: result.verified,
+      verificationStatus: result.verificationStatus,
       regenerated: result.regenerated,
       ok: result.ok,
     };

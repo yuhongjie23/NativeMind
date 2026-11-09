@@ -45,6 +45,15 @@ const groundedCritic: SelfCritique = {
 };
 
 describe('SelfRag', () => {
+  it('保留长片段后半部分的证据，避免引用有内容但生成看不到', async () => {
+    const text = '背景。'.repeat(200) + '关键证据：关心、责任心、尊重和了解。';
+    const router = routerWith(req => {
+      expect(req.prompt).toContain('关键证据：关心、责任心、尊重和了解。');
+      return isCritic(req) ? JSON.stringify(groundedCritic) : '关心、责任心、尊重和了解。';
+    });
+    const result = await new SelfRag(router, fakeRag([{ ...candidates[0], text }])).ask('基本要素是什么？');
+    expect(result.ok).toBe(true);
+  });
   it('happy path：生成 → 评判通过 → 返回答案、置信度与对齐后的引用', async () => {
     const router = routerWith((req) =>
       isCritic(req)
@@ -88,7 +97,7 @@ describe('SelfRag', () => {
     expect(result.answer).toContain('严格依据');
   });
 
-  it('评判失败（输出不合法）→ 接受当前草稿，judged=false，中性置信度，引用回退全部候选', async () => {
+  it('评判失败（输出不合法）→ 接受当前草稿，judged=false，不冒充已有支持性引用', async () => {
     const router = routerWith((req) => (isCritic(req) ? '模型输出了无关内容' : '一个回答'));
 
     const result = await new SelfRag(router, fakeRag(candidates)).ask('问题');
@@ -96,7 +105,20 @@ describe('SelfRag', () => {
     expect(result.ok).toBe(true);
     expect(result.judged).toBe(false);
     expect(result.confidence).toBe(0.5);
-    expect(result.citations.map((c) => c.chunkId)).toEqual(['c1', 'c2']);
+    expect(result.citations).toEqual([]);
+  });
+
+  it.each([
+    { ...groundedCritic, used_chunk_ids: [] },
+    { ...groundedCritic, used_chunk_ids: ['invented'] },
+    { ...groundedCritic, grounded: false, quality: 10, relevance: 1 },
+    { ...groundedCritic, hallucination_risk: true, quality: 10, relevance: 1 },
+  ])('无有效依据或仍存在编造风险时不返回高分和候选引用', async critique => {
+    const router = routerWith(req => isCritic(req) ? JSON.stringify(critique) : '资料不足');
+    const result = await new SelfRag(router, fakeRag(candidates)).ask('资料没有回答的问题');
+    expect(result.judged).toBe(true);
+    expect(result.citations).toEqual([]);
+    expect(result.confidence).toBe(0);
   });
 
   it('生成失败（模型不可用）→ 降级为最相关片段，ok=false，不抛错', async () => {

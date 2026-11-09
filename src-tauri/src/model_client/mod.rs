@@ -4,5 +4,6 @@
 //! 命令层通过枚举分派，业务不绑定具体运行时（C7）。
 
 pub mod ollama;
+pub mod startup;
 
 pub use ollama::{CompletionRequest, InstalledModel, OllamaClient, StreamEvent};

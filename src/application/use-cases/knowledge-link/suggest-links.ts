@@ -6,11 +6,13 @@
  * 幂等 UPSERT 与确认机制）。
  */
 import type {
+  GenerationOptions,
   KnowledgeLink,
   KnowledgeLinkRepository,
   KnowledgeLinkSuggestionPort,
   NoteRepository,
 } from '../../ports';
+import { abortable } from '../../shared/abortable';
 import { CreateKnowledgeLinkUseCase, type LinkSuggestion } from './create-link';
 
 export interface SuggestResult {
@@ -28,17 +30,21 @@ export class SuggestKnowledgeLinksUseCase {
     private readonly createLink: CreateKnowledgeLinkUseCase
   ) {}
 
-  async execute(noteId: string): Promise<SuggestResult> {
+  async execute(noteId: string, options?: GenerationOptions & { onCommit?: () => void }): Promise<SuggestResult> {
+    options?.signal?.throwIfAborted();
     const note = await this.noteRepo.findById(noteId);
+    options?.signal?.throwIfAborted();
     if (!note) throw new Error(`笔记不存在: ${noteId}`);
 
     // 把笔记已有的标签一并传给检索层：标签是用户自己打的内容摘要，
     // 比正文关键词更可靠，HyDE 生成时也会把它们纳入假设（LinkHydeGenerator 合并）。
-    const candidates = await this.suggestionPort.suggestForNote(note.content, [noteId], undefined, note.tags);
+    const candidates = await abortable(this.suggestionPort.suggestForNote(note.content, [noteId], undefined, note.tags, options), options?.signal);
+    options?.signal?.throwIfAborted();
 
     // 过滤已存在的关系：含已归档的也要跳过，否则同一条关系会被反复建议、反复被否
     const fresh: LinkSuggestion[] = [];
     for (const candidate of candidates) {
+      options?.signal?.throwIfAborted();
       const existing = await this.linkRepo.findEdge({
         fromType: 'note',
         fromId: noteId,
@@ -59,9 +65,10 @@ export class SuggestKnowledgeLinksUseCase {
       }
     }
 
+    options?.signal?.throwIfAborted();
     if (fresh.length === 0) return { suggested: 0, created: [] };
 
-    const created = await this.createLink.executeFromSuggestions(fresh);
+    const created = await this.createLink.executeFromSuggestions(fresh, options);
     return { suggested: fresh.length, created };
   }
 }

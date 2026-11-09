@@ -1,0 +1,19 @@
+{
+  "$id": "review-grounded.v1",
+  "type": "object",
+  "required": ["content", "summary", "observations", "nextSteps", "limitations"],
+  "additionalProperties": false,
+  "properties": {
+    "content": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "summary": { "type": "string", "maxLength": 120 },
+    "observations": { "type": "array", "maxItems": 3, "items": {
+      "type": "object", "required": ["text", "evidenceIds"], "additionalProperties": false,
+      "properties": { "text": { "type": "string", "minLength": 1, "maxLength": 300 }, "evidenceIds": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "type": "string", "minLength": 1, "maxLength": 100 } } }
+    } },
+    "nextSteps": { "type": "array", "maxItems": 1, "items": {
+      "type": "object", "required": ["text", "evidenceIds"], "additionalProperties": false,
+      "properties": { "text": { "type": "string", "minLength": 1, "maxLength": 120 }, "evidenceIds": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "type": "string", "minLength": 1, "maxLength": 100 } } }
+    } },
+    "limitations": { "type": "array", "maxItems": 3, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+  }
+}

@@ -13,6 +13,7 @@ import {
   type ModelCompletionRequest,
   type ModelRuntime,
 } from './model-interface';
+import { embeddingInput, embeddingVersion, type EmbeddingPurpose } from './embedding-input';
 
 export interface OllamaOptions {
   baseUrl?: string;
@@ -39,16 +40,30 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
     this.baseUrl = assertLocalUrl(options.baseUrl ?? 'http://localhost:11434');
     this.timeoutMs = options.timeoutMs ?? 120_000;
     this.embeddingModel = options.embeddingModel ?? 'nomic-embed-text';
-    this.version = options.embeddingVersion ?? `ollama:${this.embeddingModel}`;
+    this.version = embeddingVersion(this.embeddingModel, options.embeddingVersion ?? `ollama:${this.embeddingModel}`);
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetchWithTimeout(
-      this.fetchImpl,
+  private async withDeadline<T>(signal: AbortSignal | undefined, action: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    signal?.throwIfAborted();
+    const controller = new AbortController();
+    const abort = (): void => controller.abort(signal?.reason);
+    signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(() => controller.abort(new DOMException('Ollama 请求超时', 'TimeoutError')), this.timeoutMs);
+    try {
+      const result = await action(controller.signal);
+      controller.signal.throwIfAborted();
+      return result;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+    }
+  }
+
+  private async post<T>(path: string, body: unknown, signal: AbortSignal): Promise<T> {
+    const response = await this.fetchImpl(
       `${this.baseUrl}${path}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-      this.timeoutMs
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
     );
     if (!response.ok) throw new Error(`Ollama ${path} 返回 ${response.status}`);
     return (await response.json()) as T;
@@ -82,7 +97,7 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
 
   /**
    * 模型是否可用。比对时忽略 `:latest` 后缀，
-   * 因为 tier-config 里写 `qwen2.5:7b` 而 Ollama 可能报 `qwen2.5:7b-instruct-q4_0`。
+   * 因为 tier-config 里写 `qwen3:4b` 而 Ollama 可能报 `qwen3:4b-instruct-q4_0`。
    */
   async isAvailable(model: string): Promise<boolean> {
     if (!this.installed) {
@@ -98,6 +113,10 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
   }
 
   async complete(request: ModelCompletionRequest): Promise<string> {
+    return this.withDeadline(request.signal, signal => this.completeRequest({ ...request, signal }));
+  }
+
+  private async completeRequest(request: ModelCompletionRequest & { signal: AbortSignal }): Promise<string> {
     if (request.onToken) return this.streamComplete(request);
 
     const data = await this.post<{ response?: string }>('/api/generate', {
@@ -110,11 +129,13 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
       format: request.json ? (request.jsonSchema ?? 'json') : undefined,
 
       stream: false,
+      // Qwen3 的默认思考会耗尽短任务额度，必须用 API 参数关闭。
+      think: /^(qwen3)(:|$)/.test(request.model) ? false : undefined,
       options: {
         temperature: request.temperature ?? 0.2,
         num_predict: request.maxTokens,
       },
-    });
+    }, request.signal);
     return data.response ?? '';
   }
 
@@ -124,11 +145,11 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
    * 返回体没有读流能力（测试桩等场景）时退化为一次性解析。
    */
   private async streamComplete(request: ModelCompletionRequest): Promise<string> {
-    const response = await fetchWithTimeout(
-      this.fetchImpl,
+    const response = await this.fetchImpl(
       `${this.baseUrl}/api/generate`,
       {
         method: 'POST',
+        signal: request.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: request.model,
@@ -136,13 +157,13 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
           system: request.system,
           format: request.json ? (request.jsonSchema ?? 'json') : undefined,
           stream: true,
+          think: /^(qwen3)(:|$)/.test(request.model) ? false : undefined,
           options: {
             temperature: request.temperature ?? 0.2,
             num_predict: request.maxTokens,
           },
         }),
-      },
-      this.timeoutMs
+      }
     );
     if (!response.ok) throw new Error(`Ollama /api/generate 返回 ${response.status}`);
     if (!response.body) {
@@ -154,32 +175,36 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
     const decoder = new TextDecoder();
     let buffer = '';
     let full = '';
+    let completed = false;
     const onToken = request.onToken!;
     try {
       const feed = (line: string): void => {
         const trimmed = line.trim();
         if (!trimmed) return;
-        try {
-          const chunk = JSON.parse(trimmed) as { response?: string };
-          if (chunk.response) {
-            full += chunk.response;
-            onToken(chunk.response);
-          }
-        } catch {
-          // 容忍半行 / 非 JSON 噪音
+        request.signal?.throwIfAborted();
+        const chunk = JSON.parse(trimmed) as { response?: string; error?: string; done?: boolean };
+        if (chunk.error) throw new Error(`Ollama: ${chunk.error}`);
+        if (chunk.response) {
+          full += chunk.response;
+          onToken(chunk.response);
         }
+        completed = chunk.done === true;
       };
 
       for (;;) {
         const { done, value } = await reader.read();
+        request.signal?.throwIfAborted();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
-        for (const line of lines) feed(line);
+        for (const line of lines) { feed(line); if (completed) break; }
+        if (completed) break;
       }
-      if (buffer.trim()) feed(buffer);
+      if (!completed && buffer.trim()) feed(buffer);
+      if (!completed) throw new Error('Ollama 输出中断，请重试');
     } finally {
+      await reader.cancel().catch(() => undefined);
       reader.releaseLock();
     }
     return full;
@@ -189,13 +214,14 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
    * 批量 embedding。Ollama 的 /api/embeddings 一次只接一段文本，
    * 这里串行发送 —— 并发会把本地显存打满，反而更慢。
    */
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], signal?: AbortSignal, purpose: EmbeddingPurpose = 'document'): Promise<number[][]> {
     const vectors: number[][] = [];
     for (const text of texts) {
-      const data = await this.post<{ embedding?: number[] }>('/api/embeddings', {
+      signal?.throwIfAborted();
+      const data = await this.withDeadline(signal, activeSignal => this.post<{ embedding?: number[] }>('/api/embeddings', {
         model: this.embeddingModel,
-        prompt: text,
-      });
+        prompt: embeddingInput(this.embeddingModel, text, purpose),
+      }, activeSignal));
       vectors.push(data.embedding ?? []);
     }
     return vectors;

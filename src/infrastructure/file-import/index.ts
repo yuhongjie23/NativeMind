@@ -20,7 +20,7 @@ export * from './pdf-parser';
 export * from './text-normalizer';
 
 /** 读文件的活由宿主提供（Tauri 的 fs 或测试里的假实现） */
-export type TextFileReader = (uri: string) => Promise<string>;
+export type TextFileReader = (uri: string, signal?: AbortSignal) => Promise<string>;
 
 export interface FileImportOptions {
   readTextFile: TextFileReader;
@@ -45,7 +45,8 @@ export class FileImportService implements FileImportPort {
     this.ebookParser = options.ebookExtractor ? new EbookParser(options.ebookExtractor) : undefined;
   }
 
-  async parse(source: ImportSource): Promise<ParsedFile> {
+  async parse(source: ImportSource, options: { signal?: AbortSignal } = {}): Promise<ParsedFile> {
+    options.signal?.throwIfAborted();
     // 直接给文本：不碰文件系统，也不看扩展名
     if (source.kind === 'text') {
       const content = normalizeText(source.content);
@@ -61,7 +62,7 @@ export class FileImportService implements FileImportPort {
 
     if (extension === 'pdf') {
       if (!this.pdfParser) throw new Error('未配置 PDF 解析器，无法导入 PDF');
-      const parsed = await this.pdfParser.parse(source.path);
+      const parsed = await this.pdfParser.parse(source.path, options.signal);
       return {
         title: parsed.title,
         content: parsed.content,
@@ -73,10 +74,11 @@ export class FileImportService implements FileImportPort {
 
     if (['epub', 'mobi', 'azw3', 'azw', 'prc'].includes(extension)) {
       if (!this.ebookParser) throw new Error('未配置电子书解析器，无法导入电子书');
-      return this.ebookParser.parse(source.path);
+      return this.ebookParser.parse(source.path, options.signal);
     }
 
-    const raw = await this.options.readTextFile(source.path);
+    const raw = await this.options.readTextFile(source.path, options.signal);
+    options.signal?.throwIfAborted();
 
     if (extension === 'md' || extension === 'markdown') {
       const parsed = parseMarkdown(raw);

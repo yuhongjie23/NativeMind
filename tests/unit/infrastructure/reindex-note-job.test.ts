@@ -3,7 +3,7 @@
  *
  * 这是「编辑笔记内容 → 重建索引」链路的回归测试：之前 reindex_note 没有
  * 注册处理器，任务会因「没有注册的处理器」被标记 failed，编辑过的笔记
- * 永远停在 stale。有了这个处理器，它会转发回 parse_note 复用整条流水线。
+ * 永远停在 stale。重建必须使用已保存正文，不能再解析源文件覆盖编辑。
  */
 import { describe, expect, it } from 'vitest';
 import { Database } from '@infrastructure/db/database';
@@ -12,7 +12,7 @@ import { ReindexNoteJob } from '@infrastructure/background-jobs/reindex-note-job
 import { MemoryDriver } from './memory-driver';
 
 describe('ReindexNoteJob', () => {
-  it('把 reindex_note 转发成 parse_note，且任务被标记完成而非失败', async () => {
+  it('把 reindex_note 直接转发成 chunk_note，保留编辑后的正文', async () => {
     const driver = new MemoryDriver();
     const db = new Database(driver);
     const queue = new JobQueue(db);
@@ -34,13 +34,14 @@ describe('ReindexNoteJob', () => {
 
     await queue.drain();
 
-    // 处理器转发：入队一条 parse_note（复用 parse → chunk → embed 链路）
+    // 跳过文件解析，避免源文件覆盖已保存正文。
     const forwarded = driver.calls.find(
       (call) =>
-        call.sql.includes('INSERT INTO background_jobs') && call.params.includes('parse_note')
+        call.sql.includes('INSERT INTO background_jobs') && call.params.includes('chunk_note')
     );
     expect(forwarded).toBeDefined();
     expect(forwarded!.params).toContain('note-1');
+    expect(driver.calls.some(call => call.sql.includes('INSERT INTO background_jobs') && call.params.includes('parse_note'))).toBe(false);
 
     // reindex_note 正常完成，而不是被标 failed
     expect(driver.findCall("status = 'completed'")).toBeDefined();

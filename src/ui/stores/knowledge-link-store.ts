@@ -50,6 +50,8 @@ interface KnowledgeLinkState {
   loading: boolean;
   /** AI 正在检索关联建议 */
   suggesting: boolean;
+  canCancelSuggestions: boolean;
+  cancelSuggestions: () => void;
   error?: string;
   /** 最近一次归档，供「撤销」用 */
   lastArchived?: KnowledgeLink;
@@ -70,7 +72,7 @@ interface KnowledgeLinkState {
     reason?: string;
   }) => Promise<void>;
   /** 为新笔记检索相关旧笔记并建议建链（确认弹窗由 ConfirmationService 触发） */
-  suggestForNote: (noteId: string) => Promise<{ suggested: number; created: KnowledgeLink[] }>;
+  suggestForNote: (noteId: string) => Promise<{ suggested: number; created: KnowledgeLink[]; cancelled?: boolean; skipped?: boolean }>;
   archive: (id: string) => Promise<void>;
   undoArchive: () => Promise<void>;
   /** 某篇笔记的已确认关联（笔记详情「相关笔记」区块用） */
@@ -169,10 +171,25 @@ const loadEntityOptions = async (): Promise<EntityOption[]> => {
   ];
 };
 
-export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => ({
+export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => {
+  const requests = new Map<string, { controller: AbortController; committing: boolean }>();
+  const syncRequests = () => set({
+    suggesting: requests.size > 0,
+    canCancelSuggestions: [...requests.values()].some(request => !request.committing),
+  });
+  return ({
   graph: EMPTY_GRAPH,
   linkCounts: {},
   suggesting: false,
+  canCancelSuggestions: false,
+  cancelSuggestions: () => {
+    for (const [id, request] of requests) {
+      if (request.committing) continue;
+      requests.delete(id);
+      request.controller.abort();
+    }
+    syncRequests();
+  },
   relationFilter: [],
   includeArchived: false,
   loading: false,
@@ -238,17 +255,26 @@ export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => ({
     }
   },
   suggestForNote: async (noteId) => {
-    set({ error: undefined, suggesting: true });
+    if (requests.has(noteId)) return { suggested: 0, created: [], skipped: true };
+    const request = { controller: new AbortController(), committing: false };
+    requests.set(noteId, request);
+    set({ error: undefined });
+    syncRequests();
     try {
-      const result = await useCases.suggestKnowledgeLinks.execute(noteId);
-      // 确认写入后图会变，重取一次；用户拒绝或没有建议时保持现状
+      const result = await useCases.suggestKnowledgeLinks.execute(noteId, {
+        signal: request.controller.signal,
+        onCommit: () => { request.committing = true; syncRequests(); },
+      });
+      if (request.controller.signal.aborted) return { suggested: 0, created: [], cancelled: true };
       if (result.created.length > 0) await get().refresh();
       return result;
     } catch (error) {
+      if (request.controller.signal.aborted) return { suggested: 0, created: [], cancelled: true };
       set({ error: describeError(error) });
-      return { suggested: 0, created: [] };
+      return { suggested: 0, created: [], skipped: true };
     } finally {
-      set({ suggesting: false });
+      if (requests.get(noteId) === request) requests.delete(noteId);
+      syncRequests();
     }
   },
 
@@ -319,7 +345,8 @@ export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => ({
       return [];
     }
   },
-}));
+});
+});
 
 /** 关系类型的中文名，UI 多处要用 */
 export const RELATION_LABELS: Record<LinkRelationType, string> = {

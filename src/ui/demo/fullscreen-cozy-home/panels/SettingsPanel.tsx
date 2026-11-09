@@ -1,3 +1,7 @@
+import { StartupCheckPanel } from './StartupCheckPanel';
+import { useStartupCheckStore } from '../../../stores/startup-check-store';
+import { useAnnaFileTransfer } from '../../../hooks/use-anna-file-transfer';
+import { AnnaTransferStatus } from '../../../components/common/AnnaTransferStatus';
 /**
  * 「设置」面板 —— 真实设置 + 视觉场景偏好。
  *
@@ -6,11 +10,18 @@
  * 视觉偏好仍是本地 Demo 状态（会话内有效）。
  */
 import { useEffect, useState } from 'react';
+import { isAnna, pickAnnaAudio } from '@infrastructure/anna';
+import { AnnaLocalFiles } from './AnnaLocalFiles';
+import { AnnaBackupPanel } from './AnnaBackupPanel';
+import { AnnaEnvironmentPanel } from './AnnaEnvironmentPanel';
 import { t as globalT, useT } from '../../../i18n';
-import { checkModelAvailable, checkPath, ensureOllamaRunning, exportData, getAppPaths, importData, isModelReady, listInstalledModels, type AppPathsInfo, type PathCheckResult } from '@infrastructure/paths/paths-api';
+import { checkPath, exportData, getAppPaths, importData, type AppPathsInfo, type PathCheckResult } from '@infrastructure/paths/paths-api';
+import { DEFAULT_EMBEDDING_MODEL } from '@infrastructure/model-runtime/tauri-model-provider';
+import { modelInstallationStatus, useModelReadinessStore, type ModelInstallationStatus } from '../../../stores/model-readiness-store';
 import type { AppLanguage, ThemeMode } from '@shared-types/config';
 import { ENGINE_LIST } from '@shared-types/search-config';
 import type { SearchEngineConfig } from '@shared-types/search-config';
+import { BackgroundVideoSettings } from './BackgroundVideoSettings';
 import type { SceneControls } from '../components/DemoSheet';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { useToastStore } from '../../../stores/toast-store';
@@ -27,6 +38,7 @@ const weatherRows: { weather: WeatherType; label: string }[] = [
 
 const canPickDirectory =
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const canPickAudio = canPickDirectory || isAnna();
 
 const browseDirectory = async (): Promise<string | null> => {
   if (!canPickDirectory) return null;
@@ -115,7 +127,7 @@ function ModelPicker({
           type="text"
           value={value}
           placeholder={placeholder}
-          autoFocus
+          autoFocus={customMode}
           onChange={(event) => onChange(event.target.value)}
         />
       ) : (
@@ -192,6 +204,8 @@ const weathers: { value: WeatherType; label: string }[] = [
 
 export function SettingsPanel({ controls }: { controls: SceneControls }) {
   const t = useT();
+  const ambientTransfer = useAnnaFileTransfer();
+  const focusTransfer = useAnnaFileTransfer();
   const { settings } = controls;
   const focus = useSettingsStore((state) => state.focus);
   const updateFocus = useSettingsStore((state) => state.updateFocus);
@@ -254,63 +268,27 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
       window.location.reload();
     }
   };
-  const [modelStatus, setModelStatus] = useState<Record<'small' | 'big', 'checking' | 'ok' | 'missing' | 'idle'>>(
-    { small: 'idle', big: 'idle' },
-  );
-  /** 本机 Ollama 已安装的模型（名称 + 大小，下拉与清单共用） */
-  const [installedModels, setInstalledModels] = useState<{ name: string; sizeBytes?: number; parameterSize?: string }[]>([]);
+  const modelSupported = canPickDirectory || isAnna();
+  const inventory = useModelReadinessStore(state => state.inventory);
+  const checkModels = useModelReadinessStore(state => state.refresh);
+  const installedModels = inventory.state === 'ready' || inventory.state === 'checking' ? inventory.models : [];
   const availableModels = installedModels.map((m) => m.name);
-  /** Ollama 服务是否就绪（设置页指引用） */
-  const [ollamaReady, setOllamaReady] = useState<boolean | null>(null);
-  const [startingOllama, setStartingOllama] = useState(false);
-
-  // 进设置就拉一次可用模型列表；Ollama 未运行则返回空，点「检查可用性」会再拉
-  useEffect(() => {
-    let cancelled = false;
-    void isModelReady().then((ready) => {
-      if (!cancelled) setOllamaReady(ready);
-    });
-    void listInstalledModels().then((models) => {
-      if (!cancelled) setInstalledModels(models);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /** 一键拉起 Ollama（应用启动时也会自动拉，这里给手动入口） */
-  const launchOllama = async () => {
-    setStartingOllama(true);
-    try {
-      const status = await ensureOllamaRunning();
-      setOllamaReady(status === 'already_running' || status === 'started');
-      if (status === 'failed') {
-        useToastStore.getState().show(t('Ollama 启动失败，请手动运行 setup_ollama.bat'), 'error');
-      }
-    } finally {
-      setStartingOllama(false);
-    }
+  const modelStatus = {
+    small: modelInstallationStatus(inventory, models.small),
+    big: modelInstallationStatus(inventory, models.big),
+    embedding: modelInstallationStatus(inventory, DEFAULT_EMBEDDING_MODEL),
   };
+  const startingOllama = useStartupCheckStore(state => state.phase === 'checking');
+  const launchOllama = () => useStartupCheckStore.getState().check(true);
 
-  const modelStatusText = (status: 'checking' | 'ok' | 'missing' | 'idle'): string =>
+  const modelStatusText = (status: ModelInstallationStatus): string =>
     status === 'checking'
       ? t('检查中…')
       : status === 'ok'
-        ? t('可用')
+        ? t('已安装')
         : status === 'missing'
           ? t('未安装')
-          : t('未检查');
-
-  const checkModels = async () => {
-    setModelStatus({ small: 'checking', big: 'checking' });
-    const [small, big, list] = await Promise.all([
-      checkModelAvailable(models.small),
-      checkModelAvailable(models.big),
-      listInstalledModels(),
-    ]);
-    setInstalledModels(list);
-    setModelStatus({ small: small ? 'ok' : 'missing', big: big ? 'ok' : 'missing' });
-  };
+          : status === 'error' ? t('无法检查') : t('未检查');
 
   // ---- DeepSeek 云端：key 输入 + 测试 ----
   const [deepseekStatus, setDeepseekStatus] = useState<'idle' | 'checking' | 'ok' | 'invalid'>('idle');
@@ -397,10 +375,18 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
   const [pickingAudio, setPickingAudio] = useState(false);
 
   const pickAmbientFile = async (weather: WeatherType) => {
-    if (!canPickDirectory || pickingAudio) return;
+    if (!canPickAudio || pickingAudio || ambientTransfer.busy) return;
     setPickingAudio(true);
     setAmbientError('');
     try {
+      if (isAnna()) {
+        const file = await pickAnnaAudio();
+        if (file) {
+          const path = await ambientTransfer.stage(file, 'audio');
+          if (path) await controls.setAmbientFile(weather, path);
+        }
+        return;
+      }
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         multiple: false,
@@ -418,9 +404,9 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
         await controls.setAmbientFile(weather, path);
         setAmbientError(t('已记录所选音频，但复制到数据目录失败，可能无法播放。'));
       }
-    } catch {
+    } catch (error) {
       // 对话框或导入命令本身抛错
-      setAmbientError(t('选择音频失败。'));
+      setAmbientError(`${t('选择音频失败。')} ${describeError(error)}`);
     } finally {
       setPickingAudio(false);
     }
@@ -432,9 +418,17 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
 
   /** 专注模式专属背景音乐：选文件 → 复制进数据目录 → 持久化 */
   const pickFocusMusic = async () => {
-    if (!canPickDirectory) return;
+    if (!canPickAudio || focusTransfer.busy) return;
     setFocusMusicError('');
     try {
+      if (isAnna()) {
+        const file = await pickAnnaAudio();
+        if (file) {
+          const path = await focusTransfer.stage(file, 'audio');
+          if (path) await updateFocusMusic(path);
+        }
+        return;
+      }
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         multiple: false,
@@ -446,9 +440,9 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
       const { invoke } = await import('@tauri-apps/api/core');
       const readable = await invoke<string>('file_import_into_data_dir', { path });
       await updateFocusMusic(readable);
-    } catch {
+    } catch (error) {
       // 复制失败仍记录原路径，播放由 audio_read_imported 做许可校验
-      setFocusMusicError(t('选择文件失败，或复制到数据目录失败。'));
+      setFocusMusicError(`${t('选择文件失败，或复制到数据目录失败。')} ${describeError(error)}`);
     }
   };
 
@@ -500,6 +494,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
 
   return (
     <div className="cozy-settings">
+      <StartupCheckPanel />
       {/* ---- 场景（视觉偏好，本地） ---- */}
       <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('场景')}</h3>
@@ -576,6 +571,8 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           </div>
         </div>
 
+        <BackgroundVideoSettings scene={settings.sceneId} weather={settings.weather} phase={controls.timePhase} />
+
         <div className="cozy-settings-row">
           <span className="cozy-settings-row__label">{t('背景音乐')}</span>
           <span className="cozy-settings-row__value">{t('按环境分别配置')}</span>
@@ -608,7 +605,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
                     <code title={file}>{file.split(/[\\/]/).pop()}</code>
                   ) : (
                     <span className="cozy-companion-panel__hint">
-                      {canPickDirectory ? t('未选择文件') : t('桌面端（Tauri）可选择本地音频')}
+                      {canPickAudio ? t('未选择文件') : t('桌面端（Tauri）可选择本地音频')}
                     </span>
                   )}
                   {ambientError ? (
@@ -617,8 +614,8 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
                   <button
                     type="button"
                     className="cozy-btn-secondary"
-                    disabled={!canPickDirectory || pickingAudio}
-                    title={canPickDirectory ? undefined : t('桌面端（Tauri）可用')}
+                    disabled={!canPickAudio || pickingAudio}
+                    title={canPickAudio ? undefined : t('桌面端（Tauri）可用')}
                     onClick={() => void pickAmbientFile(weather)}
                   >
                     {pickingAudio ? t('选择中…') : file ? t('更换') : t('选择音频…')}
@@ -641,6 +638,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           {t('内置：雨天雨声、雪天雪声、晴天晴日。每个环境可选「自定义」并各自选择一首本地音频（mp3 / flac / wav / ogg / m4a），循环播放作为该环境的背景音乐；选「无」则该环境没有背景音乐。')}
         </p>
 
+        <AnnaTransferStatus transfer={ambientTransfer} />
         <div className="cozy-slider-row">
           <label className="cozy-slider-row__label" htmlFor="scene-brightness">{t('场景亮度')}</label>
           <input
@@ -667,6 +665,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
         />
       </section>
 
+      {isAnna() && <AnnaEnvironmentPanel />}
       {/* ---- 专注（真实） ---- */}
       <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('专注')}</h3>
@@ -745,7 +744,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
               <button
                 type="button"
                 className="cozy-btn-secondary"
-                disabled={!canPickDirectory}
+                disabled={!canPickAudio}
                 onClick={() => void pickFocusMusic()}
               >
                 {t('更换')}
@@ -762,13 +761,14 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
             <button
               type="button"
               className="cozy-btn-secondary"
-              disabled={!canPickDirectory}
+              disabled={!canPickAudio}
               onClick={() => void pickFocusMusic()}
             >
-              {canPickDirectory ? t('选择音乐…') : t('桌面端（Tauri）可选择本地音频')}
+              {canPickAudio ? t('选择音乐…') : t('桌面端（Tauri）可选择本地音频')}
             </button>
           )}
         </div>
+        <AnnaTransferStatus transfer={focusTransfer} />
         {focusMusicError ? <p className="cozy-today-error">{focusMusicError}</p> : null}
         <p className="cozy-companion-panel__hint">
           {t('专注全屏界面里的背景音乐，单独配置，与天气环境音互不影响。')}
@@ -815,7 +815,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
       </section>
 
       {/* ---- 路径（真实）：存储地址 + 音乐目录 + 读取目录 ---- */}
-      <section className="cozy-settings__group">
+      {isAnna() ? <AnnaLocalFiles dataDir={appPaths?.dataDir ?? ''} /> : <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('路径')}</h3>
         <p className="cozy-companion-panel__hint">
           {t('数据（任务、笔记、复盘、设置、日志）存数据目录；下面几项都可编辑并保存到本地。')}
@@ -940,13 +940,15 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           </button>
           <PathCheckButton path={readDirDraft} />
         </div>
-      </section>
+      </section>}
 
       {/* ---- 数据备份与恢复：换电脑迁移用 ---- */}
-      <section className="cozy-settings__group">
+      {isAnna() ? <AnnaBackupPanel /> : <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('数据备份与恢复')}</h3>
         <p className="cozy-companion-panel__hint">
-          {t('换电脑 / 防丢失：导出会把数据库、导入的原始文件、路径配置打包成自包含目录，拷贝到新机器即可恢复。')}
+          {isAnna()
+            ? t('Anna 启动时自动备份数据库并保留最近 7 份。包含文档、音乐和背景视频的完整备份，请使用上方「Anna 本地备份与恢复」。')
+            : t('换电脑 / 防丢失：导出会把数据库、导入的原始文件、路径配置打包成自包含目录，拷贝到新机器即可恢复。')}
         </p>
         <div className="cozy-settings-row">
           <span className="cozy-settings-row__label">{t('导出数据')}</span>
@@ -977,7 +979,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           </button>
         </div>
         {dataResult ? <p className="cozy-knowledge-hint">{dataResult}</p> : null}
-      </section>
+      </section>}
 
       {/* ---- 隐私（真实） ---- */}
       <section className="cozy-settings__group">
@@ -1062,33 +1064,34 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           <div className="cozy-settings-row">
             <span className="cozy-settings-row__label">{t('本地模型服务 (Ollama)')}</span>
             <span className="cozy-settings-row__value">
-              {ollamaReady === null
+              {!modelSupported ? t('网页演示不连接本机模型') : inventory.state === 'idle' || inventory.state === 'checking'
                 ? t('检测中…')
-                : ollamaReady
+                : inventory.state === 'ready'
                   ? t('运行中 ✓')
-                  : t('未运行')}
+                  : t('连接失败')}
             </span>
-            {!ollamaReady ? (
+            {modelSupported && inventory.state === 'error' ? (
               <button
                 type="button"
                 className="cozy-btn-secondary"
-                disabled={startingOllama || ollamaReady === null}
+                disabled={startingOllama}
                 onClick={() => void launchOllama()}
               >
                 {startingOllama ? t('启动中…') : t('启动 Ollama')}
               </button>
             ) : null}
           </div>
+          {inventory.state === 'error' && <p className="cozy-settings__hint" role="alert">{t(inventory.message)}</p>}
           <p className="cozy-companion-panel__hint">
             {t('本地模型负责所有基础任务（检索、专注、陪伴快响应等），也是未配置云端时的默认路径：')}
           </p>
           <ol className="cozy-model-guide__steps">
-            <li>{t('安装 Ollama：访问 https://ollama.com/download 下载安装，或双击项目里的 setup_ollama.bat 自动完成')}</li>
-            <li>{t('下载模型：打开终端执行 ollama pull qwen2.5:1.5b（约 1GB）和 ollama pull qwen2.5:14b（约 9GB）')}</li>
-            <li>{t('配置模型名：在下方「本地模型」输入框里填模型名（可点检查可用性验证），如 qwen2.5:1.5b')}</li>
+            <li>{t('安装 Ollama：访问 https://ollama.com/download 下载安装，应用只会启动已安装的服务，不会自动下载模型')}</li>
+            <li>{t('已有 qwen3:14b 时，可将本地与教练模型都选为它，无需为了验证再下载一份生成模型。')}</li>
+            <li>{t('选择已安装的模型后点击检查。这里核对安装情况，不代表已完成生成或向量检索测试。')}</li>
           </ol>
           <p className="cozy-companion-panel__hint">
-            {t('显存建议：4GB 用 1.5b，8GB 用 7b，16GB 用 14b。')}
+            {t('显存建议：4GB 用 4b，8GB 用 8b，16GB 用 14b。')}
           </p>
         </div>
 
@@ -1097,7 +1100,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           label={t('本地模型')}
           models={availableModels}
           value={models.small}
-          placeholder={t('输入模型名，如 qwen2.5:1.5b')}
+          placeholder={t('输入模型名，如 qwen3:4b')}
           onChange={(value) => void updateModels({ small: value })}
         />
         <div className="cozy-settings-row">
@@ -1106,13 +1109,22 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           <button
             type="button"
             className="cozy-btn-secondary"
-            disabled={modelStatus.small === 'checking'}
+            disabled={!modelSupported || startingOllama || modelStatus.small === 'checking'}
             onClick={() => void checkModels()}
           >
             {t('检查可用性')}
           </button>
         </div>
-        {installedModels.length > 0 ? (
+        <div className="cozy-settings-row">
+          <span className="cozy-settings-row__label">{t('知识检索向量模型')}</span>
+          <code>{DEFAULT_EMBEDDING_MODEL}</code>
+          <span className="cozy-settings-row__value" role="status">{modelStatusText(modelStatus.embedding)}</span>
+        </div>
+        {modelStatus.embedding === 'missing' && <p className="cozy-settings__hint">
+          {t('未安装向量模型，语义检索尚不能完整使用。普通笔记保存不受影响；如需验证，请在终端执行：')}
+          {' '}<code>ollama pull {DEFAULT_EMBEDDING_MODEL}</code>
+        </p>}
+        {inventory.state === 'ready' && installedModels.length > 0 ? (
           <div className="cozy-model-installed">
             <p className="cozy-companion-panel__hint">
               {t('已安装模型（{0}）', installedModels.length)}
@@ -1132,7 +1144,9 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
         ) : null}
 
         {/* ---- DeepSeek 云端：教练档（任务拆解/复盘/知识关联/陪伴） ---- */}
-        <div className="cozy-model-deepseek">
+        {isAnna() ? <p className="cozy-companion-panel__hint">
+          {t('Anna 本地版只使用本机模型，笔记与复盘不发送到云端模型。')}
+        </p> : <div className="cozy-model-deepseek">
           <div className="cozy-settings-row">
             <span className="cozy-settings-row__label">{t('教练模型 (DeepSeek)')}</span>
             <span className="cozy-settings-row__value">
@@ -1217,7 +1231,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
               {t('保存并启用')}
             </button>
           </div>
-        </div>
+        </div>}
         <div className="cozy-settings-row">
           <span className="cozy-settings-row__label">{t('本地大模型（教练档兜底）')}</span>
           <ModelPicker
@@ -1225,14 +1239,14 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
             label=""
             models={availableModels}
             value={models.big}
-            placeholder={t('输入模型名，如 qwen2.5:14b')}
+            placeholder={t('输入模型名，如 qwen3:14b')}
             onChange={(value) => void updateModels({ big: value })}
           />
           <span className="cozy-settings-row__value">{modelStatusText(modelStatus.big)}</span>
           <button
             type="button"
             className="cozy-btn-secondary"
-            disabled={modelStatus.big === 'checking'}
+            disabled={!modelSupported || startingOllama || modelStatus.big === 'checking'}
             onClick={() => void checkModels()}
           >
             {t('检查')}

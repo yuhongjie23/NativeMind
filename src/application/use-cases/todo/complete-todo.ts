@@ -16,6 +16,7 @@ export class CompleteTodoUseCase {
     const todo = await this.todoRepo.findById(todoId);
     if (!todo) throw new Error(`Todo 不存在: ${todoId}`);
     if (todo.status === 'completed') return todo;
+    if (todo.status === 'cancelled') throw new Error('请先恢复已取消的任务，再标记完成。');
 
     const completedAt = now();
     const completed: Todo = {

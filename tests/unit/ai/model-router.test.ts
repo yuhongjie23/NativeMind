@@ -33,6 +33,51 @@ const fakeProvider = (options: {
 };
 
 describe('ModelRouter 降级链', () => {
+  it('失败记录保留最后检查的模型，不把途中更改后的模型记成失败', async () => {
+    let configured = 'original';
+    const provider: ModelProvider = {
+      isAvailable: async () => { configured = 'changed'; return false; },
+      complete: async () => { throw new Error('must not run'); },
+    };
+    const result = await new ModelRouter(provider, { resolveModel: tier => `${configured}-${tier}` }).run({
+      taskType: 'light_summary', input: {}, inlinePrompt: { user: 'summary' },
+    });
+    expect(result).toMatchObject({ ok: false, tier: 'coach', model: 'changed-coach', degraded: true });
+    expect(result.error?.message).toContain('changed-coach');
+  });
+  it('空文本不算成功，允许按既有策略切换模型', async () => {
+    const provider = fakeProvider({ respond: model => model === FAST_MODEL ? '  \n' : '有内容的回答' });
+    const result = await new ModelRouter(provider).run({ taskType: 'light_summary', input: {}, inlinePrompt: { user: 'summary' } });
+    expect(result).toMatchObject({ ok: true, output: '有内容的回答', degraded: true });
+    expect(provider.calls).toEqual([FAST_MODEL, COACH_MODEL]);
+  });
+
+  it('禁止降级的即时互动收到空文本时明确失败，不留下空白成功结果', async () => {
+    const provider = fakeProvider({ respond: () => '' });
+    const result = await new ModelRouter(provider).run({ taskType: 'light_summary', input: {}, inlinePrompt: { user: 'summary' }, modelPolicy: { noFallback: true } });
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toContain('空内容');
+    expect(provider.calls).toHaveLength(1);
+  });
+  it('检查期间更改设置不会让当前请求和日志改用另一个模型', async () => {
+    let configured = 'checked-model';
+    const calls: string[] = [];
+    const records: ModelRunLog[] = [];
+    const provider: ModelProvider = {
+      isAvailable: async () => { configured = 'next-model'; return true; },
+      complete: async ({ model }) => { calls.push(model); return 'local response'; },
+    };
+    const router = new ModelRouter(provider, {
+      resolveModel: () => configured,
+      recorder: { record: async (entry) => { records.push(entry); } },
+    });
+    const request = { taskType: 'light_summary' as const, input: {}, inlinePrompt: { user: 'summary' } };
+    const first = await router.run(request);
+    expect(first.model).toBe('checked-model');
+    expect(calls).toEqual(['checked-model']);
+    expect(records[0].model).toBe('checked-model');
+    expect((await router.run(request)).model).toBe('next-model');
+  });
   it('一次成功时不重试、不标记降级', async () => {
     const provider = fakeProvider({ respond: () => validIntent });
     const router = new ModelRouter(provider);

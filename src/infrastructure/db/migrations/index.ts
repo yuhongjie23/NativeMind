@@ -25,6 +25,9 @@ import reviewSourceProposal018 from './018_add_review_source_proposal.sql?raw';
 import companionConversation019 from './019_add_companion_conversation.sql?raw';
 import companionTurnMeta020 from './020_add_companion_turn_meta.sql?raw';
 import companionRole021 from './021_add_companion_role.sql?raw';
+import healthReminder022 from './022_add_health_reminder_scene.sql?raw';
+import recoverImports023 from './023_recover_unqueued_imports.sql?raw';
+import reviewEvidence024 from './024_review_evidence_followups.sql?raw';
 
 export interface Migration {
 
@@ -32,6 +35,8 @@ export interface Migration {
   name: string;
   sql: string;
 }
+
+import learning025 from './025_learning_reminders.sql?raw';
 
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'init', sql: init001 },
@@ -55,6 +60,10 @@ export const MIGRATIONS: Migration[] = [
   { version: 19, name: 'add_companion_conversation', sql: companionConversation019 },
   { version: 20, name: 'add_companion_turn_meta', sql: companionTurnMeta020 },
   { version: 21, name: 'add_companion_role', sql: companionRole021 },
+  { version: 22, name: 'add_health_reminder_scene', sql: healthReminder022 },
+  { version: 23, name: 'recover_unqueued_imports', sql: recoverImports023 },
+  { version: 24, name: 'review_evidence_followups', sql: reviewEvidence024 },
+  { version: 25, name: 'learning_reminders', sql: learning025 },
 ];
 
 

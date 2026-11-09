@@ -1,0 +1,24 @@
+[package]
+name = "nativemind-anna-native"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+getrandom = "0.3.4"
+rusqlite = { version = "0.32.1", features = ["bundled", "load_extension", "hooks"] }
+reqwest = { version = "0.12.9", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1.40", features = ["fs", "rt", "time", "net", "sync"] }
+pdf-extract = "0.12"
+lib-epub = "0.3.1"
+mobi = "0.8.0"
+html2text = "0.17.1"
+
+[dev-dependencies]
+zip = "4.2.0"
+
+[patch.crates-io]
+lib-epub = { path = "../../src-tauri/vendor/lib-epub" }

@@ -4,8 +4,9 @@
  * 所有 store 共用一个 Application 实例。构建时把 UI 的确认弹窗接进去，
  * 这样 AI 建议型写入自然会走到 ConfirmationModal，不需要每个 store 各自处理。
  *
- * 环境二选一：
+ * 运行环境：
  * - Tauri 里 → SQLite 仓储 + 真实本地模型（生产路径）
+ * - Anna 里 → 同一套仓储与业务，通过 Executa 调用原生模块
  * - 纯浏览器（vite dev / vitest）→ 内存仓储 + 模板 AI，保证 UI 仍可开发调试
  *
  * 检测靠 window.__TAURI_INTERNALS__ 而不是 try/catch import：
@@ -14,6 +15,7 @@
  */
 import { createLocalDemoRuntime } from '@infrastructure/local-demo';
 import { createTauriRuntime } from '@infrastructure/tauri-runtime';
+import { annaInvoke, isAnna } from '@infrastructure/anna';
 import { uiConfirmationPrompt, uiConfirmPrompt } from './confirmation-store';
 
 const isTauri = (): boolean =>
@@ -26,6 +28,15 @@ const tauriInvoke = async <T>(command: string, args?: Record<string, unknown>): 
 };
 
 const createRuntime = () => {
+  if (isAnna()) {
+    return createTauriRuntime({
+      localOnly: true,
+      invoke: annaInvoke,
+      confirmationPrompt: uiConfirmationPrompt,
+      confirmPrompt: uiConfirmPrompt,
+      streaming: false,
+    });
+  }
   if (!isTauri()) {
     console.info('[runtime] 非 Tauri 环境，使用内存演示运行时（数据不会持久化）');
     return {

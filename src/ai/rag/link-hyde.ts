@@ -10,6 +10,7 @@
  * 模型不可用 / 超时 / 输出不合法一律回退启发式（正文关键词 + 已有标签），
  * 绝不阻塞知识关联流程。
  */
+import { withModelDeadline } from '../shared/model-deadline';
 import type { ModelRouter } from '../router/model-router';
 import { extractKeywords } from './retrieval-strategy';
 
@@ -32,35 +33,21 @@ const HYDE_SYSTEM =
   '输出 JSON：tags 是可能的标签（2-6 字为主，贴近真实打标签习惯）；topics 是相关主题/概念关键词（可含英文术语）。' +
   '只输出 JSON，不要其它内容。';
 
-/** 超时包装：模型调用超时视为「生成失败」，走启发式兜底 */
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('HyDE 标签生成超时')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-
 export class LinkHydeGenerator {
   constructor(private readonly router: ModelRouter, private readonly timeoutMs = 8000) {}
 
-  async generate(content: string, existingTags: string[] = []): Promise<HydeTags> {
+  async generate(content: string, existingTags: string[] = [], signal?: AbortSignal): Promise<HydeTags> {
+    signal?.throwIfAborted();
     // 输入太短（几句碎片）时模型没什么可假设的，直接走启发式
     if (!content.trim() || content.trim().length < 20) {
       return fallbackHyde(content, existingTags);
     }
 
     try {
-      const result = await withTimeout(
-        this.router.run<{ content: string }, { tags?: string[]; topics?: string[] }>({
+      const result = await withModelDeadline(
+        (requestSignal) => this.router.run<{ content: string }, { tags?: string[]; topics?: string[] }>({
           taskType: 'tag_generation',
+          signal: requestSignal,
           input: { content },
           inlinePrompt: {
             system: HYDE_SYSTEM,
@@ -73,7 +60,9 @@ export class LinkHydeGenerator {
             noRetry: true,
           },
         }),
-        this.timeoutMs
+        this.timeoutMs,
+        'HyDE 标签生成',
+        signal
       );
 
       if (!result.ok || !result.output) return fallbackHyde(content, existingTags);
@@ -87,6 +76,7 @@ export class LinkHydeGenerator {
         topics: [...new Set(topics)].slice(0, 6),
       };
     } catch (error) {
+      signal?.throwIfAborted();
       console.warn('[LinkHyde] 标签生成失败，回退启发式:', error);
       return fallbackHyde(content, existingTags);
     }

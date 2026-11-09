@@ -7,6 +7,8 @@
  * 以及读音乐清单/字节（audio_list_music / audio_read）。
  */
 
+import { annaInvoke, isAnna, readAnnaAudio } from '../anna';
+
 export interface AppPathsInfo {
   dataDir: string;
   resourceDir: string;
@@ -31,6 +33,7 @@ const isTauri = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 const invoke = async <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
+  if (isAnna()) return annaInvoke<T>(command, args);
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<T>(command, args);
 };
@@ -55,7 +58,7 @@ const cleanInfo = (info: AppPathsInfo): AppPathsInfo => ({
 
 /** 当前应用目录（设置页展示用） */
 export const getAppPaths = async (): Promise<AppPathsInfo> => {
-  if (!isTauri()) return { dataDir: '', resourceDir: '', readDirs: [] };
+  if (!isTauri() && !isAnna()) return { dataDir: '', resourceDir: '', readDirs: [] };
   return cleanInfo(await invoke<AppPathsInfo>('file_app_paths'));
 };
 
@@ -68,6 +71,9 @@ export const setAppPaths = async (
   patch: { dataDir?: string; resourceDir?: string },
   opts?: { migrate?: boolean }
 ): Promise<SetPathsResult> => {
+  if (isAnna()) {
+    throw new Error('Anna 版暂不支持迁移本地存储目录');
+  }
   if (!isTauri()) {
     return {
       dataDir: cleanPath(patch.dataDir ?? ''),
@@ -83,7 +89,7 @@ export const setAppPaths = async (
 
 /** 把设置里的读取目录/音乐目录同步给 Rust，让 check_readable 放行 */
 export const updateAppPaths = async (readDirs: string[], musicDir?: string): Promise<void> => {
-  if (!isTauri()) return;
+  if (!isTauri() && !isAnna()) return;
   await invoke('file_update_paths', { readDirs, musicDir });
 };
 
@@ -125,11 +131,11 @@ export const checkPath = async (path: string): Promise<PathCheckResult> => {
 
 /** 音乐目录下的音频清单 */
 export const listMusic = async (): Promise<MusicAsset[]> =>
-  isTauri() ? invoke<MusicAsset[]>('audio_list_music') : [];
+  isTauri() || isAnna() ? invoke<MusicAsset[]>('audio_list_music') : [];
 
 /** 检查某个 Ollama 模型是否已安装（设置页模型可用性检查） */
 export const checkModelAvailable = async (model: string): Promise<boolean> => {
-  if (!isTauri() || !model.trim()) return false;
+  if ((!isTauri() && !isAnna()) || !model.trim()) return false;
   return invoke<boolean>('model_is_available', { model });
 };
 
@@ -140,17 +146,13 @@ export interface InstalledModelInfo {
   parameterSize?: string;
 }
 export const listInstalledModels = async (): Promise<InstalledModelInfo[]> => {
-  if (!isTauri()) return [];
-  try {
-    return await invoke<InstalledModelInfo[]>('model_list');
-  } catch {
-    return [];
-  }
+  if (!isTauri() && !isAnna()) return [];
+  return invoke<InstalledModelInfo[]>('model_list');
 };
 
 /** Ollama 服务是否就绪（首启引导用） */
 export const isModelReady = async (): Promise<boolean> => {
-  if (!isTauri()) return false;
+  if (!isTauri() && !isAnna()) return false;
   return invoke<boolean>('model_is_ready');
 };
 
@@ -159,11 +161,11 @@ export const isModelReady = async (): Promise<boolean> => {
  * 返回当前状态；非 Tauri 环境 / 命令不可用时返回 null（静默跳过）。
  */
 export const ensureOllamaRunning = async (): Promise<'already_running' | 'started' | 'failed' | null> => {
-  if (!isTauri()) return null;
+  if (!isTauri() && !isAnna()) return null;
   try {
     return await invoke<'already_running' | 'started' | 'failed'>('ollama_ensure_running');
   } catch {
-    return null;
+    return 'failed';
   }
 };
 
@@ -172,6 +174,7 @@ export const ensureOllamaRunning = async (): Promise<'already_running' | 'starte
  * invoke 拿到 ArrayBuffer，可直接喂给 Blob。
  */
 export const readMusicBytes = async (path: string): Promise<ArrayBuffer> => {
+  if (isAnna()) return readAnnaAudio(path);
   if (!isTauri()) return new ArrayBuffer(0);
   return invoke<ArrayBuffer>('audio_read', { path });
 };
@@ -189,6 +192,7 @@ export const readBgmBytes = async (path: string): Promise<ArrayBuffer> => {
  * audio_read_imported（check_readable 白名单）。
  */
 export const readImportedBytes = async (path: string): Promise<ArrayBuffer> => {
+  if (isAnna()) return readAnnaAudio(path);
   if (!isTauri()) return new ArrayBuffer(0);
   return invoke<ArrayBuffer>('audio_read_imported', { path });
 };

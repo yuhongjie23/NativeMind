@@ -27,6 +27,7 @@ import { describeError, policies, repositories, runtime } from './runtime';
 
 /** 扁平化的存储键。改名等于丢用户配置，别随手改 */
 const KEYS = {
+  backgroundVideos: 'background.videos',
   privacyAllowExternalSearch: 'privacy.allowExternalSearch',
   privacyRequireConfirmation: 'privacy.requireConfirmationPerRequest',
   companionEnabled: 'companion.enabled',
@@ -125,6 +126,10 @@ export interface ModelsConfig {
 }
 
 interface SettingsState {
+  backgroundVideos: Record<string, string>;
+  backgroundErrors: Record<string, string>;
+  setBackgroundError: (slot: string, error?: string) => void;
+  updateBackgroundVideo: (slot: string, path?: string) => Promise<void>;
   privacy: PrivacySettings;
   companion: CompanionConfig;
   focus: FocusConfig;
@@ -175,6 +180,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
   };
 
   return {
+    backgroundVideos: {}, backgroundErrors: {},
+    setBackgroundError: (slot, error) => set(state => {
+      const errors = { ...state.backgroundErrors };
+      if (error) errors[slot] = error; else delete errors[slot];
+      return { backgroundErrors: errors };
+    }),
+    updateBackgroundVideo: async (slot, path) => {
+      const next = { ...get().backgroundVideos };
+      if (path) next[slot] = path; else delete next[slot];
+      // Save first: a failed settings write must not silently switch the background.
+      await persist({ [KEYS.backgroundVideos]: JSON.stringify(next) });
+      set({ backgroundVideos: next });
+      get().setBackgroundError(slot);
+    },
     privacy: defaultPrivacySettings,
     companion: defaultAppConfig.appearance.companion,
     focus: defaultAppConfig.focus,
@@ -265,6 +284,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
             deepseekModel: stored[KEYS.modelsDeepseekModel] || getModelConfig().deepseekModel,
             deepseekThinking: stored[KEYS.modelsDeepseekThinking] === 'true' || getModelConfig().deepseekThinking,
           },
+          backgroundVideos: asStringRecord(stored[KEYS.backgroundVideos]),
           ambientFilesByWeather: asStringRecord(stored[KEYS.ambientFilesByWeather]),
           ambientModeByWeather: asStringRecord(stored[KEYS.ambientModeByWeather]),
           focusMusicFile: stored[KEYS.focusMusicFile] || undefined,

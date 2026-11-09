@@ -1,3 +1,4 @@
+import { LearningPanel } from '../panels/LearningPanel';
 /**
  * 底部副面板通用容器（V4 §37）。
  *
@@ -22,6 +23,7 @@ import { SettingsPanel } from '../panels/SettingsPanel';
 import { TodayPanel } from '../panels/TodayPanel';
 
 const panelMeta: Record<PanelKey, { title: string; subtitle: string }> = {
+  learning: { title: '学习计划', subtitle: '按你的时间提醒，记录自己的理解变化。' },
   today: { title: '今天', subtitle: '把要做的事放轻一点。' },
   focus: { title: '专注', subtitle: '先选一段舒服的时长。' },
   knowledge: { title: '知识/检索', subtitle: '从自己的笔记里找答案。' },
@@ -54,7 +56,7 @@ interface DemoSheetProps {
   sceneControls: SceneControls;
 }
 
-const FOCUSABLE = 'button, input, select, [role="switch"], [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'button, [href], input, textarea, select, [role="switch"], [tabindex]:not([tabindex="-1"])';
 
 export function DemoSheet({ panel, onClose, sceneControls }: DemoSheetProps) {
   const t = useT();
@@ -78,15 +80,15 @@ export function DemoSheet({ panel, onClose, sceneControls }: DemoSheetProps) {
       if (!root) return;
       const focusables = Array.from(
         root.querySelectorAll<HTMLElement>(FOCUSABLE),
-      ).filter((el) => !el.hasAttribute('disabled'));
+      ).filter((el) => !el.hasAttribute('disabled') && el.tabIndex >= 0 && el.getClientRects().length > 0);
       if (focusables.length === 0) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
       const activeEl = document.activeElement;
-      if (event.shiftKey && (activeEl === first || activeEl === root)) {
+      if (event.shiftKey && (activeEl === first || activeEl === titleRef.current || !root.contains(activeEl))) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && activeEl === last) {
+      } else if (!event.shiftKey && (activeEl === last || !root.contains(activeEl))) {
         event.preventDefault();
         first.focus();
       }
@@ -128,6 +130,7 @@ export function DemoSheet({ panel, onClose, sceneControls }: DemoSheetProps) {
 
         <div className="demo-sheet__body">
           {/* 常驻挂载：关闭 / 切换面板时本地状态不丢失 */}
+          <div hidden={panel !== 'learning'}><LearningPanel /></div>
           <div hidden={panel !== 'today'}>
             <TodayPanel />
           </div>

@@ -1,3 +1,4 @@
+import { withModelDeadline } from '../shared/model-deadline';
 /**
  * 查询改写器（LLM 版 Multi-Query + HyDE）
  *
@@ -36,37 +37,25 @@ export function parseRewriteOutput(raw: string): RewriteResult {
   return { variants: variants.filter(Boolean), hypothetical };
 }
 
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
-    // 竞态一有结果就清掉定时器，否则败者 timer 空转保活事件循环
-    const timer = setTimeout(() => reject(new Error('查询改写超时')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-
 export class QueryRewriter {
   constructor(
     private readonly router: ModelRouter,
     private readonly timeoutMs = 3000
   ) {}
 
-  async rewrite(text: string): Promise<RewriteResult> {
+  async rewrite(text: string, signal?: AbortSignal): Promise<RewriteResult> {
+    signal?.throwIfAborted();
     try {
-      const result = await withTimeout(
-        this.router.run<{ query: string }, string>({
+      const result = await withModelDeadline(
+        (requestSignal) => this.router.run<{ query: string }, string>({
           taskType: 'query_rewrite',
+          signal: requestSignal,
           input: { query: text },
           promptVars: { query: text },
         }),
-        this.timeoutMs
+        this.timeoutMs,
+        '查询改写',
+        signal
       );
       const parsed = result.output ? parseRewriteOutput(result.output) : { variants: [] };
       if (parsed.variants.length === 0) {
@@ -78,6 +67,7 @@ export class QueryRewriter {
         hypothetical: parsed.hypothetical,
       };
     } catch {
+      signal?.throwIfAborted();
       // 模型不可用 / 超时 / 解析失败：一律回退启发式
       return { variants: expandQuery(text) };
     }

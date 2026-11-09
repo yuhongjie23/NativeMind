@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { optimizeAppMedia } from './scripts/build/optimize-media';
 
 /** 与 tsconfig.json 的 paths 保持一致，改一处要同时改另一处 */
 const alias = {
@@ -14,7 +15,7 @@ const alias = {
 };
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), optimizeAppMedia(fileURLToPath(new URL('.', import.meta.url)))],
   clearScreen: false,
   resolve: { alias },
   server: {

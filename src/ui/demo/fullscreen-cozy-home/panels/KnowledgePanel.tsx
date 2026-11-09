@@ -1,3 +1,6 @@
+import { KnowledgeActivity } from '../../../components/features/KnowledgeActivity';
+import { useAnnaFileTransfer } from '../../../hooks/use-anna-file-transfer';
+import { AnnaTransferStatus } from '../../../components/common/AnnaTransferStatus';
 /**
  * 「知识」面板 —— 真实笔记检索与导入。
  *
@@ -5,8 +8,9 @@
  * history；快速导入粘贴文本写为真实笔记。外部搜索被拦时明确说出原因。
  */
 import { ArrowRight, BookMarked, Link2, Plus, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Note } from '@shared-types/domain';
+import { isAnna, pickAnnaDocument } from '@infrastructure/anna';
 import { useT } from '../../../i18n';
 import { Modal } from '../../../components/common/Modal';
 import { ErrorBoundary } from '../../../components/common/ErrorBoundary';
@@ -14,6 +18,7 @@ import { NoteViewer } from '../../../components/features/NoteViewer';
 import { useNoteStore } from '../../../stores/note-store';
 import { useKnowledgeLinkStore, RELATION_LABELS } from '../../../stores/knowledge-link-store';
 import { KnowledgeGraphView } from '../components/KnowledgeGraphView';
+import { NoteIndexStatus } from '../components/NoteIndexStatus';
 import { useToastStore } from '../../../stores/toast-store';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { listReadableDocs, openExternal, type ReadableDoc } from '@infrastructure/paths/paths-api';
@@ -22,12 +27,19 @@ import { usePanelDirty } from '../panel-dirty';
 
 export function KnowledgePanel() {
   const t = useT();
+  const fileTransfer = useAnnaFileTransfer();
   const language = useSettingsStore((state) => state.language);
   const notes = useNoteStore((state) => state.notes);
   const hits = useNoteStore((state) => state.hits);
   const query = useNoteStore((state) => state.query);
   const history = useNoteStore((state) => state.history);
   const searching = useNoteStore((state) => state.searching);
+  const searchProgress = useNoteStore(state => state.searchProgress);
+  const askProgress = useNoteStore(state => state.askProgress);
+  const searchKeywordReady = useNoteStore(state => state.searchKeywordReady);
+  const searchElapsedMs = useNoteStore(state => state.searchElapsedMs);
+  const askElapsedMs = useNoteStore(state => state.askElapsedMs);
+  const firstTokenMs = useNoteStore(state => state.firstTokenMs);
   const enhancing = useNoteStore((state) => state.enhancing);
   const enhancements = useNoteStore((state) => state.enhancements);
   const error = useNoteStore((state) => state.error);
@@ -50,18 +62,22 @@ export function KnowledgePanel() {
   const deleteAskHistory = useNoteStore((state) => state.deleteAskHistory);
   const confirmExternalSearch = useNoteStore((state) => state.confirmExternalSearch);
   const importNote = useNoteStore((state) => state.importNote);
+  const importPhase = useNoteStore((state) => state.importPhase);
+  const importOutcome = useNoteStore((state) => state.importOutcome);
+  const cancelImport = useNoteStore((state) => state.cancelImport);
   const importExternalResult = useNoteStore((state) => state.importExternalResult);
   const deleteNote = useNoteStore((state) => state.delete);
   const updateNote = useNoteStore((state) => state.update);
   // 每篇笔记的已确认关联数（链接徽章用）；打开面板时拉一次
   const linkCounts = useKnowledgeLinkStore((state) => state.linkCounts);
+  const linking = useKnowledgeLinkStore((state) => state.suggesting);
+  const canCancelLinks = useKnowledgeLinkStore((state) => state.canCancelSuggestions);
+  const cancelLinks = useKnowledgeLinkStore((state) => state.cancelSuggestions);
 
   const [viewMode, setViewMode] = useState<'search' | 'notes' | 'import' | 'graph'>('search');
   const [keyword, setKeyword] = useState('');
   const [title, setTitle] = useState('');
   const [draft, setDraft] = useState('');
-  // 手动「查找关联」进行中（按钮禁用 + 进度提示）
-  const [linking, setLinking] = useState(false);
   // 导入标签：逗号/空格分隔，提交时解析成数组（标签是检索的重要依据）
   const [importTags, setImportTags] = useState('');
   // 解析导入标签输入：按中文/英文逗号与空白切分，去重去空
@@ -76,6 +92,11 @@ export function KnowledgePanel() {
   const [importDocError, setImportDocError] = useState('');
   const readDirs = useSettingsStore((state) => state.paths.readDirs);
   const [viewingNote, setViewingNote] = useState<Note | null>(null);
+  const viewingNoteId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    viewingNoteId.current = viewingNote?.id;
+    return () => { viewingNoteId.current = undefined; };
+  }, [viewingNote?.id]);
   // 打开笔记时定位到的段落（检索命中段，无则从头部开始）
   const [viewingNoteStart, setViewingNoteStart] = useState<number | undefined>(undefined);
   // 命中段落文本：优先用它在正文里 indexOf 精确定位（比 charStart 抗漂移）
@@ -108,24 +129,21 @@ export function KnowledgePanel() {
 
   // 手动触发 AI 关联建议（导入时没建、或当时模型不可用的笔记，补一次机会）
   const relinkNote = async (noteId: string) => {
-    setLinking(true);
-    try {
-      const result = await useKnowledgeLinkStore.getState().suggestForNote(noteId);
-      // 刷新已确认关联列表（确认写入后图谱与这里都会更新）
-      const fresh = await useKnowledgeLinkStore.getState().relatedNotes(noteId);
-      setRelated(fresh);
-      if (result.created.length > 0) {
-        useToastStore.getState().show(
-          `已建立 ${result.created.length} 条知识关联`,
-          'ok'
-        );
-      } else if (result.suggested > 0) {
-        // 用户拒绝了建议，不打扰（确认框已给过反馈）
-      } else {
-        useToastStore.getState().show('未找到与现有笔记的关联', 'info');
-      }
-    } finally {
-      setLinking(false);
+    const result = await useKnowledgeLinkStore.getState().suggestForNote(noteId);
+    if (result.cancelled || result.skipped || viewingNoteId.current !== noteId) return;
+    // 刷新已确认关联列表（确认写入后图谱与这里都会更新）
+    const fresh = await useKnowledgeLinkStore.getState().relatedNotes(noteId);
+    if (viewingNoteId.current !== noteId) return;
+    setRelated(fresh);
+    if (result.created.length > 0) {
+      useToastStore.getState().show(
+        `已建立 ${result.created.length} 条知识关联`,
+        'ok'
+      );
+    } else if (result.suggested > 0) {
+      // 用户拒绝了建议，不打扰（确认框已给过反馈）
+    } else {
+      useToastStore.getState().show('未找到与现有笔记的关联', 'info');
     }
   };
 
@@ -187,20 +205,29 @@ export function KnowledgePanel() {
     setSavingIndex(index);
     setSavedHint('');
     try {
-      await importExternalResult(result);
-      setSavedHint(`「${result.title.slice(0, 20)}」已保存为笔记`);
+      const outcome = await importExternalResult(result);
+      if (outcome === 'imported') setSavedHint(`「${result.title.slice(0, 20)}」已保存为笔记`);
     } finally {
       setSavingIndex(null);
     }
   };
 
   // 只有桌面端（Tauri）有文件系统权限
-  const canPickFile = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  const canPickFile = isAnna() || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
 
   const pickAndImportFile = async () => {
-    if (importingFile || !canPickFile) return;
+    if (importingFile || importPhase !== 'idle' || !canPickFile) return;
     setImportingFile(true);
+    setImportDocError('');
     try {
+      if (isAnna()) {
+        const file = await pickAnnaDocument();
+        if (!file) return;
+        const path = await fileTransfer.stage(file, 'document');
+        if (!path) return;
+        await importNote({ kind: 'path', path, tags: parseImportTags() });
+        return;
+      }
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         multiple: false,
@@ -212,6 +239,8 @@ export function KnowledgePanel() {
       const { invoke } = await import('@tauri-apps/api/core');
       const importPath = await invoke<string>('file_import_into_data_dir', { path });
       await importNote({ kind: 'path', path: importPath, tags: parseImportTags() });
+    } catch (error) {
+      setImportDocError(describeError(error));
     } finally {
       setImportingFile(false);
     }
@@ -238,11 +267,12 @@ export function KnowledgePanel() {
   }, [readDirs]);
 
   const importReadableDoc = async (doc: ReadableDoc) => {
-    if (importingDoc) return;
+    if (importingDoc || importPhase !== 'idle') return;
     setImportDocError('');
     setImportingDoc(doc.path);
     try {
-      await importNote({ kind: 'path', path: doc.path, tags: parseImportTags() });
+      const outcome = await importNote({ kind: 'path', path: doc.path, tags: parseImportTags() });
+      if (outcome !== 'imported') return;
       setSavedHint(`「${doc.name.slice(0, 24)}」已导入`);
     } catch (error) {
       setImportDocError(describeError(error));
@@ -261,15 +291,26 @@ export function KnowledgePanel() {
   };
 
   const submitImport = async () => {
-    if (!draft.trim()) return;
-    await importNote({ kind: 'text', content: draft, title: title.trim() || undefined, tags: parseImportTags() });
+    if (!draft.trim() || importPhase !== 'idle') return;
+    const outcome = await importNote({ kind: 'text', content: draft, title: title.trim() || undefined, tags: parseImportTags() });
+    if (outcome !== 'imported') return;
     setDraft('');
     setTitle('');
     setImportTags('');
   };
 
+  const importStatus = <>
+      {importPhase !== 'idle' && <div role="status">
+        <p>{t(importPhase === 'parsing' ? '正在解析文档…' : importPhase === 'checking' ? '正在检查重复内容…' : '正在保存笔记，完成后将建立索引…')}</p>
+        <button type="button" className="cozy-btn-secondary" disabled={importPhase === 'saving'} onClick={cancelImport}>{t('停止导入')}</button>
+      </div>}
+      {importOutcome && <p role="status">{t(importOutcome)}</p>}
+
+  </>;
+
   return (
     <div className="cozy-knowledge">
+      {viewMode !== 'import' && importStatus}
       <div className="cozy-mode-toggle" role="group" aria-label="视图切换">
         <button
           type="button"
@@ -308,6 +349,11 @@ export function KnowledgePanel() {
           {t('知识图谱')}
         </button>
       </div>
+
+      {linking && !viewingNote && <div role="status" className="cozy-knowledge-hint">
+        {t('正在查找关联笔记…')}
+        {canCancelLinks && <button type="button" className="cozy-btn-secondary" onClick={cancelLinks}>{t('停止查找关联')}</button>}
+      </div>}
 
       {viewMode === 'graph' ? (
         <ErrorBoundary>
@@ -375,6 +421,7 @@ export function KnowledgePanel() {
                     {t('删除')}
                   </button>
                 </div>
+                <NoteIndexStatus key={`index-${selectedNote.id}`} note={selectedNote} />
                 <NoteViewer
                   key={selectedNote.id}
                   content={selectedNote.content}
@@ -427,7 +474,7 @@ export function KnowledgePanel() {
             <button
               type="button"
               className="cozy-btn-primary"
-              disabled={!draft.trim()}
+              disabled={!draft.trim() || importPhase !== 'idle' || importingFile}
               onClick={() => void submitImport()}
             >
               <Plus size={15} strokeWidth={2} aria-hidden={true} />
@@ -436,7 +483,7 @@ export function KnowledgePanel() {
             <button
               type="button"
               className="cozy-btn-secondary"
-              disabled={!canPickFile || importingFile}
+              disabled={!canPickFile || importingFile || importPhase !== 'idle'}
               title={canPickFile ? undefined : t('桌面端（Tauri）可选择本地文件')}
               onClick={() => void pickAndImportFile()}
             >
@@ -447,6 +494,9 @@ export function KnowledgePanel() {
             {t('支持粘贴文本，或桌面端选择 PDF / Markdown / TXT / EPUB / MOBI / AZW3 文件；导入后会在后台切块并建索引。')}
           </p>
 
+          <AnnaTransferStatus transfer={fileTransfer} />
+          {importStatus}
+          {error && <p role="alert" className="cozy-today-error">{error}</p>}
           <div className="cozy-knowledge-dirs">
             <h4 className="panel-section-title">{t('从读取目录导入')}</h4>
             {readDirs.length === 0 ? (
@@ -468,7 +518,7 @@ export function KnowledgePanel() {
                     <button
                       type="button"
                       className="cozy-btn-secondary"
-                      disabled={Boolean(importingDoc)}
+                      disabled={Boolean(importingDoc) || importPhase !== 'idle'}
                       onClick={() => void importReadableDoc(doc)}
                     >
                       {importingDoc === doc.path ? t('导入中…') : t('导入')}
@@ -507,7 +557,7 @@ export function KnowledgePanel() {
       </div>
 
       <div className="cozy-search__actions">
-        <label className="cozy-deep-toggle" title={t('用本地模型改写查询（Multi-Query + HyDE），更准但更慢')}>
+        <label className="cozy-deep-toggle" title={t('搜索和问答均使用此选项：开启后增加问题扩展和资料重排，耗时更长')}>
           <input
             type="checkbox"
             checked={deep}
@@ -524,6 +574,11 @@ export function KnowledgePanel() {
         >
           {asking ? t('回答中…') : t('深度回答')}
         </button>
+        {asking && (
+          <button type="button" className="cozy-btn-secondary" onClick={() => useNoteStore.getState().cancelQuestion()}>
+            {t('停止生成')}
+          </button>
+        )}
         <button
           type="button"
           className="cozy-btn-secondary"
@@ -587,19 +642,20 @@ export function KnowledgePanel() {
       {blockedReason ? (
         <p className="cozy-knowledge-hint">{t('{0}', blockedReason)}</p>
       ) : null}
-      {searching ? <p className="cozy-knowledge-hint">{t('正在检索…')}</p> : null}
+      <KnowledgeActivity events={searchProgress} busy={searching} keywordReady={searchKeywordReady} totalMs={searchElapsedMs} />
       {savedHint ? <p className="cozy-knowledge-hint">{savedHint}</p> : null}
       {error ? <p className="cozy-today-error">{error}</p> : null}
 
       {asking || deepAnswer ? (
         <div className="cozy-deep-answer">
+          <KnowledgeActivity events={askProgress} busy={asking} totalMs={askElapsedMs} firstTokenMs={firstTokenMs} />
           {asking ? (
             streamingAnswer ? (
               <p className="cozy-deep-answer__body cozy-deep-answer__body--streaming">
                 {streamingAnswer}
               </p>
             ) : (
-              <p className="cozy-knowledge-hint">{t('正在深入检索笔记并组织回答…')}</p>
+              null
             )
           ) : deepAnswer ? (
             deepAnswer.empty ? (
@@ -608,9 +664,11 @@ export function KnowledgePanel() {
               <>
                 <div className="cozy-deep-answer__head">
                   <h3 className="panel-section-title">{t('深度回答')}</h3>
-                  <span className="cozy-deep-answer__conf" title={t('自我评判的置信度')}>
-                    {t('置信度 {0}%', Math.round(deepAnswer.confidence * 100))}
-                  </span>
+                  {deepAnswer.judged ? (
+                    <span className="cozy-deep-answer__conf" title={t('模型自评分，不代表答案正确的概率')}>
+                      {t('参考分 {0}/100', Math.round(deepAnswer.confidence * 100))}
+                    </span>
+                  ) : null}
                   {deepAnswer.regenerated ? (
                     <span className="cozy-deep-answer__badge">{t('已二次修正')}</span>
                   ) : null}
@@ -627,7 +685,9 @@ export function KnowledgePanel() {
                 {deepAnswer.critique ? (
                   <p className="cozy-knowledge-hint">{t('评判意见：{0}', deepAnswer.critique)}</p>
                 ) : null}
-                {deepAnswer.confidence < 0.4 ? (
+                {deepAnswer.ok && deepAnswer.citations.length === 0 ? (
+                  <p className="cozy-knowledge-hint">{t('尚未确认支持答案的引用，请对照原文核实。')}</p>
+                ) : deepAnswer.confidence < 0.4 ? (
                   <p className="cozy-knowledge-hint">
                     {t('模型把握偏低，建议对照下方引用来源自行核实。')}
                   </p>
@@ -672,15 +732,21 @@ export function KnowledgePanel() {
         </div>
       ) : null}
 
-      {query && !searching ? (
+      {query && (!searching || hits.length > 0) ? (
         hits.length === 0 && !confirmationRequired && !externalSearchAttempted ? (
           <div className="cozy-knowledge-empty">
             <p>{t('本地没找到相关内容。可点上方「搜索网络」或换关键词。')}</p>
           </div>
         ) : (
           <>
+            {!enhancing && !searching && !asking && hits.length > 0 && (
+              <button type="button" className="cozy-btn-secondary" onClick={() => { void useNoteStore.getState().enhanceResults(); }}>{t('整理搜索结果')}</button>
+            )}
             {enhancing ? (
-              <p className="cozy-knowledge-hint">{t('正在用模型整理结果…')}</p>
+              <div className="cozy-knowledge-hint" role="status">
+                {t('正在用模型整理结果…')}
+                <button type="button" className="cozy-btn-secondary" onClick={() => useNoteStore.getState().cancelEnhancement()}>{t('停止整理')}</button>
+              </div>
             ) : null}
             <ul className="cozy-hit-list">
               {[...hits]
@@ -817,7 +883,7 @@ export function KnowledgePanel() {
                 <p className="cozy-note-card__excerpt">{session.answer.slice(0, 120)}</p>
                 <div className="cozy-note-card__actions">
                   <span className="cozy-note-card__source">
-                    {t('置信度 {0}%', Math.round(session.confidence * 100))}
+                    {session.judged ? t('参考分 {0}/100', Math.round(session.confidence * 100)) : t('未评判')}
                     {' · '}
                     {new Date(session.createdAt).toLocaleString(
                       language === 'en' ? 'en-US' : 'zh-CN',
@@ -851,6 +917,7 @@ export function KnowledgePanel() {
         {viewingNote ? (
           <>
             <NoteViewer
+              key={viewingNote.id}
               content={viewingNote.content}
               pageRanges={viewingNote.pageRanges}
               initialCharStart={viewingNoteStart}
@@ -915,6 +982,7 @@ export function KnowledgePanel() {
                 >
                   {linking ? t('查找中…') : t('查找关联笔记')}
                 </button>
+                {canCancelLinks && <button type="button" className="cozy-btn-secondary" onClick={cancelLinks}>{t('停止查找关联')}</button>}
               </div>
               {related.length > 0 ? (
                 <ul className="cozy-related-notes__list">

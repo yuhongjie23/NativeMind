@@ -8,6 +8,8 @@ import type { JsonSchema } from '../evaluation/json-validator';
 import type { SchemaId } from '../types';
 
 import intentV1 from './intent.v1.json';
+import reviewGroundedV1 from './review-grounded.v1.json';
+import companionTurnV1 from './companion-turn.v1.json';
 import knowledgeLinkV1 from './knowledge-link.v1.json';
 import letterEmotionV1 from './letter-emotion.v1.json';
 import letterVerifyV1 from './letter-verify.v1.json';
@@ -15,10 +17,16 @@ import linkHydeV1 from './link-hyde.v1.json';
 import qaCriticV1 from './qa-critic.v1.json';
 import reviewLogV1 from './review-log.v1.json';
 import todoV1 from './todo.v1.json';
+import todoV2 from './todo.v2.json';
+import todoBudgetedV1 from './todo-budgeted.v1.json';
 
 export const SCHEMAS: Record<SchemaId, JsonSchema> = {
+  'review-grounded.v1': reviewGroundedV1 as JsonSchema,
+  'companion-turn.v1': companionTurnV1 as JsonSchema,
   'intent.v1': intentV1 as JsonSchema,
   'todo.v1': todoV1 as JsonSchema,
+  'todo.v2': todoV2 as JsonSchema,
+  'todo-budgeted.v1': todoBudgetedV1 as JsonSchema,
   'review-log.v1': reviewLogV1 as JsonSchema,
   'knowledge-link.v1': knowledgeLinkV1 as JsonSchema,
   'link-hyde.v1': linkHydeV1 as JsonSchema,

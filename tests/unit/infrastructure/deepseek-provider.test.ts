@@ -5,7 +5,7 @@
  * isAvailable（key 有无）、isReady（/models 探活）、档位映射。
  * 不真连 DeepSeek 服务器。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DeepSeekProvider } from '@infrastructure/model-runtime/deepseek-provider';
 
 const okJson = (body: unknown, status = 200): Response =>
@@ -69,6 +69,7 @@ describe('DeepSeekProvider', () => {
     expect(text).toBe('完成了');
     const body = JSON.parse(String(capturedInit?.body));
     expect(body.model).toBe('deepseek-v4-flash');
+    expect(body.thinking).toEqual({ type: 'disabled' });
     expect(body.messages[0]).toMatchObject({ role: 'system', content: '你是教练' });
     expect(body.messages[1]).toMatchObject({ role: 'user', content: '你好' });
   });
@@ -116,6 +117,23 @@ describe('DeepSeekProvider', () => {
     expect(body.response_format).toEqual({ type: 'json_object' });
   });
 
+  it('将结构规范发给云端，覆盖 JSON 模式和流式 JSON 模式', async () => {
+    const schema = { type: 'object', required: ['grounded'], properties: { grounded: { type: 'boolean' } } };
+    for (const streaming of [false, true]) {
+      let messages: { role: string; content: string }[] = [];
+      const provider = new DeepSeekProvider({ apiKey: 'sk-test', fetchImpl: fakeFetch((_url, init) => {
+        messages = JSON.parse(String(init.body)).messages;
+        return streaming ? new Response('data: [DONE]\n\n') : okJson({ choices: [{ message: { content: '{"grounded":true}' } }] });
+      }) });
+      await provider.complete({ model: 'deepseek-v4-flash', system: '只按资料评判', prompt: '待评回答', json: true, jsonSchema: schema,
+        onToken: streaming ? () => undefined : undefined,
+      });
+      expect(messages[0]).toEqual({ role: 'system', content: expect.stringContaining(JSON.stringify(schema)) });
+      expect(messages[0].content).toContain('只按资料评判');
+      expect(messages[1]).toEqual({ role: 'user', content: '待评回答' });
+    }
+  });
+
   it('流式解析 SSE 增量并触发 onToken', async () => {
     const chunks = [
       'data: {"choices":[{"delta":{"content":"你"}}]}\n\n',
@@ -150,5 +168,64 @@ describe('DeepSeekProvider', () => {
     await expect(provider.complete({ model: 'deepseek-v4-flash', prompt: 'x' })).rejects.toThrow(
       /API key/
     );
+  });
+
+  it('取消前的请求不联网，未配 key 的流式请求也不联网', async () => {
+    const fetchImpl = vi.fn();
+    const provider = new DeepSeekProvider({ apiKey: 'sk-test', fetchImpl });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(provider.complete({ model: 'deepseek-v4-flash', prompt: 'x', signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
+    const empty = new DeepSeekProvider({ fetchImpl });
+    await expect(empty.complete({ model: 'deepseek-v4-flash', prompt: 'x', onToken: () => undefined })).rejects.toThrow(/API key/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('响应头之后取消，仍中止非流式响应体读取', async () => {
+    const controller = new AbortController();
+    let bodyStarted!: () => void;
+    const ready = new Promise<void>(resolve => { bodyStarted = resolve; });
+    let networkSignal: AbortSignal | undefined;
+    const provider = new DeepSeekProvider({ apiKey: 'sk-test', fetchImpl: fakeFetch((_url, init) => {
+      networkSignal = init.signal!;
+      return new Response(new ReadableStream({ start(stream) {
+        init.signal!.addEventListener('abort', () => stream.error(init.signal!.reason), { once: true });
+        bodyStarted();
+      } }));
+    }) });
+    const request = provider.complete({ model: 'deepseek-v4-flash', prompt: 'x', signal: controller.signal });
+    const rejected = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+    await ready;
+    controller.abort();
+    await rejected;
+    expect(networkSignal?.aborted).toBe(true);
+  });
+
+  it('取消流式输出后不再发出已缓冲的后续文字', async () => {
+    const controller = new AbortController();
+    const tokens: string[] = [];
+    const cancelled = vi.fn();
+    const provider = new DeepSeekProvider({ apiKey: 'sk-test', fetchImpl: fakeFetch(() => new Response(new ReadableStream({
+      start(stream) { stream.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"一"}}]}\n\ndata: {"choices":[{"delta":{"content":"二"}}]}\n\n')); },
+      cancel: cancelled,
+    }))) });
+    await expect(provider.complete({ model: 'deepseek-v4-flash', prompt: 'x', signal: controller.signal,
+      onToken: delta => { tokens.push(delta); controller.abort(); },
+    })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(tokens).toEqual(['一']);
+    expect(cancelled).toHaveBeenCalledOnce();
+  });
+
+  it('超时覆盖收到响应头之后的等待', async () => {
+    vi.useFakeTimers();
+    try {
+      const provider = new DeepSeekProvider({ apiKey: 'sk-test', timeoutMs: 50, fetchImpl: fakeFetch((_url, init) => new Response(new ReadableStream({
+        start(stream) { init.signal!.addEventListener('abort', () => stream.error(init.signal!.reason), { once: true }); },
+      }))) });
+      const request = provider.complete({ model: 'deepseek-v4-flash', prompt: 'x', onToken: () => undefined });
+      const rejected = expect(request).rejects.toMatchObject({ name: 'TimeoutError' });
+      await vi.advanceTimersByTimeAsync(50);
+      await rejected;
+    } finally { vi.useRealTimers(); }
   });
 });

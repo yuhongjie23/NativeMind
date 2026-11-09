@@ -20,6 +20,15 @@ export function LetterPanel() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [streamingReply, setStreamingReply] = useState('');
+  const [canCancel, setCanCancel] = useState(false);
+  const activeRequest = useRef<AbortController | null>(null);
+  const committing = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; activeRequest.current?.abort(); };
+  }, []);
   const threadRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -39,30 +48,59 @@ export function LetterPanel() {
   // 新消息后滚到底部
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
-  }, [conversations, activeId]);
+  }, [conversations, activeId, streamingReply]);
 
   const active = activeId === 'new' ? null : conversations.find((c) => c.id === activeId) ?? null;
 
   const onSend = async () => {
     const trimmed = draft.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || activeRequest.current) return;
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    committing.current = false;
+    setCanCancel(true);
+    setStreamingReply('');
     setSending(true);
     setError('');
     try {
       // 续进当前会话（active 有 id 则续；新对话不传 → 内部新开会话）
-      await useCases.writeLetter.execute(trimmed, language, active?.conversationId ?? active?.id ?? undefined);
+      const sent = await useCases.writeLetter.execute(trimmed, language, active?.conversationId ?? active?.id ?? undefined, {
+        signal: controller.signal,
+        onToken: (delta, reset) => {
+          if (activeRequest.current === controller && mounted.current && !controller.signal.aborted) {
+            setStreamingReply(current => reset ? '' : current + delta);
+          }
+        },
+        onCommit: () => {
+          if (activeRequest.current === controller) {
+            committing.current = true;
+            if (mounted.current) setCanCancel(false);
+          }
+        },
+      });
+      if (!mounted.current || activeRequest.current !== controller) return;
       setDraft('');
-      await refresh();
-      // 新对话发送成功后进入该会话
-      if (activeId === 'new') {
-        const latest = await useCases.listConversations.execute();
-        if (latest[0]) setActiveId(latest[0].id);
-      }
+      const latest = await useCases.listConversations.execute();
+      if (!mounted.current || activeRequest.current !== controller) return;
+      setConversations(latest);
+      if (activeId === 'new') setActiveId(sent.conversationId ?? sent.id);
     } catch (caught) {
-      setError(describeError(caught));
+      if (mounted.current && activeRequest.current === controller && !controller.signal.aborted) setError(describeError(caught));
     } finally {
-      setSending(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        if (mounted.current) { setSending(false); setCanCancel(false); setStreamingReply(''); }
+      }
     }
+  };
+
+  const stopReply = () => {
+    if (!canCancel || committing.current) return;
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setSending(false);
+    setCanCancel(false);
+    setStreamingReply('');
   };
 
   const onDelete = async (conversation: Conversation) => {
@@ -142,13 +180,14 @@ export function LetterPanel() {
   return (
     <div className="letter-chat">
       <div className="letter-chat__head">
-        <button type="button" className="cozy-btn-ghost" onClick={() => setActiveId(null)}>
+        <button type="button" className="cozy-btn-ghost" disabled={sending} onClick={() => setActiveId(null)}>
           ← {t('返回会话列表')}
         </button>
         {active ? (
           <button
             type="button"
             className="cozy-btn-ghost letter-chat__del"
+            disabled={sending}
             onClick={() => void onDelete(active)}
           >
             <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -170,6 +209,11 @@ export function LetterPanel() {
             </div>
           ))
         )}
+        {sending && <div className="letter-chat__row" data-who="flora">
+          <div className="letter-chat__bubble"><p className="letter-chat__text">
+            {streamingReply || t('正在组织回复…')}
+          </p></div>
+        </div>}
       </div>
 
       <div className="letter-chat__compose">
@@ -199,6 +243,7 @@ export function LetterPanel() {
           {sending ? t('对话中…') : t('发送')}
         </button>
       </div>
+      {canCancel && <button type="button" className="cozy-btn-secondary" onClick={stopReply}>{t('停止生成')}</button>}
       {error ? <p className="cozy-today-error">{error}</p> : null}
     </div>
   );

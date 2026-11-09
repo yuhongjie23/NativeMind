@@ -1,0 +1,6 @@
+{
+  "name": "NativeMind",
+  "tagline": "学习目标、专注、笔记与 AI 复盘",
+  "description": "NativeMind 桌面源码的 Anna 适配开发版，复用完整界面、业务用例、SQLite、Ollama 与文档解析。学习数据与备份仅存本机，不使用云存储或云端模型。当前仅供本机开发验证；正式本地直连、身份隔离与上架分发尚未完成。",
+  "category": "productivity"
+}

@@ -8,16 +8,8 @@ export function registerNoteIndexSubscriber(
   eventBus: EventBus,
   jobQueue: JobQueuePort
 ): () => void {
-  const unsubscribes = [
-    eventBus.subscribe('NoteImported', async (event) => {
-      await jobQueue.enqueue({ type: 'parse_note', entityId: event.noteId });
-    }),
-
-    eventBus.subscribe('NoteUpdated', async (event) => {
-      if (!event.contentChanged) return;
-      await jobQueue.enqueue({ type: 'reindex_note', entityId: event.noteId });
-    }),
-  ];
-
-  return () => unsubscribes.forEach((off) => off());
+  // Imports already committed their first job. Edits still request a reindex here.
+  return eventBus.subscribe('NoteUpdated', async (event) => {
+    if (event.contentChanged) await jobQueue.enqueue({ type: 'reindex_note', entityId: event.noteId });
+  });
 }

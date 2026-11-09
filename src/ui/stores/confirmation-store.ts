@@ -30,7 +30,7 @@ interface ConfirmationState {
   /** 简单确认（删除等），一次只弹一个，其余排队——单槽覆盖会让上一个 Promise 永不 resolve */
   simple: SimpleConfirm | null;
   simpleQueue: SimpleConfirm[];
-  request: (proposal: ActionProposal) => Promise<boolean>;
+  request: (proposal: ActionProposal, signal?: AbortSignal) => Promise<boolean>;
   decide: (approved: boolean) => void;
   requestSimple: (input: Omit<SimpleConfirm, 'id' | 'resolve'>) => Promise<boolean>;
   decideSimple: (approved: boolean) => void;
@@ -44,9 +44,20 @@ export const useConfirmationStore = create<ConfirmationState>((set, get) => ({
   simple: null,
   simpleQueue: [],
 
-  request: (proposal) =>
+  request: (proposal, signal) =>
     new Promise<boolean>((resolve) => {
-      const entry = { proposal, resolve };
+      if (signal?.aborted) { resolve(false); return; }
+      const cancel = () => {
+        const state = get();
+        if (state.pending === entry) set({ pending: state.queue[0] ?? null, queue: state.queue.slice(1) });
+        else set({ queue: state.queue.filter(item => item !== entry) });
+        entry.resolve(false);
+      };
+      const entry = { proposal, resolve: (approved: boolean) => {
+        signal?.removeEventListener('abort', cancel);
+        resolve(approved);
+      } };
+      signal?.addEventListener('abort', cancel, { once: true });
       const { pending, queue } = get();
       if (pending) set({ queue: [...queue, entry] });
       else set({ pending: entry });
@@ -78,8 +89,8 @@ export const useConfirmationStore = create<ConfirmationState>((set, get) => ({
 }));
 
 /** 交给 createApplication 的确认入口 */
-export const uiConfirmationPrompt: ConfirmationPrompt = (proposal) =>
-  useConfirmationStore.getState().request(proposal);
+export const uiConfirmationPrompt: ConfirmationPrompt = (proposal, signal) =>
+  useConfirmationStore.getState().request(proposal, signal);
 
 /** 交给 createApplication 的简单确认入口（删除等破坏性操作） */
 export const uiConfirmPrompt: ConfirmPrompt = (request: ConfirmRequest) =>

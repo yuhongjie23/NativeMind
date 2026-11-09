@@ -6,11 +6,17 @@
  */
 import { create } from 'zustand';
 import type { ReviewLog } from '@shared-types/domain';
+import type { ReviewFollowUp } from '@application/ports';
 import { describeError, repositories, useCases } from './runtime';
 
 interface ReviewState {
   reviews: ReviewLog[];
+  followUps: ReviewFollowUp[];
+  adopting: boolean;
+  adoptSuggestion: (reviewId: string, suggestion: string) => Promise<void>;
   generating: boolean;
+  canCancel: boolean;
+  cancelGeneration: () => void;
   /** 上一次生成的结果说明，用于给用户反馈「生成好了」还是「你取消了」 */
   lastOutcome?: string;
   error?: string;
@@ -18,20 +24,31 @@ interface ReviewState {
   generateDaily: () => Promise<void>;
   generateWeekly: () => Promise<void>;
   generateMonthly: () => Promise<void>;
+  generateLearning: (reminderId: string) => Promise<void>;
   deleteReview: (id: string) => Promise<void>;
   updateReview: (id: string, content: string) => Promise<void>;
 }
 
 export const useReviewStore = create<ReviewState>((set, get) => {
+  let active: AbortController | undefined;
+  let sequence = 0;
   const generate = async (
-    action: () => Promise<ReviewLog | null | undefined>,
+    action: (options: { signal: AbortSignal; onCommit: () => void }) => Promise<ReviewLog | null | undefined>,
     label: string
   ) => {
-    set({ generating: true, error: undefined, lastOutcome: undefined });
+    if (get().generating) return;
+    const controller = new AbortController();
+    active = controller;
+    const seq = ++sequence;
+    set({ generating: true, canCancel: true, error: undefined, lastOutcome: undefined });
     try {
-      const review = await action();
+      const review = await action({ signal: controller.signal, onCommit: () => {
+        if (seq === sequence) set({ canCancel: false });
+      } });
+      if (seq !== sequence) return;
       set({
         generating: false,
+        canCancel: false,
         // 三态：已生成 / 用户取消 / 专注中被拦（给明确原因，不是「没反应」）
         lastOutcome:
           review === undefined
@@ -42,25 +59,49 @@ export const useReviewStore = create<ReviewState>((set, get) => {
       });
       await get().refresh();
     } catch (error) {
-      set({ generating: false, error: describeError(error) });
+      if (seq !== sequence) return;
+      set({ generating: false, canCancel: false, error: describeError(error) });
     }
   };
 
   return {
     reviews: [],
+    followUps: [],
+    adopting: false,
+    adoptSuggestion: async (reviewId, suggestion) => {
+      if (get().adopting) return;
+      set({ adopting: true, error: undefined });
+      try {
+        await useCases.adoptReviewSuggestion.execute(reviewId, suggestion);
+        await get().refresh();
+      } catch (error) {
+        set({ error: describeError(error) });
+      } finally {
+        set({ adopting: false });
+      }
+    },
     generating: false,
+    canCancel: false,
+    cancelGeneration: () => {
+      if (!get().canCancel) return;
+      sequence += 1;
+      active?.abort();
+      set({ generating: false, canCancel: false, error: undefined, lastOutcome: '已停止生成' });
+    },
 
     refresh: async () => {
       try {
-        set({ reviews: await repositories.review.listAll() });
+        const [reviews, followUps] = await Promise.all([repositories.review.listAll(), repositories.review.listFollowUps()]);
+        set({ reviews, followUps });
       } catch (error) {
         set({ error: describeError(error) });
       }
     },
 
-    generateDaily: () => generate(() => useCases.generateDailyReview.execute({}), '每日'),
-    generateWeekly: () => generate(() => useCases.generateWeeklyReview.execute({}), '每周'),
-    generateMonthly: () => generate(() => useCases.generateMonthlyReview.execute({}), '每月'),
+    generateDaily: () => generate((options) => useCases.generateDailyReview.execute(options), '每日'),
+    generateWeekly: () => generate((options) => useCases.generateWeeklyReview.execute(options), '每周'),
+    generateMonthly: () => generate((options) => useCases.generateMonthlyReview.execute(options), '每月'),
+    generateLearning: reminderId => generate(options => useCases.reviewLearning!.execute(reminderId, options), '学习跟进'),
 
     deleteReview: async (id) => {
       set({ error: undefined });

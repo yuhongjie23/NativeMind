@@ -73,7 +73,8 @@ export class CreateKnowledgeLinkUseCase {
    * AI 建议的关系，确认后写入。
    * 返回实际写入的关系；用户拒绝则返回空数组。
    */
-  async executeFromSuggestions(suggestions: LinkSuggestion[]): Promise<KnowledgeLink[]> {
+  async executeFromSuggestions(suggestions: LinkSuggestion[], options?: { signal?: AbortSignal; onCommit?: () => void }): Promise<KnowledgeLink[]> {
+    options?.signal?.throwIfAborted();
     if (suggestions.length === 0) return [];
 
     suggestions.forEach(validate);
@@ -91,7 +92,8 @@ export class CreateKnowledgeLinkUseCase {
           links.push(await this.upsert(suggestion, 'ai_suggestion', true));
         }
         return links;
-      }
+      },
+      options
     );
 
     if (!confirmed || !result || result.length === 0) return [];

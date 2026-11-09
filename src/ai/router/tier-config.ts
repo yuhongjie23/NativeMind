@@ -20,9 +20,9 @@ export interface TierConfig {
 // fast → 设置里 small，coach/deep → 设置里 big。这里三个 model 字段仅是**默认种子值**
 // （设置首次加载前用），coach 与 deep 共用 big，改它不会影响运行时实际用的模型。
 export const defaultTierConfigs: Record<ModelTier, TierConfig> = {
-  fast: { model: 'qwen2.5:1.5b', contextTokens: 8192, maxTokens: 1024, temperature: 0.2, memoryBudgetMb: 2048 },
-  coach: { model: 'qwen2.5:14b', contextTokens: 16384, maxTokens: 2048, temperature: 0.5, memoryBudgetMb: 6144 },
-  deep: { model: 'qwen2.5:14b', contextTokens: 32768, maxTokens: 4096, temperature: 0.5, memoryBudgetMb: 12288 },
+  fast: { model: 'qwen3:4b', contextTokens: 8192, maxTokens: 1024, temperature: 0.2, memoryBudgetMb: 2048 },
+  coach: { model: 'qwen3:14b', contextTokens: 16384, maxTokens: 2048, temperature: 0.5, memoryBudgetMb: 6144 },
+  deep: { model: 'qwen3:14b', contextTokens: 32768, maxTokens: 4096, temperature: 0.5, memoryBudgetMb: 12288 },
 };
 
 export interface TaskRoute {
@@ -40,7 +40,7 @@ export const TASK_ROUTES: Record<TaskType, TaskRoute> = {
   light_summary: { tier: 'fast', requiresJson: false },
   search_keywords: { tier: 'fast', requiresJson: true },
   search_result_filter: { tier: 'fast', requiresJson: true },
-  companion_dialogue: { tier: 'fast', requiresJson: false },
+  companion_dialogue: { tier: 'fast', promptVersion: 'companion-dialogue.v1', schemaId: 'companion-turn.v1', requiresJson: true },
 
   // 学习教练层：需要理解与判断，是主脑
   todo_structuring: {
@@ -48,12 +48,12 @@ export const TASK_ROUTES: Record<TaskType, TaskRoute> = {
     // 「保持用户粒度 / 禁止编造」这类约束遵循力差，会照抄示例编造章节；
     // 14B 才能稳定遵循反编造规则。代价是拆解变慢，但这是用户主动触发的低频操作。
     tier: 'coach',
-    promptVersion: 'todo-structuring.v1',
-    schemaId: 'todo.v1',
+    promptVersion: 'todo-structuring.v2',
+    schemaId: 'todo.v2',
     requiresJson: true,
   },
   todo_breakdown: { tier: 'coach', promptVersion: 'todo-structuring.v1', requiresJson: false },
-  socratic_question: { tier: 'coach', promptVersion: 'socratic.v1', requiresJson: false },
+  socratic_question: { tier: 'coach', promptVersion: 'socratic.v2', requiresJson: false },
   rag_relation: {
     tier: 'coach',
     promptVersion: 'rag-relation.v1',
@@ -62,8 +62,8 @@ export const TASK_ROUTES: Record<TaskType, TaskRoute> = {
   },
   review_daily: {
     tier: 'coach',
-    promptVersion: 'review-daily.v1',
-    schemaId: 'review-log.v1',
+    promptVersion: 'review-grounded.v1',
+    schemaId: 'review-grounded.v1',
     requiresJson: true,
   },
   search_result_ranking: { tier: 'coach', requiresJson: true },
@@ -71,14 +71,14 @@ export const TASK_ROUTES: Record<TaskType, TaskRoute> = {
   // 高质量增强层：慢且贵，不进默认主流程
   review_weekly: {
     tier: 'deep',
-    promptVersion: 'review-weekly.v1',
-    schemaId: 'review-log.v1',
+    promptVersion: 'review-grounded.v1',
+    schemaId: 'review-grounded.v1',
     requiresJson: true,
   },
   review_monthly: {
     tier: 'deep',
-    promptVersion: 'review-monthly.v1',
-    schemaId: 'review-log.v1',
+    promptVersion: 'review-grounded.v1',
+    schemaId: 'review-grounded.v1',
     requiresJson: true,
   },
   // 检索查询改写：纯文本输出（无 schema），深度检索用

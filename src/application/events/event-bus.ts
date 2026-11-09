@@ -33,7 +33,7 @@ export class SimpleEventBus implements EventBus {
   async publish(event: DomainEvent): Promise<void> {
     const handlers = this.handlers.get(event.type) ?? [];
     const results = await Promise.allSettled(
-      handlers.map((handler) => Promise.resolve(handler(event)))
+      handlers.map(async (handler) => handler(event))
     );
 
     results.forEach((result, index) => {

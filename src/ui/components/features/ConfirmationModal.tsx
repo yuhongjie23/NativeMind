@@ -12,6 +12,8 @@
 import { useConfirmation } from '../../hooks/use-confirmation';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
+import type { ReviewTrace } from '@application/ports';
+import { ReviewEvidenceDetails } from './ReviewEvidenceDetails';
 
 const actionLabel: Record<string, string> = {
   create_todos: '创建任务',
@@ -27,6 +29,7 @@ const renderReviewPayload = (payload: unknown) => {
     content?: string;
     insights?: string[];
     nextTodos?: string[];
+    evidence?: ReviewTrace;
   };
   return (
     <div className="confirm-detail__review">
@@ -36,13 +39,7 @@ const renderReviewPayload = (payload: unknown) => {
       {draft.content ? (
         <p className="confirm-detail__review-content">{draft.content}</p>
       ) : null}
-      {draft.insights && draft.insights.length > 0 ? (
-        <ul className="confirm-detail__review-list">
-          {draft.insights.map((insight, index) => (
-            <li key={index}>{insight}</li>
-          ))}
-        </ul>
-      ) : null}
+      <ReviewEvidenceDetails evidence={draft.evidence} insights={draft.insights ?? []} />
       {draft.nextTodos && draft.nextTodos.length > 0 ? (
         <p className="confirm-detail__review-next">
           下一步：{draft.nextTodos.join('；')}

@@ -5,8 +5,13 @@
  * direction='in' 来信入「收到」栏（不是挂在原信 reply 字段上）。
  * 模型不可用才留 pending（由 ProcessLettersUseCase 补发）。
  */
-import type { FloraPort, Letter, LetterLanguage, LetterRepository } from '../../ports';
+import type { FloraPort, GenerationOptions, Letter, LetterLanguage, LetterRepository } from '../../ports';
+import { abortable } from '../../shared/abortable';
 import { newId, now } from '../../shared/utils';
+
+export interface WriteLetterOptions extends GenerationOptions {
+  onCommit?: () => void;
+}
 
 export class WriteLetterUseCase {
   constructor(
@@ -18,7 +23,8 @@ export class WriteLetterUseCase {
    * 发一条消息给 Flora。conversationId 提供则续进该段对话；不提供则新开一段。
    * 回信（独立来信）与消息共享同一会话 id。
    */
-  async execute(letter: string, language: LetterLanguage, conversationId?: string): Promise<Letter> {
+  async execute(letter: string, language: LetterLanguage, conversationId?: string, options?: WriteLetterOptions): Promise<Letter> {
+    options?.signal?.throwIfAborted();
     const trimmed = letter.trim();
     if (!trimmed) throw new Error('信件内容不能为空');
 
@@ -38,13 +44,17 @@ export class WriteLetterUseCase {
 
     let result: Awaited<ReturnType<FloraPort['sendLetter']>>;
     try {
-      result = await this.flora.sendLetter({ letter: trimmed, language });
+      result = await abortable(this.flora.sendLetter({ letter: trimmed, language }, options), options?.signal);
     } catch {
+      options?.signal?.throwIfAborted();
+      options?.onCommit?.();
       // 模型不可用/超时/报错：先落 pending，由 ProcessLettersUseCase 稍后补发，
       // 用户写的内容不能因为生成回信失败而整封信丢掉
       await this.letterRepo.save(base);
       return base;
     }
+    options?.signal?.throwIfAborted();
+    options?.onCommit?.();
     const replied = Boolean(result.ok && result.reply);
     // 回信是独立来信：原信只标 sent，reply 字段不再内联（旧数据除外）
     const record: Letter = replied ? { ...base, status: 'sent', sentAt: now() } : base;

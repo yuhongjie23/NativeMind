@@ -1,5 +1,11 @@
 # Dependencies
 node_modules/
+anna/bundle/
+anna/.anna/
+anna/.local-data/
+anna/.manual-test*/
+anna/native/target/
+anna/packages/
 
 # Build outputs
 dist/
@@ -12,6 +18,8 @@ src-tauri/target/
 download/
 musics/
 ollama-models/
+/ollama_langs/
+/models/
 
 # IDE
 .idea/
@@ -52,6 +60,9 @@ src-tauri/screen_shot/
 **/*.sqlite
 **/*.db-wal
 **/*.db-shm
+**/*.sqlite-journal
+**/*.sqlite-wal
+**/*.sqlite-shm
 backups/
 # 环境变量 / 密钥文件
 .env

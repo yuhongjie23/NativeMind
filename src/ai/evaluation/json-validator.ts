@@ -20,6 +20,7 @@ export interface JsonSchema {
   maxLength?: number;
   minimum?: number;
   maximum?: number;
+  multipleOf?: number;
   default?: unknown;
   /** 以下字段仅作文档用途，校验时忽略 */
   $schema?: string;
@@ -64,6 +65,9 @@ const collect = (value: unknown, schema: JsonSchema, path: string, errors: strin
   }
 
   if (typeof value === 'number') {
+    if (schema.multipleOf !== undefined && Math.abs(value / schema.multipleOf - Math.round(value / schema.multipleOf)) > 1e-9) {
+      errors.push(`${at}: ${value} 不是 ${schema.multipleOf} 的倍数`);
+    }
     if (schema.minimum !== undefined && value < schema.minimum) {
       errors.push(`${at}: ${value} 小于最小值 ${schema.minimum}`);
     }

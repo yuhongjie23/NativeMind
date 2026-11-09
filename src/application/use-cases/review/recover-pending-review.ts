@@ -70,6 +70,7 @@ export class RecoverPendingReviewUseCase {
             statistics: undefined,
             insights: draft.insights,
             nextTodos: draft.nextTodos,
+            evidence: draft.evidence,
             sourceProposalId: proposalId,
             createdAt: now(),
             updatedAt: now(),

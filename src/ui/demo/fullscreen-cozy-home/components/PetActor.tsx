@@ -25,6 +25,7 @@ interface PetActorProps {
   onPositionChange?: (rect: { x: number; y: number; width: number; height: number }) => void;
   /** 正在调本地模型生成回应 → 宠物右上角显示等待转圈 */
   generating?: boolean;
+  pendingQuestion?: boolean;
 }
 
 interface DragState {
@@ -32,12 +33,13 @@ interface DragState {
   y: number;
 }
 
-export function PetActor({ action, onInteract, preview = false, onPositionChange, generating = false }: PetActorProps) {
+export function PetActor({ action, onInteract, preview = false, onPositionChange, generating = false, pendingQuestion = false }: PetActorProps) {
   const t = useT();
   // 拖拽期间覆盖场景动作：拖起 / 悬空 / 左拖 / 右拖 / 松开落地
   const [dragAction, setDragAction] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const moved = useRef(false);
   const releaseTimerRef = useRef<number | undefined>(undefined);
   const rootRef = useRef<HTMLDivElement>(null);
   const positionCbRef = useRef(onPositionChange);
@@ -60,6 +62,7 @@ export function PetActor({ action, onInteract, preview = false, onPositionChange
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (preview) return;
+    moved.current = false;
     (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
     const rect = event.currentTarget.getBoundingClientRect();
     dragRef.current = { startX: event.clientX, startY: event.clientY, baseX: rect.left, baseY: rect.top };
@@ -72,6 +75,7 @@ export function PetActor({ action, onInteract, preview = false, onPositionChange
     const start = dragRef.current;
     if (!start) return;
     const dx = event.clientX - start.startX;
+    if (Math.hypot(dx, event.clientY - start.startY) > 6) moved.current = true;
     setDrag({ x: start.baseX + dx, y: start.baseY + (event.clientY - start.startY) });
     // 帧含义：往左拖→身体轻微向右滞后（drag_left），往右拖→向左滞后（drag_right）
     if (Math.abs(dx) > 6) setDragAction(dx < 0 ? 'drag_left' : 'drag_right');
@@ -94,6 +98,11 @@ export function PetActor({ action, onInteract, preview = false, onPositionChange
   return (
     <div
       ref={rootRef}
+      role={preview ? undefined : 'button'}
+      tabIndex={preview ? -1 : 0}
+      aria-label={preview ? undefined : t(pendingQuestion ? '查看宠物的问题' : '和芙莉莲打招呼')}
+      onClick={() => { if (!preview && !moved.current) onInteract?.(); }}
+      onKeyDown={event => { if (!preview && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onInteract?.(); } }}
       className="actor-layer actor-layer--pet"
       data-action={action}
       data-preview={preview}
@@ -106,14 +115,9 @@ export function PetActor({ action, onInteract, preview = false, onPositionChange
     >
       {/* 调模型期间：右上角等待转圈，文字生成后消失 */}
       {generating && !preview ? <span className="pet-spinner" aria-hidden="true" /> : null}
+      {pendingQuestion && !preview && <span className="pet-question-dot" aria-hidden="true" />}
       <AnimationRenderer descriptor={descriptor} label={preview ? `芙莉莲 ${action}` : undefined}>
-        <button
-          className="pet-art"
-          type="button"
-          onClick={onInteract}
-          aria-label={t('和芙莉莲打招呼')}
-          tabIndex={preview ? -1 : 0}
-        >
+        <div className="pet-art">
           <span className="pet-art__sprout" aria-hidden="true">
             <i />
             <i />
@@ -131,7 +135,7 @@ export function PetActor({ action, onInteract, preview = false, onPositionChange
               z z
             </span>
           ) : null}
-        </button>
+        </div>
       </AnimationRenderer>
     </div>
   );

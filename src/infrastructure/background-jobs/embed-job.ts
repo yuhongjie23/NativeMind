@@ -25,7 +25,7 @@ export class EmbedChunksJob implements JobHandler {
   private onIndexed: ((noteId: string, chunkCount: number) => void) | undefined;
 
   constructor(
-    private readonly notes: SqliteNoteRepository,
+    private readonly notes: Pick<SqliteNoteRepository, 'findById' | 'listChunks' | 'updateIndexStatus'>,
     private readonly embeddings: EmbeddingProvider,
     private readonly vectorStore: VectorStoreProvider,
     options: EmbedJobOptions = {}
@@ -39,7 +39,8 @@ export class EmbedChunksJob implements JobHandler {
     this.onIndexed = fn;
   }
 
-  async run(job: Job): Promise<void> {
+  async run(job: Job, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
     const note = await this.notes.findById(job.entityId);
     if (!note) return;
 
@@ -62,30 +63,36 @@ export class EmbedChunksJob implements JobHandler {
 
     await this.notes.updateIndexStatus(note.id, 'indexing');
 
-    for (let start = 0; start < chunks.length; start += this.batchSize) {
-      const batch = chunks.slice(start, start + this.batchSize);
-      const vectors = await this.embeddings.embed(batch.map((chunk) => chunk.text));
+    try {
+      for (let start = 0; start < chunks.length; start += this.batchSize) {
+        signal?.throwIfAborted();
+        const batch = chunks.slice(start, start + this.batchSize);
+        const vectors = await this.embeddings.embed(batch.map((chunk) => chunk.text), signal);
+        signal?.throwIfAborted();
+        if (vectors.length !== batch.length || vectors.some(vector => vector.length === 0 || vector.some(value => !Number.isFinite(value)) || !vector.some(value => value !== 0))) {
+          throw new Error('模型返回的向量缺失或无效，未完成索引，请检查向量模型后重试');
+        }
 
-      const records: VectorRecord[] = batch
-        // 个别 chunk 向量化失败时跳过它，不拖累整篇笔记
-        .map((chunk, index) => ({
+        const records: VectorRecord[] = batch.map((chunk, index) => ({
           chunkId: chunk.id,
           noteId: chunk.noteId,
           text: chunk.text,
-          embedding: vectors[index] ?? [],
-        }))
-        .filter((record) => record.embedding.length > 0);
+          embedding: vectors[index],
+        }));
+        await this.vectorStore.upsert(records);
 
-      await this.vectorStore.upsert(records);
-
-      // 让出一帧，长文档索引时 UI 还能响应
-      await new Promise((resolve) => setTimeout(resolve, 0));
+        // 让出一帧，长文档索引时 UI 还能响应
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      await this.notes.updateIndexStatus(note.id, 'indexed', {
+        chunkCount: chunks.length,
+        embeddingVersion: this.embeddings.version,
+      });
+    } catch (error) {
+      signal?.throwIfAborted();
+      await this.notes.updateIndexStatus(note.id, 'failed', { error: error instanceof Error ? error.message : String(error) });
+      throw error;
     }
-
-    await this.notes.updateIndexStatus(note.id, 'indexed', {
-      chunkCount: chunks.length,
-      embeddingVersion: this.embeddings.version,
-    });
     this.onIndexed?.(note.id, chunks.length);
   }
 }

@@ -18,6 +18,8 @@ import type { FocusModePolicy } from '../../policies/focus-mode-policy';
 import { formatLocalDate, now, today } from '../../shared/utils';
 import { draftToReviewLog } from './generate-daily-review';
 import { fetchKnowledgeSummary } from './review-knowledge';
+import { readReviewFollowUps } from './review-follow-ups';
+import { completedByDate } from './review-completion';
 
 /** 返回自 endDate 起往前 days 天的日期列表（本地时区，绕开 UTC 切片的一天错位） */
 export const dateRange = (endDate: string, days: number): string[] => {
@@ -44,7 +46,8 @@ export class GenerateWeeklyReviewUseCase {
     private readonly noteRepo?: NoteRepository
   ) {}
 
-  async execute(input: { endDate?: string } = {}): Promise<ReviewLog | null | undefined> {
+  async execute(input: { endDate?: string; signal?: AbortSignal; onCommit?: () => void } = {}): Promise<ReviewLog | null | undefined> {
+    input.signal?.throwIfAborted();
     // 专注拦截返回 undefined，用户拒绝返回 null（store 区分提示）
     if (!this.focusPolicy.canInterrupt('ai_suggestion')) return undefined;
 
@@ -84,6 +87,7 @@ export class GenerateWeeklyReviewUseCase {
     // 已确认的知识链接摘要（⑤）
     const knowledgeSummary = await fetchKnowledgeSummary(this.linkRepo, this.noteRepo);
 
+    input.signal?.throwIfAborted();
     const draft = await this.generator.generate({
       reviewType: 'weekly',
       date,
@@ -94,17 +98,19 @@ export class GenerateWeeklyReviewUseCase {
       focusUsageMinutes: usageFocusMinutes,
       usageByDate,
       knowledgeSummary,
-    });
+      followUps: await readReviewFollowUps(this.reviewRepo, date),
+    }, { signal: input.signal });
+    input.signal?.throwIfAborted();
 
     const statistics = {
       focusMinutes: focusSessions
         .filter((s) => s.status === 'completed')
         .reduce((sum, s) => sum + (s.actualMinutes ?? s.durationMinutes), 0),
       // 历史任务完成判定：completedAt 在区间内才算完成，防「重生成旧复盘时统计漂移」
-      tasksCompleted: todos.filter((t) => t.status === 'completed' && (t.completedAt?.slice(0, 10) ?? date) <= date).length,
+      tasksCompleted: todos.filter((t) => completedByDate(t, date)).length,
       tasksTotal: todos.length,
       daysCovered: dates.length,
-      appMinutes: appUsageMinutes ?? 0,
+      ...(appUsageMinutes === undefined ? {} : { appMinutes: appUsageMinutes }),
     };
 
     // 复用已有行的 id，保证事件/返回里的 reviewId 与库里行一致
@@ -120,7 +126,8 @@ export class GenerateWeeklyReviewUseCase {
         review.sourceProposalId = proposalId;
         await this.reviewRepo.save(review);
         return review;
-      }
+      },
+      { signal: input.signal, onCommit: input.onCommit }
     );
 
     if (!confirmed || !result) return null;

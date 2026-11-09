@@ -7,6 +7,7 @@
  */
 import { ListMusic, Pause, Play, Repeat, SkipBack, SkipForward } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { isAnna } from '@infrastructure/anna';
 import { t, useT } from '../../../i18n';
 import { useMusicStore } from '../../../stores/music-store';
 import { useSettingsStore } from '../../../stores/settings-store';
@@ -62,7 +63,7 @@ export function LofiHud({
   // 自定义背景音频播放时优先显示它，而不是音乐库的默认曲名
   const trackName =
     customPlaying && customTrackName ? customTrackName : (current?.name ?? 'Quiet Window');
-  const emptyHint = musicDir ? t('目录下没有音频文件') : t('未配置音乐目录');
+  const emptyHint = isAnna() ? t('到设置中导入音乐') : musicDir ? t('目录下没有音频文件') : t('未配置音乐目录');
   const statusText = customPlaying
     ? t('自定义背景音乐 · 循环')
     : hasMusic
@@ -132,7 +133,7 @@ export function LofiHud({
         <div className="lofi-hud__list">
           {tracks.length === 0 ? (
             <p className="lofi-hud__list-empty">
-              {musicDir
+              {isAnna() ? t('到设置中导入音乐') : musicDir
                 ? t('该目录下没有音频文件（mp3 / flac / wav / ogg / m4a）')
                 : '未配置音乐目录，到 设置 → 路径 添加后即可播放'}
             </p>

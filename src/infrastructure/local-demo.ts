@@ -123,6 +123,13 @@ export class InMemoryTodoRepository implements TodoRepository {
     return (await this.listAll()).filter((todo) => todo.status === status).slice(0, limit);
   }
 
+  async findCompletedByDateRange(from: string, to: string): Promise<Todo[]> {
+    return (await this.listAll()).filter(todo => {
+      const day = todo.completedAt ? dateOf(todo.completedAt) : '';
+      return todo.status === 'completed' && day >= from && day <= to;
+    });
+  }
+
   async save(todo: Todo): Promise<void> {
     this.todos.set(todo.id, copy(todo));
     saveMapEntries('nm.todos', this.todos);
@@ -874,6 +881,8 @@ export class TemplateReviewGeneratorPort implements ReviewGeneratorPort {
 }
 
 export class TemplateCompanionQuestionPort implements CompanionQuestionPort {
+  constructor(private readonly readLanguage: () => Promise<string | null> = async () => 'zh') {}
+
   async generateQuestion(context: { scene: string }): Promise<CompanionUtterance> {
     if (context.scene === 'focus_complete')
       return { content: 'Nice finish. Want to jot down one sentence about what moved?', emotion: 'happy', quickReplies: ['记一笔', '先不'] };
@@ -898,6 +907,10 @@ export class TemplateCompanionQuestionPort implements CompanionQuestionPort {
   }
 
   async generateDialogue(context: { scene: string; facts?: string }): Promise<CompanionUtterance> {
+    if (await this.readLanguage() === 'en') return {
+      content: context.scene === 'health_reminder' ? 'Take a moment to stretch and rest your eyes.' : 'I am here with you.',
+      emotion: 'calm',
+    };
     if (context.scene === 'health_reminder') {
       return {
         content: context.facts ?? '坐久了，起来活动一下、看看远处吧。',
@@ -1130,7 +1143,7 @@ export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDem
   const aiPorts = {
     todoStructuring: new RuleBasedTodoStructuringPort(),
     reviewGenerator: new TemplateReviewGeneratorPort(),
-    companionQuestion: new TemplateCompanionQuestionPort(),
+    companionQuestion: new TemplateCompanionQuestionPort(() => settings.get('app.language')),
     socraticQuestion: new TemplateSocraticQuestionPort(),
     noteSearch: new LocalNoteSearchPort(note),
     // 模板 AI 无法判断关系，demo 环境一律不产出建议

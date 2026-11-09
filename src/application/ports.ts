@@ -230,6 +230,8 @@ export interface ReminderNotificationPort {
 }
 
 export interface TodoRepository {
+  /** Completion timestamps, independent of a task's scheduled date. */
+  findCompletedByDateRange?(from: string, to: string): Promise<Todo[]>;
   findById(id: UUID): Promise<Todo | null>;
   findByDate(date: string): Promise<Todo[]>;
   /** 日期区间聚合（周/月复盘用，避免逐日 N 次 IPC） */
@@ -368,6 +370,7 @@ export interface AuditRepository {
 /* ---------- 检索与 AI 端口（只产出草稿，不写库） ---------- */
 
 export interface SearchHit {
+  supportingClaim?: string;
   chunkId: UUID;
   noteId: UUID;
   text: string;
@@ -452,8 +455,14 @@ export interface FloraReply {
   ok: boolean;
 }
 
+export interface FloraConversationContext {
+  recent: { role: 'user' | 'assistant'; content: string }[];
+  /** Bounded verbatim excerpts, not inferred memories or instructions. */
+  earlierExcerpts: { role: 'user' | 'assistant'; content: string }[];
+}
+
 export interface FloraPort {
-  sendLetter(input: { letter: string; language: FloraLanguage }, options?: GenerationOptions): Promise<FloraReply>;
+  sendLetter(input: { letter: string; language: FloraLanguage; history?: FloraConversationContext }, options?: GenerationOptions): Promise<FloraReply>;
 }
 
 /* ---------- Flora 信件（排队，半天后回信） ---------- */
@@ -488,6 +497,18 @@ export interface SettingsKeyValuePort {
   set(key: string, value: string): Promise<void>;
 }
 
+export interface ReadingPosition {
+  offset: number;
+  anchor: string;
+  page?: number;
+  exact: boolean;
+}
+export interface ReadingProgress {
+  position?: ReadingPosition;
+  question: string;
+  updatedAt: string;
+}
+
 export interface LetterRepository {
   save(letter: Letter): Promise<void>;
   /** 最近在前 */
@@ -502,6 +523,8 @@ export interface LetterRepository {
 
 /** 一次深度问答引用的笔记片段，与检索候选对齐 */
 export interface AskCitation {
+  supportingClaim?: string;
+  charStart?: number;
   chunkId: UUID;
   noteId: UUID;
   text: string;

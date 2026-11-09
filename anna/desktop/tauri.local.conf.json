@@ -1,0 +1,15 @@
+{
+  "productName": "NativeMind Local",
+  "identifier": "com.nativemind.anna-local",
+  "build": {
+    "beforeBuildCommand": "node scripts/build-local-desktop-ui.mjs",
+    "frontendDist": "../anna/desktop/dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "NativeMind Local", "width": 1200, "height": 800, "resizable": true, "fullscreen": false }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost blob: data:; media-src 'self' blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": { "targets": ["nsis"], "shortDescription": "Local-only learning companion for Anna" }
+}

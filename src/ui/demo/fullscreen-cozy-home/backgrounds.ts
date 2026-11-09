@@ -3,7 +3,7 @@
  *
  * 6 组背景（日常/雨天/雪天/春日樱花/夏日萤火虫/图书馆）各有白天、黄昏、夜晚三版（共 18 张）。
  * 书房（study-room）按天气选组；图书馆（library）只用图书馆三版、天气不干扰。
- * 日常白天是视频（日常_白天.mp4），其余为图。
+ * 已有对应视频的日常白天、春日白天、夏日夜晚、图书馆黄昏使用静音循环视频。
  */
 import rainDay from '../../background/雨天_白天.png';
 import rainDusk from '../../background/雨天_黄昏.png';
@@ -15,13 +15,16 @@ import dailyDayVideo from '../../background/日常_白天.mp4';
 import dailyDusk from '../../background/日常_黄昏.png';
 import dailyNight from '../../background/日常_夜晚.png';
 import springDay from '../../background/春日樱花_白天.png';
+import springDayVideo from '../../background/春日樱花_白天.mp4';
 import springDusk from '../../background/春日樱花_黄昏.png';
 import springNight from '../../background/春日樱花_夜晚.png';
 import summerDay from '../../background/夏日_白天.png';
 import summerDusk from '../../background/夏日_黄昏.png';
 import summerNight from '../../background/夏日_夜晚_萤火虫.png';
+import summerNightVideo from '../../background/夏日_夜晚_萤火虫.mp4';
 import libraryDay from '../../background/图书馆_白天.png';
 import libraryDusk from '../../background/图书馆_黄昏.png';
+import libraryDuskVideo from '../../background/图书馆_黄昏.mp4';
 import libraryNight from '../../background/图书馆_夜晚.png';
 import type { SceneId, TimePhase, WeatherType } from './types';
 
@@ -29,11 +32,12 @@ import type { SceneId, TimePhase, WeatherType } from './types';
 export interface BackgroundAsset {
   kind: 'image' | 'video';
   src: string;
+  poster?: string;
 }
 
 const img = (src: string): BackgroundAsset => ({ kind: 'image', src });
 // Anna's upload build may replace the bundled video with a WebP poster.
-const vid = (src: string): BackgroundAsset => ({ kind: src.endsWith('.webp') ? 'image' : 'video', src });
+const vid = (src: string, poster?: string): BackgroundAsset => ({ kind: src.endsWith('.webp') ? 'image' : 'video', src, poster });
 
 /** 白天 / 黄昏 / 夜晚 三版 */
 interface PhaseSet {
@@ -53,12 +57,12 @@ const STUDY_MAP: Record<WeatherType, PhaseSet> = {
   clear: phases(vid(dailyDayVideo), img(dailyDusk), img(dailyNight)),
   rain: phases(img(rainDay), img(rainDusk), img(rainNight)),
   snow: phases(img(snowDay), img(snowDusk), img(snowNight)),
-  spring: phases(img(springDay), img(springDusk), img(springNight)),
-  summer: phases(img(summerDay), img(summerDusk), img(summerNight)),
+  spring: phases(vid(springDayVideo, springDay), img(springDusk), img(springNight)),
+  summer: phases(img(summerDay), img(summerDusk), vid(summerNightVideo, summerNight)),
 };
 
 /** 图书馆：只用图书馆三版，天气不干扰 */
-const LIBRARY_PHASES: PhaseSet = phases(img(libraryDay), img(libraryDusk), img(libraryNight));
+const LIBRARY_PHASES: PhaseSet = phases(img(libraryDay), vid(libraryDuskVideo, libraryDusk), img(libraryNight));
 
 export const resolveBackground = (
   weather: WeatherType,

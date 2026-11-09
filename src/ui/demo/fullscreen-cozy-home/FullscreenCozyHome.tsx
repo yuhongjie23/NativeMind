@@ -931,7 +931,7 @@ export function FullscreenCozyHome() {
       data-panel={activePanel ? 'on' : 'off'}
       data-env={settings.envAnimation}
       data-bgm={playingAmbient ?? 'off'}
-      aria-label="心流小筑 全屏学习空间"
+      aria-label={t('心流小筑 全屏学习空间')}
     >
       {ready && dueLearning > 0 && !activePanel && !focusing && <button className="learning-notice" onClick={() => openPanel('learning')}>有 {dueLearning} 项学习提醒待处理</button>}
       {!activePanel && !focusing && <StartupCheckNotice onOpen={() => {

@@ -4,6 +4,7 @@
  * 注入基础设施/AI 实现，构建用例并注册事件订阅者。
  */
 import type { ActionProposalRepository } from './confirmation/action-proposal';
+import { KnowledgeReadingUseCase } from './use-cases/knowledge-reading';
 import {
   ConfirmationService,
   type ConfirmationPrompt,
@@ -182,6 +183,7 @@ export interface Application {
     searchNotes: SearchNotesUseCase;
     askNotes: AskNotesUseCase;
     saveAskSession: SaveAskSessionUseCase;
+    knowledgeReading: KnowledgeReadingUseCase;
     listAskSessions: ListAskSessionsUseCase;
     deleteAskSession: DeleteAskSessionUseCase;
     recordDailyCheckIn: RecordDailyCheckInUseCase;
@@ -268,6 +270,7 @@ export function createApplication(deps: ApplicationDeps): Application {
   );
 
   const useCases: Application['useCases'] = {
+    knowledgeReading: new KnowledgeReadingUseCase(repos.settings),
     adoptReviewSuggestion: new AdoptReviewSuggestionUseCase(repos.review, confirmation, eventBus),
     createTodo: new CreateTodoUseCase(repos.todo, eventBus, confirmation, ai.todoStructuring),
     completeTodo: new CompleteTodoUseCase(repos.todo, eventBus),
@@ -307,7 +310,8 @@ export function createApplication(deps: ApplicationDeps): Application {
     generateIncomingLetter: new GenerateIncomingLetterUseCase(
       repos.letter,
       repos.settings,
-      deps.ai.searchBrief
+      deps.ai.searchBrief,
+      { todo: repos.todo, focus: repos.focus, learning: repos.learning }
     ),
     enhanceSearchResults: new EnhanceSearchResultsUseCase(
       ai.searchResultEnhancer ?? { enhance: async (results) => results.map((r, i) => ({ id: r.id, summary: r.text.slice(0, 40), rank: i + 1 })) }

@@ -82,4 +82,49 @@ describe('GenerateIncomingLetterUseCase', () => {
     expect(repo.saved[0].type).toBe('whats_up');
     expect(repo.saved[0].letter).toContain('敲代码的猫');
   });
+
+  it('uses the latest language for monthly letters without rewriting existing mail', async () => {
+    const repo = makeRepo(); const settings = makeSettings();
+    const useCase = new GenerateIncomingLetterUseCase(repo, settings);
+    await useCase.execute('2026-08-01');
+    const original = repo.saved[0].letter;
+    await settings.set('app.language', 'en');
+    await useCase.execute('2026-09-01');
+    expect(repo.saved[0].letter).toBe(original);
+    expect(repo.saved[1].language).toBe('en');
+    expect(repo.saved[1].letter).not.toMatch(/[\u3400-\u9fff]/u);
+  });
+  it('does not embed Chinese news snippets in an English scheduled letter', async () => {
+    const repo = makeRepo();
+    const settings = makeSettings(new Map([['app.language', 'en'], ['letter.lastEncourageMonth', '2026-08']]));
+    random.mockReturnValueOnce(0.1).mockReturnValueOnce(0.5);
+    await new GenerateIncomingLetterUseCase(repo, settings, async () => '中文搜索摘要').execute(TODAY);
+    expect(repo.saved[0].type).toBe('whats_up');
+    expect(repo.saved[0].letter).not.toMatch(/[\u3400-\u9fff]/u);
+  });
+
+  it('empty activity yields a neutral greeting without claiming learning progress', async () => {
+    const repo = makeRepo();
+    await new GenerateIncomingLetterUseCase(repo, makeSettings()).execute(TODAY);
+    expect(repo.saved[0].letter).not.toMatch(/坚持|积累|进步|学会|kept learning|effort/i);
+  });
+  it('serializes overlapping triggers and prevents another letter on the monthly delivery day', async () => {
+    random.mockReturnValue(0.1);
+    const repo = makeRepo(); const useCase = new GenerateIncomingLetterUseCase(repo, makeSettings());
+    expect(await Promise.all([useCase.execute(TODAY), useCase.execute(TODAY)])).toEqual([true, false]);
+    expect(await useCase.execute(TODAY)).toBe(false);
+    expect(repo.saved).toHaveLength(1);
+  });
+  it('a failed daily save can be retried without losing the daily opportunity', async () => {
+    random.mockReturnValue(0.1);
+    const repo = makeRepo(); const save = repo.save;
+    repo.save = async () => { throw new Error('disk full'); };
+    const settings = makeSettings(new Map([['letter.lastEncourageMonth', '2026-08']]));
+    const useCase = new GenerateIncomingLetterUseCase(repo, settings);
+    await expect(useCase.execute(TODAY)).rejects.toThrow('disk full');
+    expect(await settings.get('letter.lastDrawDate')).toBeNull();
+    repo.save = save;
+    expect(await useCase.execute(TODAY)).toBe(true);
+    expect(repo.saved).toHaveLength(1);
+  });
 });

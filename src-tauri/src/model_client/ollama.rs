@@ -136,7 +136,8 @@ impl OllamaClient {
     pub fn new(base_url: Option<&str>) -> CommandResult<Self> {
         let base_url = assert_local(base_url.unwrap_or(DEFAULT_BASE_URL))?;
         Ok(Self {
-            http: reqwest::Client::new(),
+            // A loopback URL must never leak through a configured proxy or redirect.
+            http: reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).build()?,
             base_url,
         })
     }
@@ -383,6 +384,29 @@ impl OllamaClient {
 #[cfg(test)]
 mod tests {
     use super::assert_local;
+
+    #[test]
+    fn loopback_model_cannot_redirect_a_prompt() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        let destination = TcpListener::bind("127.0.0.1:0").unwrap();
+        destination.set_nonblocking(true).unwrap();
+        let location = format!("http://{}/collect", destination.local_addr().unwrap());
+        let source = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = super::OllamaClient::new(Some(&format!("http://{}", source.local_addr().unwrap()))).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = source.accept().unwrap();
+            socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+            let mut buffer = [0; 2048];
+            socket.read(&mut buffer).unwrap();
+            write!(socket, "HTTP/1.1 307 Temporary Redirect\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+        });
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let response = runtime.block_on(client.http.post(format!("{}/api/generate", client.base_url)).body("PRIVATE_TEST_PROMPT").send()).unwrap();
+        assert_eq!(response.status().as_u16(), 307);
+        server.join().unwrap();
+        assert_eq!(destination.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+    }
 
     #[test]
     fn checked_inventory_distinguishes_empty_invalid_and_failed_responses() {

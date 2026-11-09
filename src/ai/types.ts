@@ -32,6 +32,7 @@ export type TaskType =
   | 'socratic_question'
   | 'rag_relation'
   | 'review_daily'
+  | 'review_check'
   | 'search_result_ranking'
   // 高质量增强层
   | 'review_weekly'
@@ -50,6 +51,7 @@ export type TaskType =
 /* ---------- 版本化标识（§17.2） ---------- */
 
 export type PromptId =
+  | 'review-check.v1'
   | 'review-grounded.v1'
   | 'companion-dialogue.v1'
   | 'intent.v1'
@@ -64,6 +66,7 @@ export type PromptId =
   | 'query-rewrite.v1';
 
 export type SchemaId =
+  | 'review-check.v1'
   | 'review-grounded.v1'
   | 'companion-turn.v1'
   | 'intent.v1'

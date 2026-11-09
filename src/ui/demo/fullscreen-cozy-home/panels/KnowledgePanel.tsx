@@ -14,7 +14,7 @@ import { isAnna, pickAnnaDocument } from '@infrastructure/anna';
 import { useT } from '../../../i18n';
 import { Modal } from '../../../components/common/Modal';
 import { ErrorBoundary } from '../../../components/common/ErrorBoundary';
-import { NoteViewer } from '../../../components/features/NoteViewer';
+import { ResumableNoteViewer } from '../../../components/features/ResumableNoteViewer';
 import { useNoteStore } from '../../../stores/note-store';
 import { useKnowledgeLinkStore, RELATION_LABELS } from '../../../stores/knowledge-link-store';
 import { KnowledgeGraphView } from '../components/KnowledgeGraphView';
@@ -25,7 +25,7 @@ import { listReadableDocs, openExternal, type ReadableDoc } from '@infrastructur
 import { describeError } from '../../../stores/runtime';
 import { usePanelDirty } from '../panel-dirty';
 
-export function KnowledgePanel() {
+export function KnowledgePanel({ active = true }: { active?: boolean }) {
   const t = useT();
   const fileTransfer = useAnnaFileTransfer();
   const language = useSettingsStore((state) => state.language);
@@ -119,7 +119,9 @@ export function KnowledgePanel() {
   );
 
   const openHit = (noteId: string, charStart?: number, hitText?: string) => {
-    setViewingNote(notes.find((note) => note.id === noteId) ?? null);
+    const note = notes.find((item) => item.id === noteId);
+    if (!note) { setSavedHint(t('引用的笔记已不存在，请重新检索。')); return; }
+    setViewingNote(note);
     setViewingNoteStart(charStart);
     setViewingNoteAnchor(hitText);
     // 打开笔记时拉取已确认的知识关联
@@ -422,8 +424,10 @@ export function KnowledgePanel() {
                   </button>
                 </div>
                 <NoteIndexStatus key={`index-${selectedNote.id}`} note={selectedNote} />
-                <NoteViewer
+                <ResumableNoteViewer
                   key={selectedNote.id}
+                  noteId={selectedNote.id}
+                  active={active && !viewingNote}
                   content={selectedNote.content}
                   pageRanges={selectedNote.pageRanges}
                 />
@@ -652,6 +656,7 @@ export function KnowledgePanel() {
           {asking ? (
             streamingAnswer ? (
               <p className="cozy-deep-answer__body cozy-deep-answer__body--streaming">
+                <small>{t('生成草稿中，证据尚未核验；请以最终结果为准。')}</small><br />
                 {streamingAnswer}
               </p>
             ) : (
@@ -659,7 +664,9 @@ export function KnowledgePanel() {
             )
           ) : deepAnswer ? (
             deepAnswer.empty ? (
-              <p className="cozy-knowledge-hint">{t('没找到相关笔记，换个说法试试。')}</p>
+              <p className="cozy-knowledge-hint">{deepAnswer.ok
+                ? t('资料不足：未检索到可用资料，请补充资料或调整问题。')
+                : t('资料检索未完成，请重试；这不代表资料中没有答案。')}</p>
             ) : (
               <>
                 <div className="cozy-deep-answer__head">
@@ -681,7 +688,8 @@ export function KnowledgePanel() {
                     {t('本地模型暂不可用，以下是相关笔记片段（未生成完整回答）。')}
                   </p>
                 ) : null}
-                <p className="cozy-deep-answer__body">{deepAnswer.answer}</p>
+                <h4>{deepAnswer.ok ? t('AI 整理与解释（非原文）') : t('资料原文摘录')}</h4>
+                <p className="cozy-deep-answer__body">{t(deepAnswer.answer)}</p>
                 {deepAnswer.critique ? (
                   <p className="cozy-knowledge-hint">{t('评判意见：{0}', deepAnswer.critique)}</p>
                 ) : null}
@@ -694,12 +702,17 @@ export function KnowledgePanel() {
                 ) : null}
                 {deepAnswer.citations.length > 0 ? (
                   <>
-                    <h4 className="cozy-deep-answer__cites-title">{t('引用来源')}</h4>
+                    <h4 className="cozy-deep-answer__cites-title">{t('资料原文摘录')}</h4>
                     <ul className="cozy-hit-list">
-                      {deepAnswer.citations.map((hit) => {
+                      {deepAnswer.citations.map((hit, index) => {
                         const note = notes.find((n) => n.id === hit.noteId);
                         return (
-                          <li key={hit.chunkId} className="cozy-note-card">
+                          <li key={`${hit.chunkId}-${index}`} className="cozy-note-card">
+                            {hit.supportingClaim ? <p>
+                              <button type="button" className="cozy-link" onClick={() => openHit(hit.noteId, hit.charStart, hit.text)}>
+                                [{index + 1}] {t('对应结论：{0}', hit.supportingClaim)}
+                              </button>
+                            </p> : null}
                             <p className="cozy-note-card__source">
                               <strong>{note?.title ?? '未知笔记'}</strong>
                               {hit.headingPath && hit.headingPath.length > 0 ? (
@@ -916,8 +929,10 @@ export function KnowledgePanel() {
       >
         {viewingNote ? (
           <>
-            <NoteViewer
+            <ResumableNoteViewer
               key={viewingNote.id}
+              noteId={viewingNote.id}
+              active={active}
               content={viewingNote.content}
               pageRanges={viewingNote.pageRanges}
               initialCharStart={viewingNoteStart}

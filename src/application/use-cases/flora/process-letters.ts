@@ -7,6 +7,7 @@
  */
 import type { FloraPort, LetterRepository } from '../../ports';
 import { newId, now } from '../../shared/utils';
+import { loadConversationContext } from './conversation-context';
 
 export class ProcessLettersUseCase {
   constructor(
@@ -23,6 +24,7 @@ export class ProcessLettersUseCase {
         const result = await this.flora.sendLetter({
           letter: letter.letter,
           language: letter.language,
+          history: await loadConversationContext(this.letterRepo, letter.conversationId, letter),
         });
         // 只有真的生成了回信才标 sent，否则留待下次重试
         if (!result.ok || !result.reply) continue;

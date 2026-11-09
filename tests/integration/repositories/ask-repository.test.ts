@@ -13,7 +13,7 @@ const session = (overrides: Partial<AskSession> = {}): AskSession => ({
   id: 'ask-1',
   question: 'LoRA 是什么',
   answer: '低秩分解方法，用于高效微调大模型',
-  citations: [{ chunkId: 'c1', noteId: 'n1', text: 'LoRA 通过低秩分解…', score: 0.8, headingPath: ['大模型'] }],
+  citations: [{ chunkId: 'c1', noteId: 'n1', text: 'LoRA 通过低秩分解…', score: 0.8, headingPath: ['大模型'], supportingClaim: '低秩分解方法', charStart: 123 }],
   confidence: 0.86,
   judged: true,
   regenerated: false,

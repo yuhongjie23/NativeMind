@@ -111,6 +111,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
   };
 
   const ai = createAILayer({
+    readLanguage: async () => (await infra.repositories.settings.get('app.language')) === 'en' ? 'en' : 'zh',
     localOnly: options.localOnly,
     modelProvider,
     deepseekProvider: deepseek,

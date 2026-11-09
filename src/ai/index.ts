@@ -89,6 +89,7 @@ export interface AILayerDeps {
   /** model_runs 日志落库 */
   modelRunRecorder?: ModelRunRecorder;
   companionVoice?: CompanionVoice;
+  readLanguage?: () => Promise<'zh' | 'en'>;
   options?: {
     router?: RouterOptions;
     retrievalWeights?: RetrievalWeights;
@@ -174,7 +175,7 @@ export function createAILayer(deps: AILayerDeps): AILayer {
     options: deps.options?.orchestrator,
   });
 
-  const companion = new InteractionGenerator(router, deps.companionVoice);
+  const companion = new InteractionGenerator(router, deps.companionVoice, deps.readLanguage);
 
   const searchGate = deps.searchProvider
     ? new SearchGate(deps.searchProvider, new KeywordGenerator(router), new ResultFilter(router))

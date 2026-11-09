@@ -138,7 +138,7 @@ export function DemoSheet({ panel, onClose, sceneControls }: DemoSheetProps) {
             <FocusPanel />
           </div>
           <div hidden={panel !== 'knowledge'}>
-            <KnowledgePanel />
+            <KnowledgePanel active={panel === 'knowledge'} />
           </div>
           <div hidden={panel !== 'review'}>
             <ReviewPanel />

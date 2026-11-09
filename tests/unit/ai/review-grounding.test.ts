@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReviewGeneratorAdapter } from '@ai/adapters';
 import { ModelRouter } from '@ai/router/model-router';
 import { buildReviewEvidence } from '@ai/rag/review-evidence';
+import { buildReviewSources } from '@ai/rag/review-sources';
 import type { ModelCompletionRequest } from '@ai/types';
+import type { JsonSchema } from '@ai/evaluation/json-validator';
 import type { Todo } from '@application/ports';
 
 const todo: Todo = { id: 't1', title: '读第三章', status: 'completed', tags: [], linkedNoteIds: [],
@@ -11,7 +13,29 @@ const draft = { content: '记录显示阅读任务已完成，掌握程度还需
   observations: [{ text: '完成了阅读任务', evidenceIds: ['task:t1'] }],
   nextSteps: [{ text: '回顾第三章', evidenceIds: ['task:t1'] }], limitations: ['没有掌握程度的记录'] };
 
+const successfulResponse = (request: ModelCompletionRequest) => JSON.stringify((request.jsonSchema as JsonSchema | undefined)?.$id === 'review-check.v1'
+  ? { accepted: [
+    { kind: 'observation', index: 0, evidenceId: 'task:t1', quote: '截至区间末已完成' },
+    { kind: 'suggestion', index: 0, evidenceId: 'task:t1', quote: '截至区间末已完成' },
+  ] } : draft);
+
 describe('有据复盘', () => {
+  it('给模型明确的完成时间，区分区间内完成、晚完成与时间未知', () => {
+    const todos = [todo,
+      { ...todo, id: 'later', completedAt: '2026-11-06T10:00:00+08:00' },
+      { ...todo, id: 'unknown', completedAt: undefined },
+      { ...todo, id: 'invalid', completedAt: 'invalid' }];
+    const evidence = buildReviewEvidence({ reviewType: 'daily', dates: ['2026-11-05'], todos, focusSessions: [] });
+    const sources = buildReviewSources(evidence, todos);
+    expect(sources.find(source => source.id === 'task:t1')?.description).toContain(todo.completedAt);
+    expect(sources.find(source => source.id === 'task:later')?.description).toContain('晚于区间末');
+    for (const id of ['unknown', 'invalid']) {
+      const source = sources.find(entry => entry.id === `task:${id}`)?.description;
+      expect(source).toContain('当前标记完成，完成时间未知');
+      expect(source).toContain('不代表任务未完成');
+      expect(source).not.toContain('invalid');
+    }
+  });
   it('完全无学习记录时不调用模型、不凑观察或建议', async () => {
     const complete = vi.fn(async () => '不应调用');
     const result = await new ReviewGeneratorAdapter(new ModelRouter({ isAvailable: async () => true, complete }))
@@ -22,7 +46,7 @@ describe('有据复盘', () => {
     expect(result.content).toContain('没有记录不代表没有学习');
   });
   it('保留引用快照，后续改变原任务不改变复盘依据', async () => {
-    const complete = vi.fn(async (_request: ModelCompletionRequest) => JSON.stringify(draft));
+    const complete = vi.fn(async (request: ModelCompletionRequest) => successfulResponse(request));
     const adapter = new ReviewGeneratorAdapter(new ModelRouter({ isAvailable: async () => true, complete }));
     const original = { ...todo };
     const result = await adapter.generate({ reviewType: 'daily', date: '2026-11-05', todos: [original], focusSessions: [] });
@@ -46,12 +70,12 @@ describe('有据复盘', () => {
   });
 
   it('已有采用后待完成的任务时不继续叠加模型建议', async () => {
-    const adapter = new ReviewGeneratorAdapter(new ModelRouter({ isAvailable: async () => true, complete: async () => JSON.stringify(draft) }));
+    const adapter = new ReviewGeneratorAdapter(new ModelRouter({ isAvailable: async () => true, complete: async request => successfulResponse(request) }));
     const result = await adapter.generate({ reviewType: 'daily', date: '2026-11-05', todos: [todo], focusSessions: [],
       followUps: [{ id: 'a1', reviewId: 'r1', suggestion: '回顾第三章', status: 'pending', adoptedAt: '2026-11-05T00:00:00Z' }] });
     expect(result.nextTodos).toEqual([]);
     expect(result.evidence?.suggestions).toEqual([]);
-    expect(result.insights).toEqual(['完成了阅读任务']);
+    expect(result.insights).toEqual(['资料记录：「截至区间末已完成」']);
   });
 
   it('稀疏记录允许空观察、空建议，当前采用状态进入独立来源', async () => {

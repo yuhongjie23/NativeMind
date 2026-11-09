@@ -81,4 +81,12 @@ describe('SqliteTodoRepository（真实 SQLite）', () => {
     const completed = await repo.findByStatus('completed');
     expect(completed.map((t) => t.id)).toEqual(['c']);
   });
+
+  it('completion-window query ignores scheduled date and excludes missing completion timestamps', async () => {
+    const recent = new Date('2026-08-06T12:00:00').toISOString();
+    await repo.save(todo('old-plan', { scheduledDate: '2026-01-01', status: 'completed', completedAt: recent }));
+    await repo.save(todo('new-plan-old-completion', { scheduledDate: '2026-08-06', status: 'completed', completedAt: '2026-01-01T12:00:00Z' }));
+    await repo.save(todo('missing-time', { scheduledDate: '2026-08-06', status: 'completed' }));
+    expect((await repo.findCompletedByDateRange('2026-08-01', '2026-08-06')).map(item => item.id)).toEqual(['old-plan']);
+  });
 });

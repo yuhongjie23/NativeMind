@@ -39,6 +39,7 @@ const weatherRows: { weather: WeatherType; label: string }[] = [
 const canPickDirectory =
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const canPickAudio = canPickDirectory || isAnna();
+const localOnly = isAnna() || import.meta.env.VITE_NATIVEMIND_LOCAL_ONLY === 'true';
 
 const browseDirectory = async (): Promise<string | null> => {
   if (!canPickDirectory) return null;
@@ -982,6 +983,10 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
       </section>}
 
       {/* ---- 隐私（真实） ---- */}
+      {localOnly ? <section className="cozy-settings__group">
+        <h3 className="cozy-settings__group-title">{t('隐私')}</h3>
+        <p className="cozy-companion-panel__hint">{t('Anna 本地版只使用本机模型，笔记与复盘不发送到云端模型。')}</p>
+      </section> : <>
       <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('隐私')}</h3>
         <Switch
@@ -1015,7 +1020,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           >
             {ENGINE_LIST.map((engine) => (
               <option key={engine.id} value={engine.id}>
-                {engine.label}
+                {t(engine.label)}
               </option>
             ))}
           </select>
@@ -1055,6 +1060,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
         )}
       </section>
 
+      </>}
       {/* ---- 模型 / 主题（真实） ---- */}
       <section className="cozy-settings__group">
         <h3 className="cozy-settings__group-title">{t('模型与外观')}</h3>
@@ -1144,7 +1150,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
         ) : null}
 
         {/* ---- DeepSeek 云端：教练档（任务拆解/复盘/知识关联/陪伴） ---- */}
-        {isAnna() ? <p className="cozy-companion-panel__hint">
+        {localOnly ? <p className="cozy-companion-panel__hint">
           {t('Anna 本地版只使用本机模型，笔记与复盘不发送到云端模型。')}
         </p> : <div className="cozy-model-deepseek">
           <div className="cozy-settings-row">
@@ -1166,6 +1172,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           </div>
           <p className="cozy-companion-panel__hint">
             {t('DeepSeek 负责需要理解与判断的教练任务（任务拆解、复盘生成、知识关联、陪伴对话、深度问答）。')}
+            {' '}
             {t('启用后相关内容的上下文会发送到 DeepSeek 服务器——数据出本机，请确认你接受这一点。')}
           </p>
           <div className="cozy-settings-row">
@@ -1187,8 +1194,8 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
               value={models.deepseekModel}
               onChange={(event) => void updateModels({ deepseekModel: event.target.value })}
             >
-              <option value="deepseek-v4-flash">deepseek-v4-flash（快 · 便宜）</option>
-              <option value="deepseek-v4-pro">deepseek-v4-pro（强 · 贵）</option>
+              <option value="deepseek-v4-flash">{t('deepseek-v4-flash（快 · 便宜）')}</option>
+              <option value="deepseek-v4-pro">{t('deepseek-v4-pro（强 · 贵）')}</option>
             </select>
           </div>
           <div className="cozy-settings-row">

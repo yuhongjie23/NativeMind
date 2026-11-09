@@ -50,6 +50,7 @@ const createRuntime = () => {
   }
 
   return createTauriRuntime({
+    localOnly: import.meta.env.VITE_NATIVEMIND_LOCAL_ONLY === 'true',
     invoke: tauriInvoke,
     confirmationPrompt: uiConfirmationPrompt,
     confirmPrompt: uiConfirmPrompt,

@@ -34,6 +34,7 @@ export interface TaskRoute {
 }
 
 export const TASK_ROUTES: Record<TaskType, TaskRoute> = {
+  review_check: { tier: 'coach', promptVersion: 'review-check.v1', schemaId: 'review-check.v1', requiresJson: true },
   // 快速执行层：格式稳定优先，低创造性
   intent: { tier: 'fast', promptVersion: 'intent.v1', schemaId: 'intent.v1', requiresJson: true },
   tag_generation: { tier: 'fast', schemaId: 'link-hyde.v1', requiresJson: true },

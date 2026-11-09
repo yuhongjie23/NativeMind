@@ -201,3 +201,18 @@ describe('ListConversationsUseCase / DeleteConversationUseCase', () => {
     expect(conversations[0].id).toBe('keep');
   });
 });
+
+ it('continuations include only their own history, and new conversations start empty', async () => {
+   const repo = makeRepo();
+   const inputs: Parameters<FloraPort['sendLetter']>[0][] = [];
+   const useCase = new WriteLetterUseCase(repo, { sendLetter: async input => { inputs.push(input); return floraOk.sendLetter(input); } });
+   const first = await useCase.execute('I am stuck on binary-search boundaries.', 'en');
+   await useCase.execute('Secret from another conversation', 'en');
+   await useCase.execute('Where was I stuck?', 'en', first.conversationId);
+   expect(inputs[0].history).toBeUndefined();
+   expect(inputs[1].history).toBeUndefined();
+   const context = JSON.stringify(inputs[2].history);
+   expect(context).toContain('binary-search boundaries');
+   expect(context).not.toContain('Secret');
+   expect(context).not.toContain('Where was I stuck?');
+ });

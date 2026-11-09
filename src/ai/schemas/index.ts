@@ -9,6 +9,7 @@ import type { SchemaId } from '../types';
 
 import intentV1 from './intent.v1.json';
 import reviewGroundedV1 from './review-grounded.v1.json';
+import reviewCheckV1 from './review-check.v1.json';
 import companionTurnV1 from './companion-turn.v1.json';
 import knowledgeLinkV1 from './knowledge-link.v1.json';
 import letterEmotionV1 from './letter-emotion.v1.json';
@@ -21,6 +22,7 @@ import todoV2 from './todo.v2.json';
 import todoBudgetedV1 from './todo-budgeted.v1.json';
 
 export const SCHEMAS: Record<SchemaId, JsonSchema> = {
+  'review-check.v1': reviewCheckV1 as JsonSchema,
   'review-grounded.v1': reviewGroundedV1 as JsonSchema,
   'companion-turn.v1': companionTurnV1 as JsonSchema,
   'intent.v1': intentV1 as JsonSchema,

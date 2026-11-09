@@ -4,7 +4,14 @@
   "title": "深度问答自我评判",
   "description": "对生成草稿的自我评判：资料相关性、答案是否有据、幻觉风险、质量分、实际用到的片段 id。只读建议，不落库（C1）。",
   "type": "object",
-  "required": ["relevance", "grounded", "hallucination_risk", "quality", "used_chunk_ids", "critique"],
+  "required": [
+    "relevance",
+    "grounded",
+    "hallucination_risk",
+    "quality",
+    "used_chunk_ids",
+    "critique"
+  ],
   "additionalProperties": false,
   "properties": {
     "relevance": {
@@ -30,13 +37,45 @@
     "used_chunk_ids": {
       "description": "实际用于作答的资料片段 id（必须来自候选集，调用方会再校验）",
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "maxItems": 12
     },
     "critique": {
       "description": "给重生成的一句改进意见；评判通过可为空串",
       "type": "string",
       "maxLength": 500
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chunk_id",
+          "quote",
+          "claim"
+        ],
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 1500
+          },
+          "claim": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 1000
+          }
+        }
+      }
     }
   }
 }

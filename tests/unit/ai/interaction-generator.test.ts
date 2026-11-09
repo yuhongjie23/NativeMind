@@ -81,3 +81,19 @@ describe('宠物短句约束与取消', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+ it('reads language on each turn and uses English fallback for Chinese model output', async () => {
+   let language: 'zh' | 'en' = 'zh';
+   const complete = vi.fn(async () => JSON.stringify(turn));
+   const generator = new InteractionGenerator(new ModelRouter({ isAvailable: async () => true, complete }), undefined, async () => language);
+   expect((await generator.generateDialogue({ scene: 'app_entered' })).content).toMatch(/[\u3400-\u9fff]/u);
+   language = 'en';
+   const result = await generator.generateDialogue({ scene: 'app_entered' });
+   expect(result.fromTemplate).toBe(true);
+   expect(result.content).not.toMatch(/[\u3400-\u9fff]/u);
+   expect((complete.mock.calls as unknown as [ModelCompletionRequest][]).at(-1)?.[0].system).toContain('only in English');
+ });
+ it('English companion fallback remains English when the model is unavailable', async () => {
+   const generator = new InteractionGenerator(new ModelRouter({ isAvailable: async () => false, complete: async () => '' }), undefined, async () => 'en');
+   expect((await generator.generateQuestion({ scene: 'user_invoked' })).content).toBe('How is your day going?');
+ });

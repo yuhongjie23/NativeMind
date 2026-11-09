@@ -1,10 +1,11 @@
 {
   "name": "nativemind",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0",
   "type": "module",
   "description": "一个本地优先的 AI 学习节律工具",
   "scripts": {
+    "anna:desktop:package": "node scripts/anna-package-desktop.mjs",
     "anna:release-check": "node scripts/anna-release-check.mjs",
     "anna:build": "cargo build --manifest-path anna/native/Cargo.toml && vite build --config anna/vite.config.ts",
     "anna:dev": "node scripts/anna-dev.mjs",

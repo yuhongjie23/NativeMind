@@ -8,7 +8,7 @@ export function findTextMatches(content: string, query: string): TextMatch[] {
 }
 
 export function resolveDocumentOffset(content: string, charStart?: number, anchor?: string): number | undefined {
-  const probe = anchor?.slice(0, 120).trim();
+  const probe = anchor?.trim();
   const valid = charStart !== undefined && Number.isFinite(charStart) && charStart >= 0 && charStart < content.length;
   if (probe) {
     if (valid) {
@@ -20,6 +20,8 @@ export function resolveDocumentOffset(content: string, charStart?: number, ancho
     }
     const found = content.indexOf(probe);
     if (found >= 0) return found;
+    // A changed document must not turn a stale offset into a false citation.
+    return undefined;
   }
   return valid ? charStart : undefined;
 }

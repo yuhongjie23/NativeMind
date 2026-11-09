@@ -10,6 +10,8 @@
  */
 import type { Letter, LetterRepository, LetterType, SettingsKeyValuePort } from '../../ports';
 import { newId, now } from '../../shared/utils';
+import { formatLocalDate } from '../../shared/utils';
+import { learningLetter } from './learning-letter-context';
 
 const LAST_DRAW_KEY = 'letter.lastDrawDate';
 const LAST_ENCOURAGE_KEY = 'letter.lastEncourageMonth';
@@ -21,61 +23,83 @@ type Lines = Record<'zh' | 'en', string[]>;
 
 const ENCOURAGE_LINES: Lines = {
   zh: [
-    '这个月你也在坚持学习，真棒。慢一点没关系，继续就好。',
-    '这阵子的积累，会在某天突然串起来。我在旁边看着呢。',
+    '来和你打个招呼。今天可以按自己的节奏来。',
+    '我在这里。想聊聊时，随时写给我。',
   ],
   en: [
-    'You kept learning this month — that is great. Slow is fine, just keep going.',
-    'All this effort will click one day. I am here watching.',
+    'Just stopping by to say hello. Take today at your own pace.',
+    'I am here whenever you feel like writing.',
   ],
 };
 
 const WARM_LINES: Lines = {
-  zh: ['今天也辛苦了，我在旁边陪着你。', '别忘了休息一下，喝口水再继续。', '慢慢来，不用急，我在。'],
-  en: ['You worked hard today — I am right here.', 'Take a break and some water.', 'Take it easy, I am here.'],
+  zh: ['来打个招呼，我在旁边陪着你。', '别忘了休息一下，喝口水再继续。', '慢慢来，不用急，我在。'],
+  en: ['Just saying hello — I am right here.', 'Take a break and some water.', 'Take it easy, I am here.'],
 };
 
 const pick = (lines: string[]): string => lines[Math.floor(Math.random() * lines.length)];
 
 export class GenerateIncomingLetterUseCase {
+  private queue: Promise<unknown> = Promise.resolve();
   constructor(
     private readonly letterRepo: LetterRepository,
     private readonly settings: SettingsKeyValuePort,
     /** 可选：whats_up 来信用的「一句近期见闻」（调网络搜索），未注入则退化为通用近况 */
-    private readonly searchBrief?: (query: string) => Promise<string | null>
+    private readonly searchBrief?: (query: string) => Promise<string | null>,
+    private readonly learningRepos?: Parameters<typeof learningLetter>[0]
   ) {}
 
   /** 返回是否真的生成了来信 */
-  async execute(today = new Date().toISOString().slice(0, 10)): Promise<boolean> {
+  execute(today = formatLocalDate(new Date())): Promise<boolean> {
+    const result = this.queue.catch(() => {}).then(() => this.generate(today));
+    this.queue = result;
+    return result;
+  }
+
+  private async generate(today: string): Promise<boolean> {
     const language: 'zh' | 'en' = (await this.settings.get(LANGUAGE_KEY)) === 'en' ? 'en' : 'zh';
     const yearMonth = today.slice(0, 7);
 
     // 1) 每月一次学习鼓励信
     const lastEncourage = await this.settings.get(LAST_ENCOURAGE_KEY);
     if (lastEncourage !== yearMonth) {
+      await this.saveIncoming('encourage', await this.buildLearningLetter(today, language), language);
       await this.settings.set(LAST_ENCOURAGE_KEY, yearMonth);
-      await this.saveIncoming('encourage', pick(ENCOURAGE_LINES[language]), language);
+      await this.settings.set(LAST_DRAW_KEY, today);
       return true;
     }
 
     // 2) 每日一次 30% 抽签
     const last = await this.settings.get(LAST_DRAW_KEY);
     if (last === today) return false;
-    await this.settings.set(LAST_DRAW_KEY, today);
-    if (Math.random() >= INCOMING_CHANCE) return false;
+    if (Math.random() >= INCOMING_CHANCE) {
+      await this.settings.set(LAST_DRAW_KEY, today);
+      return false;
+    }
 
     // 类型分配：约 1/3 鼓励、1/3 whats_up、1/3 温暖
     const roll = Math.random();
     const type: LetterType = roll < 0.34 ? 'encourage' : roll < 0.67 ? 'whats_up' : 'warm';
 
     const content =
-      type === 'whats_up' ? await this.buildWhatsUp(language) : pick((type === 'encourage' ? ENCOURAGE_LINES : WARM_LINES)[language]);
+      type === 'whats_up' ? await this.buildWhatsUp(language) : type === 'encourage' ? await this.buildLearningLetter(today, language) : pick(WARM_LINES[language]);
 
     await this.saveIncoming(type, content, language);
+    await this.settings.set(LAST_DRAW_KEY, today);
     return true;
   }
 
-  /** whats_up：Flora 近况 + 一条网络搜索到的有趣见闻 */
+  /** Learning statements are grounded in saved activity; unavailable data means a neutral greeting. */
+  private async buildLearningLetter(today: string, language: 'zh' | 'en'): Promise<string> {
+    try {
+      if (this.learningRepos) {
+        const content = await learningLetter(this.learningRepos, today, language);
+        if (content) return content;
+      }
+    } catch { /* Missing activity is not evidence of progress. */ }
+    return pick(ENCOURAGE_LINES[language]);
+  }
+
   private async buildWhatsUp(language: 'zh' | 'en'): Promise<string> {
     const query = language === 'en' ? 'interesting things happening this week' : '本周 有趣 新鲜事';
     let snippet: string | null = null;
@@ -86,14 +110,14 @@ export class GenerateIncomingLetterUseCase {
         snippet = null;
       }
     }
-    if (snippet) {
+    if (snippet && !(language === 'en' && /[\u3400-\u9fff]/u.test(snippet))) {
       return language === 'en'
-        ? `I have been looking at a lot of things lately. When I came across "${snippet}", I thought it was interesting. What have you been up to?`
-        : `最近我在翻一些有意思的东西，看到「${snippet}」的时候觉得挺有趣的。你呢，最近在忙什么？`;
+        ? `A search returned this snippet: “${snippet.slice(0, 500)}”. It has not been independently verified. What have you been interested in lately?`
+        : `搜索返回了一段见闻摘要：「${snippet.slice(0, 500)}」。这段内容尚未独立核验。你最近有什么感兴趣的事吗？`;
     }
     return language === 'en'
-      ? 'I have been reading and looking around lately. Nothing too big, just enjoying the quiet. What are you up to?'
-      : '最近我读了些东西，也看了些风景，日子安静又舒服。你呢，最近在忙什么？';
+      ? 'Just stopping by to say hello. Is there anything you feel like talking about?'
+      : '来和你打个招呼。有没有什么你想聊聊的事？';
   }
 
   private async saveIncoming(type: LetterType, content: string, language: 'zh' | 'en'): Promise<void> {

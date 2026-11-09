@@ -97,7 +97,7 @@ export function TopHud({
       <div className="top-hud__brand">
         <img className="top-hud__logo" src={appLogo} alt="" aria-hidden="true" />
         <strong>NativeMind</strong>
-        <span className="top-hud__scene">{sceneName}</span>
+        <span className="top-hud__scene">{t(sceneName)}</span>
       </div>
 
       <div className="top-hud__right">

@@ -1,0 +1,38 @@
+{
+  "schema": 2,
+  "required_executas": [
+    {
+      "tool_id": "tool-forforever23-hongjie-yu-3qny9w3z",
+      "min_version": "2.0.0"
+    }
+  ],
+  "optional_executas": [],
+  "tags": [
+    "nativemind"
+  ],
+  "ui": {
+    "bundle": {
+      "format": "static-spa",
+      "entry": "index.html",
+      "external_origins": []
+    },
+    "views": [
+      {
+        "name": "main",
+        "title": "NativeMind Local",
+        "default": true,
+        "default_size": {
+          "w": 760,
+          "h": 620
+        },
+        "min_size": {
+          "w": 360,
+          "h": 360
+        }
+      }
+    ],
+    "csp_overrides": {}
+  },
+  "name": "NativeMind",
+  "version": "2.0.0"
+}

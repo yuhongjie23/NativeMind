@@ -12,6 +12,7 @@ import type { PromptId } from '../types';
 
 import intentV1 from './intent.v1.md?raw';
 import reviewGroundedV1 from './review-grounded.v1.md?raw';
+import reviewCheckV1 from './review-check.v1.md?raw';
 import companionDialogueV1 from './companion-dialogue.v1.md?raw';
 import queryRewriteV1 from './query-rewrite.v1.md?raw';
 import ragRelationV1 from './rag-relation.v1.md?raw';
@@ -24,6 +25,7 @@ import todoStructuringV1 from './todo-structuring.v1.md?raw';
 import todoStructuringV2 from './todo-structuring.v2.md?raw';
 
 const RAW_PROMPTS: Record<PromptId, string> = {
+  'review-check.v1': reviewCheckV1,
   'review-grounded.v1': reviewGroundedV1,
   'companion-dialogue.v1': companionDialogueV1,
   'intent.v1': intentV1,

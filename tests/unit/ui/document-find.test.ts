@@ -19,3 +19,9 @@ describe('document find and anchors', () => {
     expect(resolveDocumentOffset('text', 100, 'text')).toBe(0);
   });
 });
+
+ it('does not highlight a stale offset when a quote was changed or removed', () => {
+   expect(resolveDocumentOffset('new text', 0, 'removed text')).toBeUndefined();
+   const prefix = 'a'.repeat(120);
+   expect(resolveDocumentOffset(prefix + 'new ending', 0, prefix + 'old ending')).toBeUndefined();
+ });

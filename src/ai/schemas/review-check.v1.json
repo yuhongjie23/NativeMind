@@ -1,0 +1,17 @@
+{
+  "$id": "review-check.v1",
+  "type": "object",
+  "required": ["accepted"],
+  "additionalProperties": false,
+  "properties": {
+    "accepted": { "type": "array", "maxItems": 4, "items": {
+      "type": "object", "required": ["kind", "index", "evidenceId", "quote"], "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["observation", "suggestion"] },
+        "index": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "evidenceId": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "quote": { "type": "string", "minLength": 4, "maxLength": 500 }
+      }
+    } }
+  }
+}

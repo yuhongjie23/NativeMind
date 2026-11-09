@@ -72,6 +72,12 @@ backups/
 # 冗余压缩包（docs/ 目录已入库，zip 只是打包产物）
 docs.zip
 *.zip
+anna/native/target-local/
+anna/desktop/dist/
+anna/desktop/target/
+anna/launcher/target/
+anna/desktop/packages/
+anna/desktop/.anna/
 
 # 编码转换残留（setup_ollama.bat 必须保持 CRLF，cmd 解析 LF 行尾会闪退）
 *.bat.gbk

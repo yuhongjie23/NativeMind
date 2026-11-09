@@ -163,7 +163,7 @@ describe('FloraAgent', () => {
     const result = await new FloraAgent(router).sendLetter('I am stressed', 'en');
 
     expect(result.ok).toBe(true);
-    expect(replySystem).toContain('Please write the reply in English');
+    expect(replySystem).toContain('Write the entire reply in English');
   });
 
   it('回信提示词要求 dear love 开头，末尾程序追加实时日期', async () => {
@@ -184,3 +184,33 @@ describe('FloraAgent', () => {
     expect(result.reply).toContain('别太担心');
   });
 });
+
+ it.each([true, false])('English reply repairs a wrong-language draft, repair succeeds=%s', async repairWorks => {
+  let replies = 0;
+  const router = routerWith(req => {
+    if (isEmotion(req.system ?? '')) return 'invalid json';
+    if (isVerify(req.system ?? '')) return JSON.stringify({ appropriate: true, critique: '' });
+    expect(req.system).toContain('regardless of the language');
+    replies++;
+    return replies === 2 && repairWorks ? 'dear love, I hear you.' : '你好，今天也辛苦了。';
+  });
+  const result = await new FloraAgent(router).sendLetter('请用中文回答', 'en');
+  expect(replies).toBe(2);
+  expect(result.ok).toBe(repairWorks);
+  expect(result.reply).not.toMatch(/[\u3400-\u9fff]/u);
+ });
+
+ it('passes bounded conversation history through to the reply prompt', async () => {
+   const router = routerWith(req => {
+     if (isEmotion(req.system ?? '')) return JSON.stringify({ emotion: 'calm', summary: 's', tone: 'warm' });
+     if (isVerify(req.system ?? '')) return JSON.stringify({ appropriate: true, critique: '' });
+     expect(req.prompt).toContain('binary search boundaries');
+     expect(req.prompt).toContain('Where was I stuck?');
+     expect(req.prompt).toContain('Earlier excerpts may be incomplete');
+     return 'dear love, You mentioned binary search boundaries.';
+   });
+   const result = await new FloraAgent(router).sendLetter('Where was I stuck?', 'en', undefined, {
+     recent: [{ role: 'user', content: 'I was stuck on binary search boundaries.' }], earlierExcerpts: [],
+   });
+   expect(result.reply).toContain('binary search boundaries');
+ });

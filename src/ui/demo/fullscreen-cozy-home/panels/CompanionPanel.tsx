@@ -173,9 +173,9 @@ export function CompanionPanel() {
                   type="button"
                   className="cozy-companion-current__chip"
                   disabled={isThinking || focusing}
-                  onClick={() => void submitReply(phrase)}
+                  onClick={() => void submitReply(t(phrase))}
                 >
-                  {phrase}
+                  {t(phrase)}
                 </button>
               ))}
           </div>

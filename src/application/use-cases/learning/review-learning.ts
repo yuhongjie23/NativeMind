@@ -18,7 +18,9 @@ export class ReviewLearningUseCase {
       knowledge: knowledge ? { title: knowledge.title, recentSelfReports: knowledge.observations.slice(-3).map(entry => ({
         at: entry.at, rating: entry.rating, difficulty: entry.difficulty.slice(0, 60), result: entry.result.slice(0, 60),
       })) } : '未关联知识自评',
-      previousReview: previous ? { date: previous.date, summary: previous.summary?.slice(0, 140), suggestions: previous.nextTodos.slice(0, 3).map(item => item.slice(0, 80)) } : '没有上次复盘',
+      // Historical model prose is not a new observation about the user.
+      previousReview: previous ? { date: previous.date, suggestions: previous.nextTodos.slice(0, 3).map(item => item.slice(0, 80)),
+        provenance: '历史建议，不代表已经执行；执行状态仅以 learningFollowUps 为据' } : '没有上次复盘',
     });
     const result = await this.daily.execute({ ...options, learningContext: context, learningFollowUps: followUps });
     // A cancelled draft does not resolve the reminder. Respect concurrent snooze/stop.

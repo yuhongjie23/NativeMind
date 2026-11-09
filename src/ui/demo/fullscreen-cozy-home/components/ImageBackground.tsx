@@ -16,7 +16,7 @@ export function ImageBackground({ weather, timePhase, scene, paused = false }: {
   const [failed, setFailed] = useState<string>();
   const video = useRef<HTMLVideoElement>(null);
   const builtin = resolveBackground(weather, timePhase, scene);
-  const poster = builtin.kind === 'image' ? builtin.src : resolveBackground(weather, 'dusk', scene).src;
+  const poster = builtin.kind === 'image' ? builtin.src : builtin.poster ?? resolveBackground(weather, 'dusk', scene).src;
   const custom = loaded?.path === path && loaded?.url !== failed ? loaded : undefined;
   const asset = custom ? { kind: 'video', src: custom.url } : builtin;
   const src = asset.src;

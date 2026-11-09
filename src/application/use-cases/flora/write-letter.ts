@@ -8,6 +8,7 @@
 import type { FloraPort, GenerationOptions, Letter, LetterLanguage, LetterRepository } from '../../ports';
 import { abortable } from '../../shared/abortable';
 import { newId, now } from '../../shared/utils';
+import { loadConversationContext } from './conversation-context';
 
 export interface WriteLetterOptions extends GenerationOptions {
   onCommit?: () => void;
@@ -44,7 +45,9 @@ export class WriteLetterUseCase {
 
     let result: Awaited<ReturnType<FloraPort['sendLetter']>>;
     try {
-      result = await abortable(this.flora.sendLetter({ letter: trimmed, language }, options), options?.signal);
+      const history = await loadConversationContext(this.letterRepo, conversationId);
+      options?.signal?.throwIfAborted();
+      result = await abortable(this.flora.sendLetter({ letter: trimmed, language, history }, options), options?.signal);
     } catch {
       options?.signal?.throwIfAborted();
       options?.onCommit?.();

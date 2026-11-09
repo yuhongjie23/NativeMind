@@ -18,7 +18,6 @@ import type {
   AskNotesQuestion,
   CompanionQuestionPort,
   CompanionUtterance,
-  FloraLanguage,
   FloraPort,
   FloraReply,
   FocusSession,
@@ -46,6 +45,7 @@ import type { SelfRag } from './rag/self-rag';
 import { LinkHydeGenerator } from './rag/link-hyde';
 import { buildReviewEvidence } from './rag/review-evidence';
 import { buildReviewSources } from './rag/review-sources';
+import { verifyReview } from './rag/verify-review';
 import type { ModelRouter } from './router/model-router';
 import { truncate } from './shared/utils';
 
@@ -140,7 +140,7 @@ export class ReviewGeneratorAdapter implements ReviewGeneratorPort {
     });
     const evidenceText = evidence.text;
     const sources = buildReviewSources(evidence, input.todos, input.followUps, input.knowledgeSummary);
-    if (!input.todos.length && !input.focusSessions.length && !input.followUps?.length && !input.knowledgeSummary?.trim()) {
+    if (!input.todos.length && !input.focusSessions.length && !input.followUps?.length && !sources.some(source => source.kind === 'knowledge')) {
       return {
         content: `${evidence.period.startDate} 至 ${evidence.period.endDate}，本地没有任务、专注或已采用建议的学习记录。没有记录不代表没有学习，目前无法据此判断学习进度。`,
         summary: '记录不足，暂不生成学习建议', insights: [], nextTodos: [],
@@ -191,10 +191,18 @@ export class ReviewGeneratorAdapter implements ReviewGeneratorPort {
         const hasPendingAdoption = input.followUps?.some(entry => entry.status === 'pending' || entry.status === 'in_progress');
         const suggestions = hasPendingAdoption ? [] : draft.nextSteps.filter(entry => entry.evidenceIds.some(id => sources.some(source => source.id === id
           && (source.kind === 'task' || source.kind === 'follow_up' || source.kind === 'knowledge'))));
+        const verified = await verifyReview(this.router, sources, draft.observations, suggestions, options);
+        const limitations = ['本地记录不涵盖全部学习活动；完成任务或计时不代表掌握。'];
+        if (!verified.available) limitations.unshift('证据核验未完成；仅展示程序统计，暂不提供 AI 观察或建议。');
+        else if (verified.observations.length < draft.observations.length || verified.suggestions.length < suggestions.length)
+          limitations.unshift('部分 AI 草稿未通过证据核验，已省略。');
+        // Never display the unverified prose, summary or model-invented limitations.
+        const facts = `本地记录：${sources[0].description}`;
         return {
-          content: draft.content, summary: draft.summary,
-          insights: draft.observations.map(entry => entry.text), nextTodos: suggestions.map(entry => entry.text),
-          evidence: { observations: draft.observations, suggestions, sources, limitations: draft.limitations },
+          content: [facts, ...verified.observations.map(entry => entry.text)].join('\n\n'),
+          summary: verified.observations[0]?.text.slice(0, 120) ?? '本期本地记录摘要',
+          insights: verified.observations.map(entry => entry.text), nextTodos: verified.suggestions.map(entry => entry.text),
+          evidence: { observations: verified.observations, suggestions: verified.suggestions, sources, limitations },
         };
       }
     }
@@ -306,6 +314,7 @@ export class NoteSearchAdapter implements NoteSearchPort {
       chunkId: c.chunkId,
       noteId: c.noteId,
       text: c.text,
+
       score: c.score,
       headingPath: c.headingPath,
       charStart: c.charStart,
@@ -583,6 +592,8 @@ export class DeepQAAdapter implements AskNotesPort {
         chunkId: c.chunkId,
         noteId: c.noteId,
         text: c.text,
+        supportingClaim: c.supportingClaim,
+        charStart: c.charStart,
         score: c.score,
         headingPath: c.headingPath,
       })),
@@ -601,8 +612,8 @@ export class DeepQAAdapter implements AskNotesPort {
 export class FloraAdapter implements FloraPort {
   constructor(private readonly agent: FloraAgent) {}
 
-  async sendLetter(input: { letter: string; language: FloraLanguage }, options?: GenerationOptions): Promise<FloraReply> {
-    const result = await this.agent.sendLetter(input.letter, input.language, options);
+  async sendLetter(input: Parameters<FloraPort['sendLetter']>[0], options?: GenerationOptions): Promise<FloraReply> {
+    const result = await this.agent.sendLetter(input.letter, input.language, options, input.history);
     return {
       reply: result.reply,
       emotion: result.emotion,

@@ -154,7 +154,7 @@ export function LetterPanel() {
                 >
                   <strong className="letter-conv-item__title">{conversation.title || '…'}</strong>
                   <span className="letter-conv-item__meta">
-                    {formatDate(conversation.updatedAt)} · {conversation.messages.length} 条
+                    {formatDate(conversation.updatedAt)} · {t('{0} 条消息', conversation.messages.length)}
                   </span>
                 </button>
                 <button

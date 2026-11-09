@@ -100,7 +100,7 @@ describe('提醒发起复盘的确认闭环', () => {
     const state = setup();
     const todos = new InMemoryTodoRepository(); const reviews = new InMemoryReviewRepository(todos);
     const timestamp = new Date().toISOString();
-    await reviews.save({ id: 'previous', reviewType: 'daily', date: '2026-11-05', content: '上次复盘', nextTodos: ['重读边界条件'], insights: [], createdAt: timestamp, updatedAt: timestamp });
+    await reviews.save({ id: 'previous', reviewType: 'daily', date: '2026-11-05', content: '上次复盘', summary: '模型推断已经完全掌握', nextTodos: ['重读边界条件'], insights: [], createdAt: timestamp, updatedAt: timestamp });
     await reviews.adoptSuggestion('previous', '重读边界条件', { id: 'task', title: '重读边界条件', status: 'pending', tags: [], linkedNoteIds: [], createdAt: timestamp, updatedAt: timestamp });
     const entry = await state.knowledge.record({ title: '二分查找', rating: 'forgotten', difficulty: '边界条件', result: '合上书无法复述' });
     const reminder = await state.reminders.create({ ...input, repeat: 'once', reviewId: 'previous', knowledgeId: entry.id });
@@ -118,6 +118,7 @@ describe('提醒发起复盘的确认闭环', () => {
     const captured = f.generate.mock.calls[0][0];
     expect(captured.knowledgeSummary).toContain('重读边界条件');
     expect(captured.knowledgeSummary).toContain('forgotten');
+    expect(captured.knowledgeSummary).not.toContain('模型推断已经完全掌握');
     expect(captured.followUps?.[0]).toMatchObject({ status: 'pending', suggestion: '重读边界条件' });
     expect(await f.reviews.listAll()).toHaveLength(1);
     expect(await f.repo.findReminder(f.reminder.id)).toMatchObject({ state: 'scheduled', revision: 1 });

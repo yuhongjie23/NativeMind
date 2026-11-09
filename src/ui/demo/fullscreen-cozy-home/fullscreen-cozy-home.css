@@ -5788,6 +5788,7 @@ select.cozy-focus-task {
 
 .cozy-settings-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -5807,7 +5808,21 @@ select.cozy-focus-task {
 }
 
 .cozy-segmented--tight {
-  width: 220px;
+  width: max-content;
+  min-width: min(220px, 100%);
+  max-width: 100%;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.cozy-segmented--tight > .cozy-segmented__item {
+  flex: 1 0 auto;
+  height: auto;
+  min-height: 34px;
+  padding: 6px 10px;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .cozy-switch-row {

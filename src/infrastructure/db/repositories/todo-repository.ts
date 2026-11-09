@@ -121,6 +121,13 @@ export class SqliteTodoRepository implements TodoRepository {
     return rows.map(toTodo);
   }
 
+  async findCompletedByDateRange(from: string, to: string): Promise<Todo[]> {
+    const [start] = localDayRangeUtc(from);
+    const [, end] = localDayRangeUtc(to);
+    const rows = await this.db.select(`SELECT ${COLUMNS} FROM todos WHERE status = 'completed' AND completed_at >= ? AND completed_at < ? ORDER BY completed_at DESC`, [start, end]);
+    return rows.map(toTodo);
+  }
+
   /**
    * 供 UI 列表使用。带默认上限，不做无界查询：
    * 用户攒到几千条任务时，一次性拉全表会让首屏卡住，

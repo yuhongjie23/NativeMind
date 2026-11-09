@@ -11,6 +11,7 @@
 //! 能做就别放进来。
 
 mod startup_check;
+mod anna_local;
 mod learning_notifications;
 mod local_media;
 mod commands;
@@ -52,7 +53,9 @@ fn resolve_data_dir(handle: &tauri::AppHandle) -> PathBuf {
 /// 单实例守卫端口列表（仅本机回环）。
 /// 所有实例按同一顺序争抢端口：抢占成功 = 本实例在跑；握手确认已有 NativeMind = 本次启动退出。
 /// 端口被其它软件占用则顺延，避免「某软件占了 57432 就永远打不开应用」。
-const SINGLE_INSTANCE_PORTS: [u16; 5] = [57432, 57433, 57434, 57435, 57436];
+const SINGLE_INSTANCE_PORTS: [u16; 5] = if cfg!(feature = "anna-local") {
+    [57532, 57533, 57534, 57535, 57536]
+} else { [57432, 57433, 57434, 57435, 57436] };
 
 /// 客户端握手魔数。Guard 线程收到同样魔数回写，用于区分「是 NativeMind」还是别的软件。
 const SINGLE_INSTANCE_TOKEN: &[u8; 10] = b"NATIVEMIND";
@@ -80,6 +83,8 @@ fn spawn_single_instance_guard(port: u16) -> bool {
     std::thread::spawn(move || {
         for stream in listener.incoming().flatten() {
             let mut buf = [0u8; SINGLE_INSTANCE_TOKEN.len()];
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(300)));
+            let _ = stream.set_write_timeout(Some(std::time::Duration::from_millis(300)));
             let _ = (&stream).read(&mut buf);
             let _ = (&stream).write_all(SINGLE_INSTANCE_TOKEN);
         }
@@ -89,6 +94,7 @@ fn spawn_single_instance_guard(port: u16) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if !anna_local::allow_start() { return; }
     // 单实例守卫：std-only，不引第三方 crate（本机网络受限，无法拉取 tauri-plugin-single-instance）。
     // 关键：所有实例争抢同一组端口，绝不允许「顺延到别的端口」导致两个窗口都跑起来。
     for port in SINGLE_INSTANCE_PORTS {
@@ -114,6 +120,10 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let handle = app.handle();
+            // Never let a mismatched build silently open the other edition's database.
+            if cfg!(feature = "anna-local") != (handle.config().identifier == "com.nativemind.anna-local") {
+                return Err("NativeMind edition/configuration mismatch; rebuild with the matching configuration".into());
+            }
             let data_dir = resolve_data_dir(handle);
 
             // 默认数据目录固定不变，是 paths.json 覆盖配置的存放处

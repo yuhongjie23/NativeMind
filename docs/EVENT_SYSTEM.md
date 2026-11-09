@@ -348,27 +348,12 @@ export function registerAuditSubscriber(auditRepo: AuditRepository) {
 ### 4. RAG 订阅者
 
 ```typescript
-// src/application/events/subscribers/rag-subscriber.ts
-
-import { eventBus } from '../event-bus';
-import { BackgroundJobQueue } from '@/infrastructure/background-jobs/job-queue';
-
-export function registerRAGSubscriber(jobQueue: BackgroundJobQueue) {
-  // 导入笔记后触发切分和 embedding
-  eventBus.subscribe('NoteImported', async (event) => {
-    // 入队，不在这里直接执行
-    await jobQueue.enqueue({
-      type: 'parse_note',
-      entityId: event.noteId,
-      payload: { noteId: event.noteId }
-    });
-  });
-
-  // Todo 确认后检索相关笔记
-  eventBus.subscribe('TodoConfirmed', async (event) => {
-    // 为新 Todo 查找相关知识（非阻塞）
-    for (const todoId of event.todoIds) {
-      await ragOrchestrator.suggestRelatedNotes(todoId);
+// 首次导入的 chunk_note 与笔记一起提交；NoteImported 仅作提交后的通知。
+// src/application/events/subscribers/note-index-subscriber.ts
+export function registerNoteIndexSubscriber(eventBus: EventBus, jobQueue: JobQueuePort) {
+  return eventBus.subscribe('NoteUpdated', async (event) => {
+    if (event.contentChanged) {
+      await jobQueue.enqueue({ type: 'reindex_note', entityId: event.noteId });
     }
   });
 }
@@ -387,7 +372,7 @@ import { eventBus } from '@/application/events/event-bus';
 import { registerCompanionSubscriber } from '@/application/events/subscribers/companion-subscriber';
 import { registerReviewSubscriber } from '@/application/events/subscribers/review-subscriber';
 import { registerAuditSubscriber } from '@/application/events/subscribers/audit-subscriber';
-import { registerRAGSubscriber } from '@/application/events/subscribers/rag-subscriber';
+import { registerNoteIndexSubscriber } from '@/application/events/subscribers/note-index-subscriber';
 
 export function bootstrapEventSystem(dependencies) {
   registerCompanionSubscriber(
@@ -403,7 +388,8 @@ export function bootstrapEventSystem(dependencies) {
     dependencies.auditRepository
   );
 
-  registerRAGSubscriber(
+  registerNoteIndexSubscriber(
+    dependencies.eventBus,
     dependencies.jobQueue
   );
 }
@@ -444,16 +430,17 @@ export class CompleteFocusUseCase {
 
 ## 重任务处理
 
-对于耗时操作（切分、embedding、重建索引），订阅者只负责入队：
+切分、embedding、重建索引都由后台执行。首次导入的任务必须与笔记一同提交，不能由提交后的事件登记。笔记编辑走以下订阅：
 
 ```typescript
-eventBus.subscribe('NoteImported', async (event) => {
+eventBus.subscribe('NoteUpdated', async (event) => {
+  if (!event.contentChanged) return;
   // 不要在这里直接执行耗时操作
   // ❌ await chunkNote(event.noteId);
   
   // ✅ 入队，交给后台任务处理
   await jobQueue.enqueue({
-    type: 'parse_note',
+    type: 'reindex_note',
     entityId: event.noteId
   });
 });

@@ -2,7 +2,7 @@
   "schema": 2,
   "required_executas": [
     {
-      "tool_id": "tool-dev-nativemind"
+      "tool_id": "tool-forforever23-hongjie-yu-3qny9w3z"
     }
   ],
   "tags": ["nativemind"],
@@ -19,7 +19,7 @@
         "title": "NativeMind",
         "default": true,
         "default_size": { "w": 1280, "h": 800 },
-        "min_size": { "w": 960, "h": 640 }
+        "min_size": { "w": 960, "h": 520 }
       }
     ],
     "csp_overrides": {},

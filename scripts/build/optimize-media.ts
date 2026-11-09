@@ -8,7 +8,7 @@ import ffmpeg from '@ffmpeg-installer/ffmpeg';
 import type { Plugin } from 'vite';
 
 /** Build-only derivatives shared by desktop and Anna; original assets remain untouched. */
-export function optimizeAppMedia(root: string): Plugin {
+export function optimizeAppMedia(root: string, options: { staticVideo?: boolean } = {}): Plugin {
   const cache = join(root, 'node_modules', '.cache', 'nativemind-anna-media');
   return {
     name: 'nativemind-media', enforce: 'pre', apply: 'build',
@@ -16,8 +16,9 @@ export function optimizeAppMedia(root: string): Plugin {
       if (!/\/src\/ui\/background\/[^?]+\.(png|mp4)$/.test(id.replace(/\\/g, '/'))) return;
       const video = id.endsWith('.mp4');
       const original = await readFile(id);
-      const key = createHash('sha256').update('anna-media-v1-lossless-webp-h264-crf23-no-audio').update(original).digest('hex');
-      const extension = video ? '.mp4' : '.webp';
+      const poster = video && options.staticVideo;
+      const key = createHash('sha256').update(poster ? 'anna-media-v2-video-poster-first-frame' : 'anna-media-v1-lossless-webp-h264-crf23-no-audio').update(original).digest('hex');
+      const extension = video && !poster ? '.mp4' : '.webp';
       const path = join(cache, key + extension);
       await mkdir(cache, { recursive: true });
       let source: Buffer;
@@ -26,7 +27,11 @@ export function optimizeAppMedia(root: string): Plugin {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         const temporary = join(cache, `${key}-${process.pid}.tmp${extension}`);
         try {
-          if (video) {
+          if (poster) {
+            await promisify(execFile)(ffmpeg.path, ['-nostdin', '-y', '-i', id, '-map', '0:v:0', '-frames:v', '1',
+              '-c:v', 'libwebp', '-lossless', '1', temporary],
+            { windowsHide: true, timeout: 120000, maxBuffer: 1024 * 1024 });
+          } else if (video) {
             await promisify(execFile)(ffmpeg.path, ['-nostdin', '-y', '-i', id, '-map', '0:v:0', '-an',
               '-c:v', 'libx264', '-crf', '23', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', temporary],
             { windowsHide: true, timeout: 120000, maxBuffer: 1024 * 1024 });

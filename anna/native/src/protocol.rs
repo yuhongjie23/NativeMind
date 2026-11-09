@@ -21,7 +21,7 @@ pub async fn respond(backend: &mut Backend, frame: &str) -> Option<Value> {
             json!({"protocolVersion":"2.0","serverInfo":{"name":"nativemind-native","version":"0.1.0"},"capabilities":{}})
         }
         Some("describe") => json!({
-            "name":"tool-dev-nativemind", "version":"0.1.0",
+            "name":"tool-forforever23-hongjie-yu-3qny9w3z", "version":"0.1.0",
             "description":"LOCAL DEVELOPMENT ONLY. NativeMind desktop SQLite, Ollama and document parsers. Do not publish.",
             "tools":[{"name":"native_command","description":"Private UI transport for the local development harness. Not an agent tool.","timeout":300,
                 "parameters":[{"name":"command","type":"string","required":true},{"name":"args","type":"object","required":true},{"name":"clientId","type":"string","required":true},{"name":"leaseToken","type":"string","required":false}]}]

@@ -13,7 +13,7 @@ export function acquireAnnaWindow(locks: LockManager): Promise<() => void> {
 export async function connectAnnaWindow(host: AnnaHost, onWaiting: () => void) {
   if (!navigator.locks) throw new Error('当前浏览器不支持安全的窗口连接，请使用新版 Edge 或 Chrome。');
   const unlock = await acquireAnnaWindow(navigator.locks);
-  const connection = createAnnaConnection(host, 'tool-dev-nativemind', `${host.windowUuid}:${crypto.randomUUID()}`);
+  const connection = createAnnaConnection(host, 'tool-forforever23-hongjie-yu-3qny9w3z', `${host.windowUuid}:${crypto.randomUUID()}`);
   let leaving = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const close = () => {

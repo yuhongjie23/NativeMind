@@ -14,8 +14,10 @@ const alias = {
   '@shared-types': fileURLToPath(new URL('./src/types', import.meta.url)),
 };
 
+export const mediaOptimizer = optimizeAppMedia(fileURLToPath(new URL('.', import.meta.url)));
+
 export default defineConfig({
-  plugins: [react(), optimizeAppMedia(fileURLToPath(new URL('.', import.meta.url)))],
+  plugins: [react(), mediaOptimizer],
   clearScreen: false,
   resolve: { alias },
   server: {

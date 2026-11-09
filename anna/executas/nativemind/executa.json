@@ -1,5 +1,5 @@
 {
-  "tool_id": "tool-dev-nativemind",
+  "tool_id": "tool-forforever23-hongjie-yu-3qny9w3z",
   "type": "node",
   "command": ["node", "launch.mjs"],
   "distribution": { "type": "local", "supports_protocol": true }

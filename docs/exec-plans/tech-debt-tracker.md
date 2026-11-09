@@ -6,6 +6,14 @@ Tracking known technical debt, trade-offs, and cleanup items.
 
 ## Active Tech Debt
 
+### 第四十三轮（2026-11-09）：绑定正式 ID 并上传未发布界面
+
+- 用户完成官方设备授权后，读取确认 App 847 / nativemind、既有版本 0.1.1 / 2061，工具已创建。源码的 UI 调用、开发清单、启动登记及原生 describe 对齐正式 ID `tool-forforever23-hongjie-yu-3qny9w3z`；没有把开发命令桥当作可发布工具，也未上传原生程序。
+- 官方文档列明 MP4/WAV 支持，但实际版本 bundle/init 返回 MIME 不允许。经用户明确同意，Anna 专用构建将默认白天视频转换首帧 WebP；桌面仍输出 MP4。短完成提示音内嵌 JS→Blob 保留播放，构建目录不再附带独立 WAV。原始素材、用户媒体、桌面构建行为保留，Anna 最小窗口高度改 520。
+- 使用官方 CLI 已保存授权及其请求客户端调用版本 bundle/init→逐文件上传→finalize（远端检查未跳过）。实际接口还要求 total_size_bytes 等元数据，文件上传需要 multipart relative_path，已按服务器校验修正。只上传程序资源，无用户学习数据、模型或凭据。平台确认 Bundle 1883 为 bundle_ready，47 文件 / 40,232,004 字节；上传后逐项 SHA-256/大小与本地一致。App 仍 draft，review_candidate_version=null，无提审/发布。临时上传记录在 TEMP/nativemind-anna-847-upload-result.json。
+- 751 常规测试、类型检查、全量 ESLint、官方 Anna validate 与构建通过；新增真实编码测试确认 Anna 输出 WebP、桌面仍 MP4且源文件不变。验证提示音内嵌字节一致，目视检查背景首帧。没有声称正式平台音视频及业务运行已验收。
+- 仍阻塞运行：纯本地正式通道、宿主/安装/用户身份、受限业务接口、Executa 安装更新。公开宿主拦截保留，因此已上传窗口仍会拒绝启动本地核心；不能仅因 bundle_ready 就提交审核。平台工作草稿未创建，已有版本通过版本资源接口上传，未覆盖商店 Listing 或增加重复 App/Executa。
+
 ### 第四十二轮（2026-11-09）：桌面模型请求取消同步
 
 - 桌面生成（普通/Channel 流式）和向量请求接入原生请求登记与取消。前端先登记再启动，取消发生在登记期间也会回收迟到登记，不启动模型；IPC 失败/正常结束回收登记，忽略取消或结束后的 Channel 增量。共享模型 provider 继续兼容 Anna 原有任务通道，纯网页演示不依赖这些命令。

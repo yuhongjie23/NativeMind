@@ -32,7 +32,8 @@ export interface BackgroundAsset {
 }
 
 const img = (src: string): BackgroundAsset => ({ kind: 'image', src });
-const vid = (src: string): BackgroundAsset => ({ kind: 'video', src });
+// Anna's upload build may replace the bundled video with a WebP poster.
+const vid = (src: string): BackgroundAsset => ({ kind: src.endsWith('.webp') ? 'image' : 'video', src });
 
 /** 白天 / 黄昏 / 夜晚 三版 */
 interface PhaseSet {

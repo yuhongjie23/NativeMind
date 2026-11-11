@@ -1,0 +1,32 @@
+.note-graph { min-width: 0; color: var(--text-dark); }
+.demo-sheet:has(> .demo-sheet__body > div:not([hidden]) .note-graph) { width: min(1400px, calc(100vw - 40px)); max-height: calc(100dvh - 125px); }
+.note-graph__options { margin-block: 8px; }
+.note-graph__options summary { cursor: pointer; font-size: 13px; }
+.note-graph__options[open] .note-graph__filters { margin-top: 10px; }
+.note-graph__hint { color: var(--text-muted-dark); font-size: 13px; line-height: 1.65; margin: 10px 0; }
+.note-graph__filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.note-graph__filters > label { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.note-graph__filters > label:first-child { flex: 1 1 230px; }
+.note-graph input[type='search'], .note-graph select { box-sizing: border-box; min-width: 0; max-width: 100%; padding: 8px 10px; color: var(--text-dark); background: var(--wall); border: 1px solid var(--hud-border-dark); border-radius: 8px; }
+.note-graph__filters .note-graph__check { display: flex; align-items: center; padding-bottom: 8px; }
+.note-graph input[type='checkbox'] { accent-color: var(--accent); }
+.note-graph__toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.note-graph__toolbar strong { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.note-graph__toolbar button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); }
+.note-graph__viewport { position: relative; border: 1px solid var(--hud-border-dark); border-radius: 12px; background: var(--wall); overflow: hidden; }
+.note-graph__zoom { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; border-bottom: 1px solid var(--hud-border-dark); font-size: 12px; }
+.note-graph__canvas { display: block; width: 100%; height: clamp(260px, 40dvh, 520px); touch-action: none; user-select: none; cursor: grab; }
+.note-graph__canvas:active { cursor: grabbing; }
+.note-graph__edge { stroke: var(--text-muted-dark); stroke-width: 1.2; }
+.note-graph__edge[data-highlight='true'] { stroke: var(--accent); stroke-width: 2.5; }
+.note-graph__node { cursor: pointer; }
+.note-graph__node circle { fill: var(--accent); stroke: var(--text-muted-dark); stroke-width: 1; }
+.note-graph__node[data-orphan='true'] circle { fill: var(--wall); stroke-dasharray: 3 2; }
+.note-graph__node[data-selected='true'] circle, .note-graph__node:focus circle { stroke: var(--yellow); stroke-width: 3; }
+.note-graph__node text { fill: var(--text-dark); font-size: 12px; paint-order: stroke; stroke: var(--wall); stroke-width: 3px; stroke-linejoin: round; }
+.note-graph__empty, .note-graph__selection { padding: 16px; border: 1px solid var(--hud-border-dark); border-radius: 12px; background: var(--wall); overflow-wrap: anywhere; }
+.note-graph__selection ul { list-style: none; padding: 0; margin: 0; }
+.note-graph__selection li { border-top: 1px solid var(--hud-border-dark); padding: 12px 0; }
+.note-graph__reason { display: grid; gap: 5px; padding: 8px 0; font-size: 13px; }
+.note-graph__reason small { color: var(--text-muted-dark); }
+.note-graph__reason p { margin: 0; white-space: pre-wrap; }

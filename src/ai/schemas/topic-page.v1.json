@@ -1,0 +1,27 @@
+{
+  "$id": "topic-page.v1",
+  "type": "object", "additionalProperties": false, "required": ["title", "groups"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "groups": {
+      "type": "array", "maxItems": 6,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["title", "members"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "members": {
+            "type": "array", "minItems": 2, "maxItems": 8,
+            "items": {
+              "type": "object", "additionalProperties": false, "required": ["noteId", "quote", "reason"],
+              "properties": {
+                "noteId": { "type": "string", "minLength": 1 },
+                "quote": { "type": "string", "minLength": 12, "maxLength": 800 },
+                "reason": { "type": "string", "minLength": 1, "maxLength": 300 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

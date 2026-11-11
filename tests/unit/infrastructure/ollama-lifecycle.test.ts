@@ -3,6 +3,17 @@ import { OllamaProvider } from '@infrastructure/model-runtime/ollama-provider';
 
 const request = { model: 'qwen3:14b', prompt: 'synthetic test' };
 describe('Ollama request lifecycle', () => {
+  it('releases the embedding model only after the last query input, keeping indexing warm', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const provider = new OllamaProvider({ fetchImpl: async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(JSON.stringify({ embedding: [0.25, 0.5] }));
+    } });
+    expect(await provider.embed(['a', 'b'], undefined, 'query')).toEqual([[0.25, 0.5], [0.25, 0.5]]);
+    await provider.embed(['c', 'd']);
+    expect(bodies.map(body => body.keep_alive)).toEqual([undefined, 0, undefined, undefined]);
+    expect(bodies.map(body => body.prompt)).toEqual(['search_query: a', 'search_query: b', 'search_document: c', 'search_document: d']);
+  });
   it('already cancelled requests never reach the service', async () => {
     const controller = new AbortController(); controller.abort();
     const fetchImpl = vi.fn<typeof fetch>();

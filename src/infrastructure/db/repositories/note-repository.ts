@@ -1,10 +1,15 @@
+import { collectGraphReferences } from '../../note-graph-references';
 /**
  * NoteRepository 的 SQLite 实现，外加索引流水线需要的 chunk 读写
  *
  * 索引状态机（pending → parsing → chunking → indexing → indexed）由 Job 推进，
  * 这里只提供状态字段的读写和按状态捞待办笔记的查询。
  */
-import type { Note, NoteIndexRetryPort, NotePageRange, NoteRepository, NoteSourceType } from '@application/ports';
+import type { Note, NoteCardRepository, NoteCardSource, NoteIndexRetryPort, NoteOrganizationBatchRecord, NotePageRange, NoteRepository, NoteSourceType, TopicPage, TopicPageRepository } from '@application/ports';
+import { nextOrganizationBatch } from '@domain/note/organization-batch';
+import { parseWikiLinks } from '@domain/note/wiki-link';
+import { applyRenameSnapshot, assertRenameSnapshot } from '@application/use-cases/note/rename-note-snapshot';
+import type { NoteRenamePlan, NoteRenameRepository } from '@application/ports';
 import type { ISO8601DateTime, UUID } from '@shared-types/common';
 import {
   fromJsonColumn,
@@ -58,7 +63,7 @@ ON CONFLICT(id) DO UPDATE SET
 const CHUNK_COLUMNS = `id, note_id, text, heading_path, page, char_start, char_end, tags, created_at`;
 
 const toNote = (row: SqlRow): Note => {
-  const metadata = fromJsonColumn<{ pageRanges?: NotePageRange[] }>(row.metadata, {});
+  const metadata = fromJsonColumn<{ pageRanges?: NotePageRange[]; cardSource?: NoteCardSource; topicPage?: TopicPage }>(row.metadata, {});
   return {
     id: String(row.id),
     title: String(row.title),
@@ -70,6 +75,8 @@ const toNote = (row: SqlRow): Note => {
     indexError: readText(row.index_error),
     tags: fromJsonColumn<string[]>(row.tags, []),
     pageRanges: metadata.pageRanges,
+    cardSource: metadata.cardSource,
+    topicPage: metadata.topicPage,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -87,8 +94,63 @@ const toChunk = (row: SqlRow): NoteChunk => ({
   createdAt: String(row.created_at),
 });
 
-export class SqliteNoteRepository implements NoteRepository {
+export class SqliteNoteRepository implements NoteRepository, NoteCardRepository, TopicPageRepository, NoteRenameRepository {
+  async listGraphReferences(noteIds: string[], limit: number) {
+    const db = this.db;
+    async function* sources() {
+      for (let offset = 0; offset < noteIds.length; offset += 32) {
+        const batch = noteIds.slice(offset, offset + 32);
+        const rows = await db.select(`SELECT ${COLUMNS} FROM notes WHERE id IN (${batch.map(() => '?').join(',')})
+          AND (instr(content, '[[') > 0 OR json_type(metadata, '$.cardSource') = 'object' OR json_type(metadata, '$.topicPage') = 'object')`, batch);
+        for (const row of rows) yield toNote(row);
+      }
+    }
+    return collectGraphReferences(sources(), new Set(noteIds), limit, async title => {
+      const rows = await db.select('SELECT id FROM notes WHERE title = ? COLLATE BINARY LIMIT 2', [title]);
+      return rows.length === 1 ? String(rows[0].id) : undefined;
+    });
+  }
   constructor(private readonly db: Database) {}
+
+  async commitRename(plan: NoteRenamePlan): Promise<void> {
+    await this.db.transaction(async tx => {
+      const notes = new SqliteNoteRepository(new Database(tx));
+      const current = await assertRenameSnapshot(notes, plan);
+      for (const change of plan.changes) {
+        await notes.save(applyRenameSnapshot(current.get(change.after.id)!, change.after));
+        if (change.before.content !== change.after.content) await enqueueJob(tx, { type: 'reindex_note', entityId: change.after.id });
+      }
+    });
+  }
+
+  async findReferencingNotes(noteId: UUID, limit: number, offset: number): Promise<Note[]> {
+    const source = await this.findById(noteId);
+    const title = source && (await this.findByTitle(source.title)).length === 1 ? source.title : undefined;
+    const matches: Note[] = [];
+    let cursor = 0;
+    // Filter syntax before pagination: code examples and ambiguous titles are not references.
+    while (matches.length < offset + limit) {
+      const rows = await this.db.select(`SELECT ${COLUMNS} FROM notes WHERE id <> ? AND (
+      json_extract(metadata, '$.cardSource.noteId') = ? OR EXISTS (
+        SELECT 1 FROM json_each(notes.metadata, '$.topicPage.groups') AS topic_group,
+          json_each(topic_group.value, '$.members') AS member
+        WHERE json_extract(member.value, '$.noteId') = ?
+      ) OR (? IS NOT NULL AND instr(content, ?) > 0 AND instr(content, '[[') > 0)
+      ) ORDER BY updated_at DESC, id ASC LIMIT 64 OFFSET ?`, [noteId, noteId, noteId, title ?? null, title ?? null, cursor]);
+      for (const row of rows) {
+        const note = toNote(row);
+        if (note.cardSource?.noteId === noteId || note.topicPage?.groups.some(group => group.members.some(member => member.noteId === noteId)) ||
+          (title !== undefined && parseWikiLinks(note.content).some(link => link.title === title))) matches.push(note);
+      }
+      if (rows.length < 64) break;
+      cursor += rows.length;
+    }
+    return matches.slice(offset, offset + limit);
+  }
+
+  async findByTitle(title: string): Promise<Note[]> {
+    return (await this.db.select(`SELECT ${COLUMNS} FROM notes WHERE title = ? COLLATE BINARY ORDER BY id LIMIT 2`, [title])).map(toNote);
+  }
 
   async findById(id: UUID): Promise<Note | null> {
     const row = await this.db.selectOne(`SELECT ${COLUMNS} FROM notes WHERE id = ?`, [id]);
@@ -176,7 +238,7 @@ export class SqliteNoteRepository implements NoteRepository {
       optionalText(note.sourceUri),
       note.indexStatus,
       toJsonColumn(note.tags),
-      note.pageRanges ? toJsonColumn({ pageRanges: note.pageRanges }) : null,
+      note.pageRanges || note.cardSource || note.topicPage ? toJsonColumn({ pageRanges: note.pageRanges, cardSource: note.cardSource, topicPage: note.topicPage }) : null,
       note.createdAt,
       note.updatedAt,
     ];
@@ -191,6 +253,11 @@ export class SqliteNoteRepository implements NoteRepository {
     return rows.map(toNote);
   }
 
+  async listGraphSummaries(limit: number): Promise<Array<{ id: UUID; title: string }>> {
+    const rows = await this.db.select('SELECT id, title FROM notes ORDER BY updated_at DESC, id LIMIT ?', [limit]);
+    return rows.map(row => ({ id: String(row.id), title: String(row.title) }));
+  }
+
   async commitImport(note: Note): Promise<Note> {
     return this.db.transaction(async tx => {
       const notes = new SqliteNoteRepository(new Database(tx));
@@ -199,6 +266,83 @@ export class SqliteNoteRepository implements NoteRepository {
       await notes.save(note);
       await enqueueJob(tx, { type: 'chunk_note', entityId: note.id });
       return note;
+    });
+  }
+
+  async listCards(sourceId: UUID): Promise<Note[]> {
+    const rows = await this.db.select(
+      `SELECT ${COLUMNS} FROM notes WHERE json_extract(metadata, '$.cardSource.noteId') = ? ORDER BY created_at`, [sourceId],
+    );
+    return rows.map(toNote);
+  }
+
+  async commitTopic(page: Note): Promise<Note> {
+    return this.db.transaction(async tx => {
+      const topic = page.topicPage;
+      if (!topic || !topic.selectionKey || topic.sources.length < 2) throw new Error('主题分组格式无效，请重新生成。');
+      const notes = new SqliteNoteRepository(new Database(tx));
+      for (const snapshot of topic.sources) {
+        const source = await notes.findById(snapshot.noteId);
+        if (!source || source.contentHash !== snapshot.contentHash || !source.content.startsWith(snapshot.excerpt)) {
+          throw new Error('来源笔记已修改或删除，请重新生成主题页。');
+        }
+      }
+      const existing = await tx.select(`SELECT ${COLUMNS} FROM notes WHERE json_extract(metadata, '$.topicPage.selectionKey') = ?`, [topic.selectionKey]);
+      if (existing.length) return toNote(existing[0]);
+      await notes.save(page);
+      await enqueueJob(tx, { type: 'chunk_note', entityId: page.id });
+      return page;
+    });
+  }
+
+  async listOrganizationBatches(sourceId: UUID): Promise<NoteOrganizationBatchRecord[]> {
+    const rows = await this.db.select('SELECT * FROM note_organization_batches WHERE source_id = ? ORDER BY start_offset', [sourceId]);
+    return rows.map(row => ({ sourceId: String(row.source_id), sourceHash: String(row.source_hash),
+      start: Number(row.start_offset), end: Number(row.end_offset), inputStart: Number(row.input_start), reviewedAt: String(row.reviewed_at) }));
+  }
+
+  async resetOrganizationBatches(sourceId: UUID): Promise<void> {
+    await this.db.execute('DELETE FROM note_organization_batches WHERE source_id = ?', [sourceId]);
+  }
+
+  async commitCards(sourceId: UUID, sourceHash: string, cards: Note[], batch?: NoteOrganizationBatchRecord): Promise<Note[]> {
+    return this.db.transaction(async tx => {
+      const notes = new SqliteNoteRepository(new Database(tx));
+      const source = await notes.findById(sourceId);
+      if (!source || source.contentHash !== sourceHash) throw new Error('原笔记已修改或删除，请重新整理后保存。');
+      if (batch) {
+        const previous = (await notes.listOrganizationBatches(sourceId)).filter(item => item.sourceHash === sourceHash);
+        const expected = nextOrganizationBatch(source.content, previous);
+        if (!expected || batch.sourceId !== sourceId || batch.sourceHash !== sourceHash
+          || batch.start !== expected.start || batch.end !== expected.end || batch.inputStart !== expected.inputStart) {
+          throw new Error('本段进度已变化，请刷新后继续整理。');
+        }
+      }
+      const saved: Note[] = [];
+      for (const card of cards) {
+        const provenance = card.cardSource;
+        if (!provenance || provenance.noteId !== sourceId || provenance.contentHash !== sourceHash
+          || !Number.isInteger(provenance.charStart) || provenance.charStart < 0
+          || provenance.charEnd !== provenance.charStart + provenance.quote.length
+          || (batch && (provenance.charStart < batch.inputStart || provenance.charEnd > batch.end || provenance.charEnd <= batch.start))
+          || !provenance.quote || source.content.slice(provenance.charStart, provenance.charEnd) !== provenance.quote) {
+          throw new Error('部分卡片的原文依据无法唯一定位，请重新整理。');
+        }
+        const existing = await tx.select(`SELECT ${COLUMNS} FROM notes
+          WHERE json_extract(metadata, '$.cardSource.noteId') = ?
+            AND json_extract(metadata, '$.cardSource.contentHash') = ?
+            AND json_extract(metadata, '$.cardSource.charStart') = ?
+            AND json_extract(metadata, '$.cardSource.charEnd') = ?`,
+        [sourceId, sourceHash, provenance.charStart, provenance.charEnd]);
+        if (existing.length) { saved.push(toNote(existing[0])); continue; }
+        await notes.save(card);
+        await enqueueJob(tx, { type: 'chunk_note', entityId: card.id });
+        saved.push(card);
+      }
+      if (batch) await tx.execute(`INSERT INTO note_organization_batches
+        (source_id, source_hash, start_offset, end_offset, input_start, reviewed_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      [sourceId, sourceHash, batch.start, batch.end, batch.inputStart, batch.reviewedAt]);
+      return saved;
     });
   }
 

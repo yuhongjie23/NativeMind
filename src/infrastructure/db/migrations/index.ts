@@ -1,3 +1,4 @@
+import standardNote031 from './031_standard_note_action.sql?raw';
 /**
  * 迁移注册表
  *
@@ -37,6 +38,11 @@ export interface Migration {
 }
 
 import learning025 from './025_learning_reminders.sql?raw';
+import noteCards026 from './026_note_card_sources.sql?raw';
+import organizationBatches027 from './027_note_organization_batches.sql?raw';
+import topicPages028 from './028_topic_pages.sql?raw';
+import titleAction030 from './030_note_title_action.sql?raw';
+import knowledgeActions029 from './029_knowledge_action_types.sql?raw';
 
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'init', sql: init001 },
@@ -64,6 +70,12 @@ export const MIGRATIONS: Migration[] = [
   { version: 23, name: 'recover_unqueued_imports', sql: recoverImports023 },
   { version: 24, name: 'review_evidence_followups', sql: reviewEvidence024 },
   { version: 25, name: 'learning_reminders', sql: learning025 },
+  { version: 26, name: 'note_card_sources', sql: noteCards026 },
+  { version: 27, name: 'note_organization_batches', sql: organizationBatches027 },
+  { version: 28, name: 'topic_pages', sql: topicPages028 },
+  { version: 29, name: 'knowledge_action_types', sql: knowledgeActions029 },
+  { version: 30, name: 'note_title_action', sql: titleAction030 },
+  { version: 31, name: 'standard_note_action', sql: standardNote031 },
 ];
 
 

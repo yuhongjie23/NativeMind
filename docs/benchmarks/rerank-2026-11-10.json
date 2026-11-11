@@ -1,0 +1,900 @@
+{
+  "createdAt": "2026-11-10T12:28:37.737Z",
+  "model": "qwen3:14b",
+  "budgetMs": 4000,
+  "stress": true,
+  "runs": [
+    {
+      "round": 0,
+      "case": "tea",
+      "label": "baseline",
+      "ms": 2354,
+      "modelCalls": 1,
+      "promptChars": 2817,
+      "outputChars": 56,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "tea",
+      "label": "current",
+      "ms": 3303,
+      "modelCalls": 1,
+      "promptChars": 1029,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000002",
+        "d8dca300-71c6-4111-8100-000000000008",
+        "d8dca300-71c6-4111-8100-000000000006"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "binary",
+      "label": "baseline",
+      "ms": 1249,
+      "modelCalls": 1,
+      "promptChars": 2817,
+      "outputChars": 56,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000001"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "binary",
+      "label": "current",
+      "ms": 1533,
+      "modelCalls": 1,
+      "promptChars": 1029,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000009",
+        "d8dca300-71c6-4111-8100-000000000019"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "memory",
+      "label": "baseline",
+      "ms": 4009,
+      "modelCalls": 1,
+      "promptChars": 2811,
+      "outputChars": 0,
+      "candidates": 20,
+      "completed": false,
+      "top1": false,
+      "recall3": 0,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000000",
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "memory",
+      "label": "current",
+      "ms": 1508,
+      "modelCalls": 1,
+      "promptChars": 1023,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": false,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000010",
+        "d8dca300-71c6-4111-8100-000000000004",
+        "d8dca300-71c6-4111-8100-000000000001"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "tea-two-sources",
+      "label": "baseline",
+      "ms": 4001,
+      "modelCalls": 1,
+      "promptChars": 2825,
+      "outputChars": 0,
+      "candidates": 20,
+      "completed": false,
+      "top1": false,
+      "recall3": 0.5,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000000",
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "tea-two-sources",
+      "label": "current",
+      "ms": 1463,
+      "modelCalls": 1,
+      "promptChars": 1037,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000002",
+        "d8dca300-71c6-4111-8100-000000000008",
+        "d8dca300-71c6-4111-8100-000000000006"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "binary-two-sources",
+      "label": "baseline",
+      "ms": 4014,
+      "modelCalls": 1,
+      "promptChars": 2823,
+      "outputChars": 0,
+      "candidates": 20,
+      "completed": false,
+      "top1": false,
+      "recall3": 0.5,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000000",
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "binary-two-sources",
+      "label": "current",
+      "ms": 1436,
+      "modelCalls": 1,
+      "promptChars": 1035,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000009",
+        "d8dca300-71c6-4111-8100-000000000013"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "english-recall",
+      "label": "baseline",
+      "ms": 4011,
+      "modelCalls": 1,
+      "promptChars": 2857,
+      "outputChars": 0,
+      "candidates": 20,
+      "completed": false,
+      "top1": false,
+      "recall3": 0,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000000",
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    },
+    {
+      "round": 0,
+      "case": "english-recall",
+      "label": "current",
+      "ms": 1433,
+      "modelCalls": 1,
+      "promptChars": 1069,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000010",
+        "d8dca300-71c6-4111-8100-000000000004",
+        "d8dca300-71c6-4111-8100-000000000001"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "tea",
+      "label": "current",
+      "ms": 1307,
+      "modelCalls": 1,
+      "promptChars": 1029,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000002",
+        "d8dca300-71c6-4111-8100-000000000008",
+        "d8dca300-71c6-4111-8100-000000000006"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "tea",
+      "label": "baseline",
+      "ms": 1124,
+      "modelCalls": 1,
+      "promptChars": 2817,
+      "outputChars": 56,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "binary",
+      "label": "current",
+      "ms": 1301,
+      "modelCalls": 1,
+      "promptChars": 1029,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000009",
+        "d8dca300-71c6-4111-8100-000000000019"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "binary",
+      "label": "baseline",
+      "ms": 1097,
+      "modelCalls": 1,
+      "promptChars": 2817,
+      "outputChars": 56,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000001"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "memory",
+      "label": "current",
+      "ms": 1361,
+      "modelCalls": 1,
+      "promptChars": 1023,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": false,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000010",
+        "d8dca300-71c6-4111-8100-000000000004",
+        "d8dca300-71c6-4111-8100-000000000001"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "memory",
+      "label": "baseline",
+      "ms": 1174,
+      "modelCalls": 1,
+      "promptChars": 2811,
+      "outputChars": 56,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000004"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "tea-two-sources",
+      "label": "current",
+      "ms": 1348,
+      "modelCalls": 1,
+      "promptChars": 1037,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000002",
+        "d8dca300-71c6-4111-8100-000000000008",
+        "d8dca300-71c6-4111-8100-000000000006"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "tea-two-sources",
+      "label": "baseline",
+      "ms": 4006,
+      "modelCalls": 1,
+      "promptChars": 2825,
+      "outputChars": 0,
+      "candidates": 20,
+      "completed": false,
+      "top1": false,
+      "recall3": 0.5,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000000",
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "binary-two-sources",
+      "label": "current",
+      "ms": 1306,
+      "modelCalls": 1,
+      "promptChars": 1035,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000009",
+        "d8dca300-71c6-4111-8100-000000000013"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "binary-two-sources",
+      "label": "baseline",
+      "ms": 3102,
+      "modelCalls": 1,
+      "promptChars": 2823,
+      "outputChars": 165,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000009",
+        "d8dca300-71c6-4111-8100-000000000013"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "english-recall",
+      "label": "current",
+      "ms": 1355,
+      "modelCalls": 1,
+      "promptChars": 1069,
+      "outputChars": 61,
+      "candidates": 20,
+      "completed": true,
+      "top1": true,
+      "recall3": 1,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000010",
+        "d8dca300-71c6-4111-8100-000000000004",
+        "d8dca300-71c6-4111-8100-000000000001"
+      ]
+    },
+    {
+      "round": 1,
+      "case": "english-recall",
+      "label": "baseline",
+      "ms": 4014,
+      "modelCalls": 1,
+      "promptChars": 2857,
+      "outputChars": 0,
+      "candidates": 20,
+      "completed": false,
+      "top1": false,
+      "recall3": 0,
+      "ids": [
+        "d8dca300-71c6-4111-8100-000000000000",
+        "d8dca300-71c6-4111-8100-000000000001",
+        "d8dca300-71c6-4111-8100-000000000002"
+      ]
+    }
+  ],
+  "limitations": "Synthetic short passages, warmed local model, in-memory corpus; not desktop end-to-end or a large-document quality evaluation.",
+  "warmupMs": 1190.0725000000002,
+  "baselineSource": "import { withModelDeadline } from '../shared/model-deadline';\r\n/**\r\n * 模型级重排（Rerank）\r\n *\r\n * 启发式（向量+关键词）召回一批候选后，用模型对每个候选按「与查询的相关性」打分，\r\n * 重新排序取 top-k。深度检索专用：模型不可用 / 超时 / 输出不合法一律回退原顺序，\r\n * 绝不阻塞检索。\r\n */\r\nimport type { ModelRouter } from '../router/model-router';\r\nimport { truncate } from '../shared/utils';\r\nimport type { RetrievalCandidate } from './retrieval-strategy';\r\n\r\nexport interface ReRankOptions {\r\n  /** 最多重排多少个候选（先启发式截断，避免模型上下文爆掉） */\r\n  maxCandidates: number;\r\n  /** 单条候选送入模型的文本上限（提示词压缩） */\r\n  candidateChars: number;\r\n  timeoutMs: number;\r\n}\r\n\r\nexport const defaultReRankOptions: ReRankOptions = {\r\n  maxCandidates: 20,\r\n  candidateChars: 300,\r\n  timeoutMs: 4000,\r\n};\r\n\r\ninterface ScoredId {\r\n  id: string;\r\n  score: number;\r\n}\r\n\r\nconst SCORE_RE = /\"id\"\\s*:\\s*\"([^\"]+)\"[^}]*?\"score\"\\s*:\\s*([0-9.]+)/g;\r\n\r\n/** 宽松解析模型输出的 [{\"id\":\"c1\",\"score\":8}]；容忍缺失/顺序乱 */\r\nexport function parseReRankOutput(raw: string): Map<string, number> {\r\n  const map = new Map<string, number>();\r\n  const text = raw\r\n    .replace(/```/g, '')\r\n    .replace(/^```json|^```/g, '')\r\n    .trim();\r\n  // 先试严格 JSON 数组\r\n  try {\r\n    const parsed = JSON.parse(text) as unknown;\r\n    if (Array.isArray(parsed)) {\r\n      for (const item of parsed) {\r\n        if (item && typeof item.id === 'string' && typeof item.score === 'number') {\r\n          map.set(item.id, item.score);\r\n        }\r\n      }\r\n      return map;\r\n    }\r\n  } catch {\r\n    // 落到正则兜底\r\n  }\r\n  // 正则兜底：`\"id\":\"c1\",\"score\":8`（容错常见格式错乱）\r\n  let match = SCORE_RE.exec(text);\r\n  while (match) {\r\n    map.set(match[1], Number(match[2]));\r\n    match = SCORE_RE.exec(text);\r\n  }\r\n  return map;\r\n}\r\n\r\nexport class ReRanker {\r\n  constructor(\r\n    private readonly router: ModelRouter,\r\n    private readonly options: ReRankOptions = defaultReRankOptions\r\n  ) {}\r\n\r\n  /** 对候选按相关性重排；失败/超时返回 null，调用方保持原顺序 */\r\n  async rerank(\r\n    query: string,\r\n    candidates: RetrievalCandidate[],\r\n    topK: number,\r\n    signal?: AbortSignal\r\n  ): Promise<RetrievalCandidate[] | null> {\r\n    signal?.throwIfAborted();\r\n    const pool = candidates.slice(0, this.options.maxCandidates);\r\n    if (pool.length < 2) return null;\r\n\r\n    const list = pool\r\n      .map(\r\n        (c, index) =>\r\n          `${index}. id: ${c.chunkId}\\n   笔记: ${c.noteId}\\n   内容: ${truncate(c.text, this.options.candidateChars)}`\r\n      )\r\n      .join('\\n');\r\n\r\n    const ranking = (requestSignal: AbortSignal) => this.router.run<{ query: string; candidates: string }, ScoredId[]>({\r\n      taskType: 'search_result_ranking',\r\n      signal: requestSignal,\r\n      input: { query, candidates: list },\r\n      inlinePrompt: {\r\n        system:\r\n          '你是检索相关性排序器。给每个候选片段按与查询的相关性打分（0-10 分，10 最相关）。只输出 JSON 数组：[{\"id\":\"候选id\",\"score\":分数}]，不要输出其它内容。',\r\n        user: `查询：${query}\\n\\n候选片段：\\n${list}\\n\\n请输出相关性分数 JSON。`,\r\n      },\r\n    });\r\n    const result = await withModelDeadline(ranking, this.options.timeoutMs, '重排', signal).catch(() => null);\r\n    // 重排超时/模型报错：保持启发式原顺序，绝不阻塞检索\r\n    signal?.throwIfAborted();\r\n    if (result === null) return null;\r\n\r\n    // 优先用路由已解析的结构化输出；否则用原始文本宽松解析兜底\r\n    let scores = new Map<string, number>();\r\n    if (Array.isArray(result.output)) {\r\n      for (const item of result.output) {\r\n        if (item && typeof item.id === 'string' && typeof item.score === 'number') {\r\n          scores.set(item.id, item.score);\r\n        }\r\n      }\r\n    }\r\n    if (scores.size === 0 && result.raw) scores = parseReRankOutput(result.raw);\r\n    if (scores.size === 0) return null;\r\n\r\n    const ranked = [...pool]\r\n      .map((c) => ({ c, score: scores.get(c.chunkId) ?? -1 }))\r\n      .filter((entry) => entry.score >= 0)\r\n      .sort((a, b) => b.score - a.score)\r\n      .map((entry) => entry.c);\r\n    return ranked.length > 0 ? ranked.slice(0, topK) : null;\r\n  }\r\n}\r\n",
+  "baselineSha256": "33b5fe49afd6717fea6e67958b1a578612bd258ef86c455e4e49bfd0575f2cec",
+  "currentSha256": "31788befb65f42d45b55a12c6d85462a0c11eca251b0279c823424b3b053d26d",
+  "hashNote": "Current hash recorded after removal of unused legacy parser; evaluated ranking behavior unchanged.",
+  "method": {
+    "rounds": 2,
+    "cases": 6,
+    "candidates": 20,
+    "order": "baseline/current first round; current/baseline second round",
+    "inference": "Actual local Ollama Qwen3:14b; no DeepSeek or user data",
+    "metrics": "recall3 is mean coverage of manually designated evidence indices per query; includes original-order fallback after timeout, not answer accuracy",
+    "scope": "Reranking only; not embeddings, query rewriting, answer generation, UI or document parsing",
+    "controls": "Final order run performed after concurrent build/test work completed; prior score prototype stress run had initial CPU contention and is not used for final timing comparison",
+    "warmup": "Initial model warm-up excluded; first schema compilation remains included",
+    "changes": "Compact input IDs; full permutation output; schema; temperature 0; maxTokens 128; no retry/fallback. This evaluates the bundle, not independent ablations."
+  },
+  "summary": {
+    "baseline": {
+      "runs": 12,
+      "medianMs": 3551.5,
+      "completed": 6,
+      "strictTop1": 6,
+      "meanRecall3": 0.625,
+      "meanPromptChars": 2825
+    },
+    "current": {
+      "runs": 12,
+      "medianMs": 1397,
+      "completed": 12,
+      "strictTop1": 10,
+      "meanRecall3": 1,
+      "meanPromptChars": 1037
+    }
+  },
+  "discardedPrototype": {
+    "description": "Position-aligned scores were faster but misplaced evidence; discarded.",
+    "runs": [
+      {
+        "round": 0,
+        "case": "tea",
+        "label": "baseline",
+        "ms": 4528,
+        "modelCalls": 1,
+        "promptChars": 2817,
+        "outputChars": 56,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "tea",
+        "label": "current",
+        "ms": 3467,
+        "modelCalls": 1,
+        "promptChars": 1012,
+        "outputChars": 53,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000002",
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "binary",
+        "label": "baseline",
+        "ms": 1661,
+        "modelCalls": 1,
+        "promptChars": 2817,
+        "outputChars": 56,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000001"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "binary",
+        "label": "current",
+        "ms": 1208,
+        "modelCalls": 1,
+        "promptChars": 1012,
+        "outputChars": 53,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "memory",
+        "label": "baseline",
+        "ms": 4006,
+        "modelCalls": 1,
+        "promptChars": 2811,
+        "outputChars": 0,
+        "candidates": 20,
+        "completed": false,
+        "top1": false,
+        "recall3": 0,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "memory",
+        "label": "current",
+        "ms": 1292,
+        "modelCalls": 1,
+        "promptChars": 1006,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000004",
+          "d8dca300-71c6-4111-8100-000000000009",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "tea-two-sources",
+        "label": "baseline",
+        "ms": 4005,
+        "modelCalls": 1,
+        "promptChars": 2825,
+        "outputChars": 0,
+        "candidates": 20,
+        "completed": false,
+        "top1": false,
+        "recall3": 0.5,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "tea-two-sources",
+        "label": "current",
+        "ms": 1405,
+        "modelCalls": 1,
+        "promptChars": 1020,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 0.5,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000002",
+          "d8dca300-71c6-4111-8100-000000000007",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "binary-two-sources",
+        "label": "baseline",
+        "ms": 4006,
+        "modelCalls": 1,
+        "promptChars": 2823,
+        "outputChars": 0,
+        "candidates": 20,
+        "completed": false,
+        "top1": false,
+        "recall3": 0.5,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "binary-two-sources",
+        "label": "current",
+        "ms": 1359,
+        "modelCalls": 1,
+        "promptChars": 1018,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 0.5,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000008",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "english-recall",
+        "label": "baseline",
+        "ms": 4011,
+        "modelCalls": 1,
+        "promptChars": 2857,
+        "outputChars": 0,
+        "candidates": 20,
+        "completed": false,
+        "top1": false,
+        "recall3": 0,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 0,
+        "case": "english-recall",
+        "label": "current",
+        "ms": 1317,
+        "modelCalls": 1,
+        "promptChars": 1052,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": false,
+        "recall3": 0,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000004",
+          "d8dca300-71c6-4111-8100-000000000009",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "tea",
+        "label": "current",
+        "ms": 1057,
+        "modelCalls": 1,
+        "promptChars": 1012,
+        "outputChars": 53,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000002",
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "tea",
+        "label": "baseline",
+        "ms": 1098,
+        "modelCalls": 1,
+        "promptChars": 2817,
+        "outputChars": 56,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "binary",
+        "label": "current",
+        "ms": 1066,
+        "modelCalls": 1,
+        "promptChars": 1012,
+        "outputChars": 53,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "binary",
+        "label": "baseline",
+        "ms": 1211,
+        "modelCalls": 1,
+        "promptChars": 2817,
+        "outputChars": 56,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000001"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "memory",
+        "label": "current",
+        "ms": 1163,
+        "modelCalls": 1,
+        "promptChars": 1006,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000004",
+          "d8dca300-71c6-4111-8100-000000000009",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "memory",
+        "label": "baseline",
+        "ms": 1114,
+        "modelCalls": 1,
+        "promptChars": 2811,
+        "outputChars": 56,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000004"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "tea-two-sources",
+        "label": "current",
+        "ms": 1093,
+        "modelCalls": 1,
+        "promptChars": 1020,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 0.5,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000002",
+          "d8dca300-71c6-4111-8100-000000000007",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "tea-two-sources",
+        "label": "baseline",
+        "ms": 4003,
+        "modelCalls": 1,
+        "promptChars": 2825,
+        "outputChars": 0,
+        "candidates": 20,
+        "completed": false,
+        "top1": false,
+        "recall3": 0.5,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "binary-two-sources",
+        "label": "current",
+        "ms": 1147,
+        "modelCalls": 1,
+        "promptChars": 1018,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 0.5,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000008",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "binary-two-sources",
+        "label": "baseline",
+        "ms": 3185,
+        "modelCalls": 1,
+        "promptChars": 2823,
+        "outputChars": 165,
+        "candidates": 20,
+        "completed": true,
+        "top1": true,
+        "recall3": 1,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000009",
+          "d8dca300-71c6-4111-8100-000000000013"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "english-recall",
+        "label": "current",
+        "ms": 1101,
+        "modelCalls": 1,
+        "promptChars": 1052,
+        "outputChars": 54,
+        "candidates": 20,
+        "completed": true,
+        "top1": false,
+        "recall3": 0,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000004",
+          "d8dca300-71c6-4111-8100-000000000009",
+          "d8dca300-71c6-4111-8100-000000000000"
+        ]
+      },
+      {
+        "round": 1,
+        "case": "english-recall",
+        "label": "baseline",
+        "ms": 4004,
+        "modelCalls": 1,
+        "promptChars": 2857,
+        "outputChars": 0,
+        "candidates": 20,
+        "completed": false,
+        "top1": false,
+        "recall3": 0,
+        "ids": [
+          "d8dca300-71c6-4111-8100-000000000000",
+          "d8dca300-71c6-4111-8100-000000000001",
+          "d8dca300-71c6-4111-8100-000000000002"
+        ]
+      }
+    ]
+  },
+  "caveats": [
+    "Small synthetic benchmark used during iteration, not an independent held-out set.",
+    "Source 10 also meaningfully answers memory query although strict label expects source 4; strictTop1 deliberately not expanded after seeing results.",
+    "Simple single-evidence cases may be slower under full permutation.",
+    "Reranking does not establish that any candidate supports an answer; downstream evidence validation is still required.",
+    "Different load, cold start, model and document size can change results."
+  ]
+}

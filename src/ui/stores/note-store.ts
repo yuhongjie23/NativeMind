@@ -17,6 +17,9 @@ import { useToastStore } from './toast-store';
 import { abortable } from '@application/shared/abortable';
 import { splitPlainIntoParagraphs } from '@application/shared/utils';
 import { ai, aiMode, describeError, repositories, useCases } from './runtime';
+import { getModelConfig } from '@ai/router/model-config';
+import { knowledgeOrganizationBlockReason } from '@application/policies/knowledge-organization-policy';
+import { isAnna } from '@infrastructure/anna';
 
 interface NoteState {
   notes: Note[];
@@ -399,6 +402,9 @@ export const useNoteStore = create<NoteState>((set, get) => {
 
   /** 导入后自动尝试与已有知识建立关联（后台跑，不阻塞导入） */
   suggestLinksForNote: async (noteId) => {
+    if (aiMode === 'template' || knowledgeOrganizationBlockReason({
+      ...getModelConfig(), localOnly: isAnna() || import.meta.env.VITE_NATIVEMIND_LOCAL_ONLY === 'true',
+    })) return;
     set({ linking: true });
     try {
       const result = await useKnowledgeLinkStore.getState().suggestForNote(noteId);
@@ -409,14 +415,7 @@ export const useNoteStore = create<NoteState>((set, get) => {
           'ok'
         );
       } else if (result.suggested === 0) {
-        // 演示模式（无本地模型）下 AI 无法判断关系：明确告诉用户「没能力」而不是「没关联」。
-        // 桌面端模型不可用时，adapter 已把检索到的候选降级为「人工确认」建议（suggested>0），
-        // 不会走到这里——走到这里说明模型正常但确实没有相关旧笔记。
-        if (aiMode === 'template') {
-          useToastStore.getState().show('演示模式无本地模型，无法自动关联笔记', 'info');
-        } else {
-          useToastStore.getState().show('未找到与现有笔记的关联', 'info');
-        }
+        useToastStore.getState().show('未找到与现有笔记的关联', 'info');
       }
       // suggested > 0 但 created 为空：用户拒绝了建议，不打扰
     } catch {

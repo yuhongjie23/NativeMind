@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { NotePageRange, ReadingPosition, ReadingProgress } from '@application/ports';
+import type { Note, NotePageRange, ReadingPosition, ReadingProgress } from '@application/ports';
 import { useCases } from '../../stores/runtime';
 import { useT } from '../../i18n';
 import { NoteViewer } from './NoteViewer';
 
-interface Props { active?: boolean; noteId: string; content: string; pageRanges?: NotePageRange[]; initialCharStart?: number; initialAnchor?: string }
+interface Props { active?: boolean; noteId: string; content: string; pageRanges?: NotePageRange[]; initialCharStart?: number; initialAnchor?: string; onOpenNote?: (note: Note) => void }
 export function ResumableNoteViewer({ noteId, active: visible = true, ...props }: Props) {
   const t = useT();
   const [previous, setPrevious] = useState<ReadingProgress>();

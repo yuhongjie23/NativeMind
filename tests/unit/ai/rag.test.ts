@@ -12,7 +12,7 @@ import { RelationJudge } from '@ai/rag/relation-judge';
 import { RAGOrchestrator, type CandidateProvider } from '@ai/rag/rag-orchestrator';
 import { expandQuery } from '@ai/rag/query-expansion';
 import { parseRewriteOutput } from '@ai/rag/query-rewriter';
-import { ReRanker, parseReRankOutput } from '@ai/rag/rerank';
+import { ReRanker } from '@ai/rag/rerank';
 import {
   RetrievalStrategy,
   extractKeywords,
@@ -109,19 +109,6 @@ describe('parseRewriteOutput（LLM Multi-Query/HyDE 输出解析）', () => {
 
     expect(parsed.variants).toHaveLength(0);
     expect(parsed.hypothetical).toBeUndefined();
-  });
-});
-
-describe('parseReRankOutput（模型重排输出解析）', () => {
-  it('解析严格 JSON 数组', () => {
-    const map = parseReRankOutput('[{"id":"c1","score":9},{"id":"c2","score":4}]');
-    expect(map.get('c1')).toBe(9);
-    expect(map.get('c2')).toBe(4);
-  });
-
-  it('容错：带 markdown 代码块或多余文字也能抽出 id/score', () => {
-    const map = parseReRankOutput('```json\n[{"id":"c1","score":8}]\n```');
-    expect(map.get('c1')).toBe(8);
   });
 });
 
@@ -330,10 +317,7 @@ describe('RetrievalStrategy cross-encoder 重排（深度检索）', () => {
         isAvailable: async () => true,
         complete: async () => {
           generativeCalls += 1;
-          return JSON.stringify([
-            { id: 'c1', score: 9 },
-            { id: 'c2', score: 1 },
-          ]);
+          return JSON.stringify({ order: [0, 1] });
         },
       })
     );
@@ -363,10 +347,7 @@ describe('RetrievalStrategy cross-encoder 重排（深度检索）', () => {
       new ModelRouter({
         isAvailable: async () => true,
         complete: async () =>
-          JSON.stringify([
-            { id: 'c1', score: 9 },
-            { id: 'c2', score: 1 },
-          ]),
+          JSON.stringify({ order: [0, 1] }),
       })
     );
     const strategy = new RetrievalStrategy(fakeEmbedding(), fakeVectorStore([]), defaultWeights, {

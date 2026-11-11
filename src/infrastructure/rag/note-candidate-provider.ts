@@ -9,6 +9,7 @@
  * 会把整个库读进内存，而规则层的存在意义本来就是「便宜」。
  */
 import type { CandidateProvider, RetrievalQuery, RuleCandidateSource } from '@ai/index';
+import { extractKeywords } from '@ai/index';
 import type { NoteChunk, SqliteNoteRepository } from '../db/repositories/note-repository';
 import type { KnowledgeLinkRepository } from '@application/ports';
 
@@ -18,18 +19,10 @@ const FALLBACK_SCAN_LIMIT = 500;
 /**
  * 提取用于 SQL LIKE 的关键词。
  *
- * 与 retrieval-strategy 的 extractKeywords 分开实现：那个是给打分用的，
- * 会切出大量 2 字中文滑窗，逐个查库太碎。这里只要几个「够长、够特别」
- * 的词把候选集缩小到能在内存里打分的规模。
+ * 与打分和查询扩展使用相同的词。两字中文词可通过 LIKE 查询，
+ * 不再把整句交给 trigram，导致关键的两字名词被遗漏。
  */
-const searchTerms = (text: string, limit = 4): string[] => {
-  const latin = text.toLowerCase().match(/[a-z][a-z0-9+#.-]{3,}/g) ?? [];
-  const cjk = text.match(/[\u4e00-\u9fa5]{3,}/g) ?? [];
-
-  return [...new Set([...cjk, ...latin])]
-    .sort((left, right) => right.length - left.length)
-    .slice(0, limit);
-};
+const searchTerms = (text: string, limit = 8): string[] => extractKeywords(text, limit);
 
 export class NoteCandidateProvider implements CandidateProvider {
   constructor(
@@ -39,8 +32,27 @@ export class NoteCandidateProvider implements CandidateProvider {
   ) {}
 
   async listCandidates(query: RetrievalQuery, limit: number): Promise<RuleCandidateSource[]> {
-    const chunks = await this.collectChunks(query, limit);
     const excluded = new Set(query.excludeNoteIds ?? []);
+    const title = query.text.trim();
+    if (query.preferLiteralMatches && !query.deep && title) {
+      // Look up the title before the capped chunk scan, so long books cannot
+      // crowd out a short imported note. This also works before indexing ends.
+      const exactNotes = (await this.notes.findByTitleKeyword(title, FALLBACK_SCAN_LIMIT))
+        .filter(note => !excluded.has(note.id) && note.title.trim().toLowerCase() === title.toLowerCase())
+        .slice(0, limit);
+      if (exactNotes.length > 0) {
+        const matches = await Promise.all(exactNotes.map(async note => {
+          const chunks = await this.notes.listChunksForNotes([note.id], limit);
+          return chunks.length > 0 ? chunks.map(chunk => toCandidate(chunk, note.title)) : [{
+            chunkId: `${note.id}#unindexed`, noteId: note.id, title: note.title,
+            text: note.content.slice(0, 1200), tags: note.tags, charStart: 0,
+          }];
+        }));
+        // Reserve one result per matching note before filling remaining slots.
+        return [...matches.map(group => group[0]), ...matches.flatMap(group => group.slice(1))].slice(0, limit);
+      }
+    }
+    const chunks = await this.collectChunks(query, limit);
 
     // 标题标注：给候选补上所属笔记标题（标题是强信号，UI 与模型判断都用得上）
     const titleById = await this.loadTitles(chunks.map((chunk) => chunk.noteId));
@@ -175,7 +187,13 @@ export class NoteCandidateProvider implements CandidateProvider {
       }
     }
 
-    return chunks;
+    // Rank the bounded union before truncation. Otherwise the first common
+    // term's hits can crowd out a later, more specific term's evidence.
+    const overlap = (chunk: NoteChunk) => {
+      const text = chunk.text.toLowerCase();
+      return terms.filter(term => text.includes(term)).length;
+    };
+    return chunks.sort((a, b) => overlap(b) - overlap(a));
   }
 }
 

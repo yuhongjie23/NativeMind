@@ -1,0 +1,3069 @@
+{
+  "date": "2026-11-11",
+  "status": "not-accepted",
+  "models": [
+    "qwen3:14b",
+    "nomic-embed-text"
+  ],
+  "scope": "Real local EPUB/PDF through production import, indexing, retrieval and QA, fresh isolated databases; no cloud or external search.",
+  "importantLimitations": [
+    "Not a controlled performance comparison: GPU load and model residency changed during iterations.",
+    "Earlier nonempty citation lists include false evidence pairings; exact location and fixed anchor coverage alone are not semantic correctness.",
+    "Final full run covers six of the original ten questions. It has one supported positive answer, two correct abstentions, three failed positive answers.",
+    "Mother-unconditional remains a retrieval failure; love-elements review returned relevance=5 outside 0..1 and invented source 7; mamba-speed bad evidence pairs were rejected.",
+    "The independent pair model still overaccepted one incomplete comparison in an isolated probe. The all-pairs gate rejected the overall answer because another pair failed; no universal guarantee.",
+    "One earlier EPUB indexing run took 156653ms under model residency pressure; final cold run took 5466ms. No general speedup claim.",
+    "Installed desktop, GitHub and Anna releases unchanged."
+  ],
+  "automatedChecks": {
+    "unitPassed": 1092,
+    "unitSkipped": 4,
+    "nativeIntegrationPassed": 2,
+    "nativeIntegrationSkipped": 1,
+    "parserWorkerTestsPassed": 4,
+    "nativeEmbeddingHttpTestsPassed": 1,
+    "lint": true,
+    "typecheckBuild": true,
+    "desktopCargoCheck": true,
+    "annaDebugBuild": true
+  },
+  "inputTruncationProbe": [
+    {
+      "case": "mamba-appendix-normalization",
+      "context4096InputTokens": 1717,
+      "context8192InputTokens": 1717
+    },
+    {
+      "case": "love-elements",
+      "context4096InputTokens": 3190,
+      "context8192InputTokens": 3190
+    }
+  ],
+  "switchWithoutRelease": [
+    {
+      "kind": "generate",
+      "ms": 6050,
+      "response": "OK",
+      "dimensions": 0,
+      "inputTokens": 21,
+      "outputTokens": 2
+    },
+    {
+      "kind": "embeddings",
+      "ms": 3899,
+      "response": null,
+      "dimensions": 768,
+      "inputTokens": null,
+      "outputTokens": null
+    },
+    {
+      "kind": "generate",
+      "ms": 27061,
+      "error": "timed out"
+    }
+  ],
+  "switchWithRelease": [
+    {
+      "kind": "generate",
+      "ms": 5265,
+      "response": "OK",
+      "dimensions": 0
+    },
+    {
+      "kind": "embeddings",
+      "ms": 2620,
+      "response": null,
+      "dimensions": 768
+    },
+    {
+      "kind": "release-embedding",
+      "ms": 64,
+      "ok": true
+    },
+    {
+      "kind": "generate",
+      "ms": 6850,
+      "response": "OK",
+      "dimensions": 0
+    }
+  ],
+  "pairProbe": [
+    {
+      "id": "mamba-appendix-normalization",
+      "ms": 937,
+      "result": {
+        "ok": true,
+        "output": {
+          "supported": [
+            true
+          ]
+        },
+        "raw": "{\"supported\":[true]}",
+        "attempts": 1,
+        "degraded": false,
+        "tier": "coach",
+        "model": "qwen3:14b",
+        "schemaId": "qa-evidence-check.v1"
+      }
+    },
+    {
+      "id": "love-elements",
+      "ms": 409,
+      "result": {
+        "ok": true,
+        "output": {
+          "supported": [
+            true,
+            true,
+            true
+          ]
+        },
+        "raw": "{\"supported\":[true,true,true]}",
+        "attempts": 1,
+        "degraded": false,
+        "tier": "coach",
+        "model": "qwen3:14b",
+        "schemaId": "qa-evidence-check.v1"
+      }
+    },
+    {
+      "id": "mamba-speed",
+      "ms": 574,
+      "result": {
+        "ok": true,
+        "output": {
+          "supported": [
+            false,
+            true,
+            true
+          ]
+        },
+        "raw": "{\"supported\":[false,true,true]}",
+        "attempts": 1,
+        "degraded": false,
+        "tier": "coach",
+        "model": "qwen3:14b",
+        "schemaId": "qa-evidence-check.v1"
+      }
+    }
+  ],
+  "readerProof": {
+    "run": "nativemind-rag-check-kH9VDd",
+    "component": "production NoteViewer in isolated local harness",
+    "question": "mamba-appendix-normalization",
+    "offset": 114389,
+    "matchedPdfPage": 30,
+    "totalPages": 36,
+    "findMatches": 2,
+    "findForwardPages": [
+      11,
+      30
+    ],
+    "findBackwardPages": [
+      30,
+      11
+    ],
+    "screenshot": "output/qa/pdf-citation-2026-11-11.png"
+  },
+  "runs": [
+    {
+      "label": "compact-output UUID trial",
+      "localTraceDirectory": "nativemind-rag-check-CV6p2P",
+      "createdAt": "2026-11-11T03:12:16.258Z",
+      "interrupted": false,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 158,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 5661,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1604,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5422,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 400,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 19723,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": true,
+          "modelCalls": []
+        }
+      ]
+    },
+    {
+      "label": "UUID trace trial",
+      "localTraceDirectory": "nativemind-rag-check-niGtn6",
+      "createdAt": "2026-11-11T03:14:05.488Z",
+      "interrupted": false,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 150,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 5651,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1610,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5752,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 483,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 16285,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2705,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3085,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 2604,
+              "maxTokens": 512,
+              "outputChars": 293,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 6065,
+              "maxTokens": 768,
+              "outputChars": 537,
+              "partialChars": 0,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "full 10 cases, UUID source IDs",
+      "localTraceDirectory": "nativemind-rag-check-Ud05Kn",
+      "createdAt": "2026-11-11T03:16:35.888Z",
+      "interrupted": false,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 170,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 7182,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1701,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5870,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 399,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 14115,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2708,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 1955,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 1587,
+              "maxTokens": 512,
+              "outputChars": 63,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 6044,
+              "maxTokens": 768,
+              "outputChars": 389,
+              "partialChars": 0,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 400,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 21827,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2703,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3652,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 4024,
+              "maxTokens": 512,
+              "outputChars": 119,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 9698,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 397,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 21244,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2706,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2610,
+              "maxTokens": 128,
+              "outputChars": 43,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 4479,
+              "maxTokens": 512,
+              "outputChars": 153,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 9699,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "practice-patience",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 385,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 20774,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2710,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2987,
+              "maxTokens": 128,
+              "outputChars": 58,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 3642,
+              "maxTokens": 512,
+              "outputChars": 128,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 9692,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "cross-chapters",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 400,
+          "recall3": [
+            true,
+            false
+          ],
+          "recall8": [
+            true,
+            false
+          ],
+          "qaMs": 21833,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false,
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2709,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3082,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 4580,
+              "maxTokens": 512,
+              "outputChars": 188,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 9712,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 397,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 19860,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2702,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2523,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 3169,
+              "maxTokens": 512,
+              "outputChars": 446,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 9716,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-mechanism",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 401,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 19956,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2707,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2336,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 3451,
+              "maxTokens": 512,
+              "outputChars": 545,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 9696,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-chinese",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 412,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 20888,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2702,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2431,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 4202,
+              "maxTokens": 512,
+              "outputChars": 721,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 9704,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 399,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 12292,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2708,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2903,
+              "maxTokens": 128,
+              "outputChars": 58,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 1680,
+              "maxTokens": 512,
+              "outputChars": 5,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 3174,
+              "maxTokens": 768,
+              "outputChars": 147,
+              "partialChars": 0,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 396,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 11713,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2614,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2328,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 1403,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 0,
+              "error": null
+            },
+            {
+              "ms": 3453,
+              "maxTokens": 768,
+              "outputChars": 255,
+              "partialChars": 0,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "full 10 cases, short source IDs",
+      "localTraceDirectory": "nativemind-rag-check-GiIgtb",
+      "createdAt": "2026-11-11T03:20:42.832Z",
+      "interrupted": false,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 234,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 6012,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1702,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5617,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 396,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 16114,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2706,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 284,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2802,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 1405,
+              "maxTokens": 512,
+              "outputChars": 111,
+              "partialChars": 111,
+              "error": null
+            },
+            {
+              "ms": 7373,
+              "maxTokens": 768,
+              "outputChars": 957,
+              "partialChars": 957,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 403,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 16929,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2704,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 144,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3083,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 2225,
+              "maxTokens": 512,
+              "outputChars": 41,
+              "partialChars": 41,
+              "error": null
+            },
+            {
+              "ms": 7094,
+              "maxTokens": 768,
+              "outputChars": 392,
+              "partialChars": 392,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 398,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 31735,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2705,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 137,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2428,
+              "maxTokens": 128,
+              "outputChars": 43,
+              "partialChars": 43,
+              "error": null
+            },
+            {
+              "ms": 4671,
+              "maxTokens": 512,
+              "outputChars": 158,
+              "partialChars": 158,
+              "error": null
+            },
+            {
+              "ms": 5147,
+              "maxTokens": 768,
+              "outputChars": 207,
+              "partialChars": 207,
+              "error": null
+            },
+            {
+              "ms": 4580,
+              "maxTokens": 512,
+              "outputChars": 142,
+              "partialChars": 142,
+              "error": null
+            },
+            {
+              "ms": 9695,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 638,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "practice-patience",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 384,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 21368,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2711,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 128,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3180,
+              "maxTokens": 128,
+              "outputChars": 58,
+              "partialChars": 58,
+              "error": null
+            },
+            {
+              "ms": 4025,
+              "maxTokens": 512,
+              "outputChars": 134,
+              "partialChars": 134,
+              "error": null
+            },
+            {
+              "ms": 9706,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 537,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "cross-chapters",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 402,
+          "recall3": [
+            true,
+            false
+          ],
+          "recall8": [
+            true,
+            false
+          ],
+          "qaMs": 23032,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false,
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2712,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 126,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3358,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 5513,
+              "maxTokens": 512,
+              "outputChars": 187,
+              "partialChars": 187,
+              "error": null
+            },
+            {
+              "ms": 9701,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 572,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 396,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 19761,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2706,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 183,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2325,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 3268,
+              "maxTokens": 512,
+              "outputChars": 513,
+              "partialChars": 513,
+              "error": null
+            },
+            {
+              "ms": 9713,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 1427,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-mechanism",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 490,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 19851,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2707,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 481,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2242,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 3462,
+              "maxTokens": 512,
+              "outputChars": 594,
+              "partialChars": 594,
+              "error": null
+            },
+            {
+              "ms": 9630,
+              "maxTokens": 768,
+              "outputChars": 0,
+              "partialChars": 1571,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-chinese",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 413,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 15001,
+          "ok": true,
+          "judged": true,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2712,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 158,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2344,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 2058,
+              "maxTokens": 512,
+              "outputChars": 281,
+              "partialChars": 281,
+              "error": null
+            },
+            {
+              "ms": 6068,
+              "maxTokens": 768,
+              "outputChars": 943,
+              "partialChars": 943,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 402,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 11932,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2688,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 162,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2790,
+              "maxTokens": 128,
+              "outputChars": 58,
+              "partialChars": 58,
+              "error": null
+            },
+            {
+              "ms": 1503,
+              "maxTokens": 512,
+              "outputChars": 5,
+              "partialChars": 5,
+              "error": null
+            },
+            {
+              "ms": 3091,
+              "maxTokens": 768,
+              "outputChars": 147,
+              "partialChars": 147,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 399,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 11355,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2706,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 326,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2335,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 1318,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 22,
+              "error": null
+            },
+            {
+              "ms": 3181,
+              "maxTokens": 768,
+              "outputChars": 255,
+              "partialChars": 255,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "numbered evidence, 10 second review, before abstention guard",
+      "localTraceDirectory": "nativemind-rag-check-fSWMMP",
+      "createdAt": "2026-11-11T03:31:12.752Z",
+      "interrupted": false,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 155,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 5850,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1601,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5392,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 489,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 12009,
+          "ok": true,
+          "judged": true,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            true
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2707,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 277,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3178,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 1402,
+              "maxTokens": 512,
+              "outputChars": 111,
+              "partialChars": 111,
+              "error": null
+            },
+            {
+              "ms": 2895,
+              "maxTokens": 512,
+              "outputChars": 207,
+              "partialChars": 207,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 398,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 28078,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2707,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 150,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3625,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 10286,
+              "maxTokens": 512,
+              "outputChars": 73,
+              "partialChars": 73,
+              "error": null
+            },
+            {
+              "ms": 9681,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 36,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 400,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 28726,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2704,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 36,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3641,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 7,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 10938,
+              "maxTokens": 512,
+              "outputChars": 87,
+              "partialChars": 87,
+              "error": null
+            },
+            {
+              "ms": 9633,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "practice-patience",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 574,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 35553,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2718,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 26,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3631,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 17761,
+              "maxTokens": 512,
+              "outputChars": 93,
+              "partialChars": 93,
+              "error": null
+            },
+            {
+              "ms": 9718,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 66,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "cross-chapters",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 401,
+          "recall3": [
+            true,
+            false
+          ],
+          "recall8": [
+            true,
+            false
+          ],
+          "qaMs": 28920,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false,
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2721,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 36,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3652,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 11112,
+              "maxTokens": 512,
+              "outputChars": 106,
+              "partialChars": 106,
+              "error": null
+            },
+            {
+              "ms": 9721,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 87,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 395,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 27442,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2714,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 48,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3640,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 23,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 9635,
+              "maxTokens": 512,
+              "outputChars": 399,
+              "partialChars": 399,
+              "error": null
+            },
+            {
+              "ms": 9638,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 154,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-mechanism",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 398,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 27690,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2704,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 97,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3653,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 15,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 9911,
+              "maxTokens": 512,
+              "outputChars": 447,
+              "partialChars": 447,
+              "error": null
+            },
+            {
+              "ms": 9628,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 47,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-chinese",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 410,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 30501,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2715,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 24,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3647,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 12684,
+              "maxTokens": 512,
+              "outputChars": 487,
+              "partialChars": 487,
+              "error": null
+            },
+            {
+              "ms": 9718,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 211,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 401,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 30692,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2711,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 28,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3709,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 12614,
+              "maxTokens": 512,
+              "outputChars": 5,
+              "partialChars": 5,
+              "error": null
+            },
+            {
+              "ms": 9636,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 95,
+              "error": "Error: 评判回答超时"
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 492,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 27703,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2707,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 77,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3637,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 13,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 3743,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 22,
+              "error": null
+            },
+            {
+              "ms": 8326,
+              "maxTokens": 512,
+              "outputChars": 124,
+              "partialChars": 124,
+              "error": null
+            },
+            {
+              "ms": 1310,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 22,
+              "error": null
+            },
+            {
+              "ms": 5410,
+              "maxTokens": 512,
+              "outputChars": 124,
+              "partialChars": 124,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "20 second review, interrupted after service stalls",
+      "localTraceDirectory": "nativemind-rag-check-jJcHxV",
+      "createdAt": "2026-11-11T03:37:12.060Z",
+      "interrupted": true,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 195,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 5930,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1612,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5471,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 404,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 67632,
+          "ok": false,
+          "judged": false,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2713,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3643,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 59658,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 生成回答超时"
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "completed": false,
+          "expectedAbsent": null,
+          "searchMs": 592,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": null,
+          "ok": null,
+          "judged": null,
+          "citations": 0,
+          "citationLocationsValid": null,
+          "fixedEvidenceInCitations": null,
+          "abstained": null,
+          "modelCalls": []
+        }
+      ]
+    },
+    {
+      "label": "reload recovery and reader proof; interrupted after recurring stalls",
+      "localTraceDirectory": "nativemind-rag-check-kH9VDd",
+      "createdAt": "2026-11-11T03:40:18.675Z",
+      "interrupted": true,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 159,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 5665,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1599,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5415,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 406,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 17411,
+          "ok": true,
+          "judged": true,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            true
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2710,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3641,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 4572,
+              "maxTokens": 512,
+              "outputChars": 60,
+              "partialChars": 60,
+              "error": null
+            },
+            {
+              "ms": 3551,
+              "maxTokens": 512,
+              "outputChars": 207,
+              "partialChars": 207,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 1055,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 67610,
+          "ok": false,
+          "judged": false,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2709,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3647,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 59640,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 生成回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 583,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 67504,
+          "ok": false,
+          "judged": false,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2710,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3642,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 59639,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 生成回答超时"
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 581,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 67529,
+          "ok": false,
+          "judged": false,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            true
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2705,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3723,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 59636,
+              "maxTokens": 512,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 生成回答超时"
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "completed": false,
+          "expectedAbsent": null,
+          "searchMs": 592,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": null,
+          "ok": null,
+          "judged": null,
+          "citations": 0,
+          "citationLocationsValid": null,
+          "fixedEvidenceInCitations": null,
+          "abstained": null,
+          "modelCalls": []
+        }
+      ]
+    },
+    {
+      "label": "query embedding release, before independent pair audit",
+      "localTraceDirectory": "nativemind-rag-check-ycjEOF",
+      "createdAt": "2026-11-11T03:50:19.521Z",
+      "interrupted": false,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 166,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 156653,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1604,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5171,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 391,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 13843,
+          "ok": true,
+          "judged": true,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            true
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2716,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3628,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 1391,
+              "maxTokens": 512,
+              "outputChars": 60,
+              "partialChars": 60,
+              "error": null
+            },
+            {
+              "ms": 3175,
+              "maxTokens": 512,
+              "outputChars": 207,
+              "partialChars": 207,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 1057,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 27952,
+          "ok": true,
+          "judged": true,
+          "citations": 3,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            true
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2705,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 104,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3358,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 2809,
+              "maxTokens": 512,
+              "outputChars": 80,
+              "partialChars": 80,
+              "error": null
+            },
+            {
+              "ms": 6991,
+              "maxTokens": 512,
+              "outputChars": 461,
+              "partialChars": 461,
+              "error": null
+            },
+            {
+              "ms": 2803,
+              "maxTokens": 512,
+              "outputChars": 83,
+              "partialChars": 83,
+              "error": null
+            },
+            {
+              "ms": 6051,
+              "maxTokens": 512,
+              "outputChars": 474,
+              "partialChars": 474,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 956,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 29438,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2710,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 68,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3640,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 16,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 3647,
+              "maxTokens": 512,
+              "outputChars": 87,
+              "partialChars": 87,
+              "error": null
+            },
+            {
+              "ms": 7471,
+              "maxTokens": 512,
+              "outputChars": 510,
+              "partialChars": 510,
+              "error": null
+            },
+            {
+              "ms": 3271,
+              "maxTokens": 512,
+              "outputChars": 98,
+              "partialChars": 98,
+              "error": null
+            },
+            {
+              "ms": 5585,
+              "maxTokens": 512,
+              "outputChars": 455,
+              "partialChars": 455,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 1045,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 15452,
+          "ok": true,
+          "judged": true,
+          "citations": 3,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            true
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2710,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 98,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2621,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 2899,
+              "maxTokens": 512,
+              "outputChars": 419,
+              "partialChars": 419,
+              "error": null
+            },
+            {
+              "ms": 4756,
+              "maxTokens": 512,
+              "outputChars": 369,
+              "partialChars": 369,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 1057,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 20858,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2698,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 99,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3633,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 24,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 1961,
+              "maxTokens": 512,
+              "outputChars": 5,
+              "partialChars": 5,
+              "error": null
+            },
+            {
+              "ms": 4862,
+              "maxTokens": 512,
+              "outputChars": 198,
+              "partialChars": 198,
+              "error": null
+            },
+            {
+              "ms": 1773,
+              "maxTokens": 512,
+              "outputChars": 17,
+              "partialChars": 17,
+              "error": null
+            },
+            {
+              "ms": 2703,
+              "maxTokens": 512,
+              "outputChars": 187,
+              "partialChars": 187,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 1050,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 17322,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2708,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 227,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3645,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 34,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 1770,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 22,
+              "error": null
+            },
+            {
+              "ms": 2995,
+              "maxTokens": 512,
+              "outputChars": 124,
+              "partialChars": 124,
+              "error": null
+            },
+            {
+              "ms": 749,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 22,
+              "error": null
+            },
+            {
+              "ms": 1963,
+              "maxTokens": 512,
+              "outputChars": 124,
+              "partialChars": 124,
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "final query release plus pair audit",
+      "localTraceDirectory": "nativemind-rag-check-VfWJZz",
+      "createdAt": "2026-11-11T03:59:18.801Z",
+      "interrupted": false,
+      "accepted": false,
+      "documents": [
+        {
+          "index": 0,
+          "title": "爱的艺术",
+          "chars": 91512,
+          "importMs": 162,
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "indexMs": 5466,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "index": 1,
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "chars": 136371,
+          "pages": 36,
+          "importMs": 1696,
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "indexMs": 5590,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 405,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 14872,
+          "ok": true,
+          "judged": true,
+          "citations": 1,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            true
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2696,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3636,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 1389,
+              "maxTokens": 512,
+              "outputChars": 60,
+              "partialChars": 60,
+              "error": null
+            },
+            {
+              "ms": 3173,
+              "maxTokens": 512,
+              "outputChars": 207,
+              "partialChars": 207,
+              "error": null
+            },
+            {
+              "ms": 654,
+              "maxTokens": 64,
+              "outputChars": 20,
+              "partialChars": 20,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 1052,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 17572,
+          "ok": true,
+          "judged": false,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": false,
+          "modelCalls": [
+            {
+              "ms": 2705,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 99,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3645,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 38,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 2987,
+              "maxTokens": 512,
+              "outputChars": 73,
+              "partialChars": 73,
+              "error": null
+            },
+            {
+              "ms": 5776,
+              "maxTokens": 512,
+              "outputChars": 368,
+              "partialChars": 368,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 1048,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "qaMs": 30112,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2707,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 114,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3647,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 4193,
+              "maxTokens": 512,
+              "outputChars": 87,
+              "partialChars": 87,
+              "error": null
+            },
+            {
+              "ms": 7470,
+              "maxTokens": 512,
+              "outputChars": 510,
+              "partialChars": 510,
+              "error": null
+            },
+            {
+              "ms": 3274,
+              "maxTokens": 512,
+              "outputChars": 98,
+              "partialChars": 98,
+              "error": null
+            },
+            {
+              "ms": 5702,
+              "maxTokens": 512,
+              "outputChars": 455,
+              "partialChars": 455,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "completed": true,
+          "expectedAbsent": false,
+          "searchMs": 1049,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "qaMs": 17292,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [
+            false
+          ],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2709,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 121,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 2979,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 3078,
+              "maxTokens": 512,
+              "outputChars": 419,
+              "partialChars": 419,
+              "error": null
+            },
+            {
+              "ms": 4942,
+              "maxTokens": 512,
+              "outputChars": 369,
+              "partialChars": 369,
+              "error": null
+            },
+            {
+              "ms": 747,
+              "maxTokens": 64,
+              "outputChars": 31,
+              "partialChars": 31,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 1057,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 25369,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2714,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 58,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3651,
+              "maxTokens": 128,
+              "outputChars": 0,
+              "partialChars": 0,
+              "error": "Error: 重排超时"
+            },
+            {
+              "ms": 7472,
+              "maxTokens": 512,
+              "outputChars": 5,
+              "partialChars": 5,
+              "error": null
+            },
+            {
+              "ms": 3925,
+              "maxTokens": 512,
+              "outputChars": 198,
+              "partialChars": 198,
+              "error": null
+            },
+            {
+              "ms": 1777,
+              "maxTokens": 512,
+              "outputChars": 17,
+              "partialChars": 17,
+              "error": null
+            },
+            {
+              "ms": 2616,
+              "maxTokens": 512,
+              "outputChars": 187,
+              "partialChars": 187,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "completed": true,
+          "expectedAbsent": true,
+          "searchMs": 1048,
+          "recall3": [],
+          "recall8": [],
+          "qaMs": 15537,
+          "ok": true,
+          "judged": true,
+          "citations": 0,
+          "citationLocationsValid": true,
+          "fixedEvidenceInCitations": [],
+          "abstained": true,
+          "modelCalls": [
+            {
+              "ms": 2715,
+              "maxTokens": 1024,
+              "outputChars": 0,
+              "partialChars": 163,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3179,
+              "maxTokens": 128,
+              "outputChars": 61,
+              "partialChars": 61,
+              "error": null
+            },
+            {
+              "ms": 1492,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 22,
+              "error": null
+            },
+            {
+              "ms": 2609,
+              "maxTokens": 512,
+              "outputChars": 125,
+              "partialChars": 125,
+              "error": null
+            },
+            {
+              "ms": 655,
+              "maxTokens": 512,
+              "outputChars": 22,
+              "partialChars": 22,
+              "error": null
+            },
+            {
+              "ms": 1680,
+              "maxTokens": 512,
+              "outputChars": 125,
+              "partialChars": 125,
+              "error": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sourceSha256": {
+    "src/ai/rag/self-rag.ts": "3725bf3a6a4208858c927cba91391bcdc264ee7a09901ba6e5f52ebc6a72caf3",
+    "src/ai/rag/qa-evidence-review.ts": "b37a0263a28173ce7bd8f42321626b931e387b28ff47d320db8b3579b3e93c50",
+    "src/ai/schemas/qa-critic.v2.json": "8a460be744a684c276dc9b91ea593af3c5dfcd18adadcedfede79fe6f9e04619",
+    "src/ai/schemas/qa-evidence-check.v1.json": "d676daf9133f2fd54db25efd898889c4ad02ac64c10e0218687e7405ef2a30e0",
+    "src-tauri/src/model_client/ollama.rs": "b709d16af32c8cec375c005ecedfd69beaf1a290aaf0c7dff5e05c94021e0621",
+    "src/infrastructure/anna/file-jobs.ts": "d6f104c34c8a8da0420101ac776c485733add800d7d0df452a568f5229a83e2c"
+  }
+}

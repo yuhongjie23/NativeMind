@@ -13,22 +13,30 @@ import type { Note } from '@shared-types/domain';
 import { isAnna, pickAnnaDocument } from '@infrastructure/anna';
 import { useT } from '../../../i18n';
 import { Modal } from '../../../components/common/Modal';
-import { ErrorBoundary } from '../../../components/common/ErrorBoundary';
+import { RetryableView } from '../../../components/common/RetryableView';
 import { ResumableNoteViewer } from '../../../components/features/ResumableNoteViewer';
+import { NoteOrganizationTools } from '../../../components/features/NoteOrganizationTools';
+import { TopicComposer } from '../../../components/features/TopicComposer';
+import { TopicPageContents } from '../../../components/features/TopicPageContents';
+import { NoteReferences } from '../../../components/features/NoteReferences';
+import { RenameNote } from '../../../components/features/RenameNote';
 import { useNoteStore } from '../../../stores/note-store';
 import { useKnowledgeLinkStore, RELATION_LABELS } from '../../../stores/knowledge-link-store';
-import { KnowledgeGraphView } from '../components/KnowledgeGraphView';
 import { NoteIndexStatus } from '../components/NoteIndexStatus';
 import { useToastStore } from '../../../stores/toast-store';
 import { useSettingsStore } from '../../../stores/settings-store';
+import { useKnowledgeOrganization } from '../../../hooks/use-knowledge-organization';
 import { listReadableDocs, openExternal, type ReadableDoc } from '@infrastructure/paths/paths-api';
 import { describeError } from '../../../stores/runtime';
 import { usePanelDirty } from '../panel-dirty';
 
-export function KnowledgePanel({ active = true }: { active?: boolean }) {
+const loadKnowledgeGraph = () => import('../components/KnowledgeGraphView').then(module => ({ default: module.KnowledgeGraphView }));
+
+export function KnowledgePanel({ active = true, onConfigureOrganization }: { active?: boolean; onConfigureOrganization: () => void }) {
   const t = useT();
   const fileTransfer = useAnnaFileTransfer();
   const language = useSettingsStore((state) => state.language);
+  const organizationBlocked = useKnowledgeOrganization();
   const notes = useNoteStore((state) => state.notes);
   const hits = useNoteStore((state) => state.hits);
   const query = useNoteStore((state) => state.query);
@@ -129,6 +137,12 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
     void useKnowledgeLinkStore.getState().relatedNotes(noteId).then(setRelated);
   };
 
+  const openOrganizedNote = (note: Note, start?: number, quote?: string) => {
+    setViewingNote(note); setViewingNoteStart(start); setViewingNoteAnchor(quote);
+    setRelated([]);
+    void useKnowledgeLinkStore.getState().relatedNotes(note.id).then(setRelated);
+  };
+
   // 手动触发 AI 关联建议（导入时没建、或当时模型不可用的笔记，补一次机会）
   const relinkNote = async (noteId: string) => {
     const result = await useKnowledgeLinkStore.getState().suggestForNote(noteId);
@@ -155,10 +169,10 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
     const set = new Set<string>();
     for (const note of notes) {
       const t = note.title.toLowerCase();
-      if (!q || t.includes(q)) set.add(note.title);
+      if (!q || (t.includes(q) && t.trim() !== q)) set.add(note.title);
     }
     for (const item of history) {
-      if (!q || item.toLowerCase().includes(q)) set.add(item);
+      if (!q || (item.toLowerCase().includes(q) && item.trim().toLowerCase() !== q)) set.add(item);
     }
     return [...set].slice(0, 5);
   }, [query, notes, history]);
@@ -358,12 +372,12 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
       </div>}
 
       {viewMode === 'graph' ? (
-        <ErrorBoundary>
-          <KnowledgeGraphView />
-        </ErrorBoundary>
+        <RetryableView load={loadKnowledgeGraph} viewProps={{}} />
       ) : null}
 
       {viewMode === 'notes' ? (
+        <>
+        <TopicComposer notes={notes} onOpen={openOrganizedNote} onConfigure={onConfigureOrganization} onImport={() => setViewMode('import')} />
         <div className="cozy-notes-split">
           {/* 左栏：时间线（按月 → 按日分组，标题链接），点击在右栏预览 */}
           <div className="cozy-notes-split__list">
@@ -424,19 +438,26 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
                   </button>
                 </div>
                 <NoteIndexStatus key={`index-${selectedNote.id}`} note={selectedNote} />
-                <ResumableNoteViewer
+                <RenameNote key={`rename-${selectedNote.id}`} note={selectedNote} />
+                <NoteReferences key={`refs-${selectedNote.id}`} noteId={selectedNote.id} onOpen={openOrganizedNote} />
+                {selectedNote.topicPage
+                  ? <TopicPageContents key={`topic-${selectedNote.id}`} topic={selectedNote.topicPage} onOpen={openOrganizedNote} />
+                  : <NoteOrganizationTools key={`organize-${selectedNote.id}`} note={selectedNote} onOpen={openOrganizedNote} />}
+                {!selectedNote.topicPage && <ResumableNoteViewer
+                  onOpenNote={openOrganizedNote}
                   key={selectedNote.id}
                   noteId={selectedNote.id}
                   active={active && !viewingNote}
                   content={selectedNote.content}
                   pageRanges={selectedNote.pageRanges}
-                />
+                />}
               </>
             ) : (
               <p className="cozy-today-empty">{t('从左侧选择一篇笔记查看内容。')}</p>
             )}
           </div>
         </div>
+        </>
       ) : viewMode === 'import' ? (
         <div className="cozy-knowledge-import">
           <h3 className="panel-section-title">{t('快速导入')}</h3>
@@ -496,6 +517,7 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
           </div>
           <p className="cozy-knowledge-hint">
             {t('支持粘贴文本，或桌面端选择 PDF / Markdown / TXT / EPUB / MOBI / AZW3 文件；导入后会在后台切块并建索引。')}
+            {' '}{t('用 [[笔记标题]] 或 [[笔记标题|显示文字]] 链接已有笔记；标题须唯一且大小写一致。')}
           </p>
 
           <AnnaTransferStatus transfer={fileTransfer} />
@@ -534,7 +556,7 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
             {importDocError ? <p className="cozy-today-error">{importDocError}</p> : null}
           </div>
         </div>
-      ) : (
+      ) : viewMode === 'search' ? (
       <>
       <div className="cozy-search">
         <Search size={18} strokeWidth={2} aria-hidden={true} className="cozy-search__icon" />
@@ -601,7 +623,8 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
       ) : null}
 
       {history.length > 0 ? (
-        <div className="cozy-chip-row" aria-label="最近搜索">
+        <div className="cozy-chip-row" aria-label={t('最近搜索')}>
+          <span className="cozy-suggest__label">{t('最近搜索')}</span>
           {history.map((chip) => (
             <button
               key={chip}
@@ -918,7 +941,7 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
       ) : null}
 
       </>
-      )}
+      ) : null}
 
       {/* 本地检索命中：点开查看完整内容 */}
       <Modal
@@ -929,7 +952,14 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
       >
         {viewingNote ? (
           <>
-            <ResumableNoteViewer
+            <NoteReferences key={`refs-view-${viewingNote.id}`} noteId={viewingNote.id} onOpen={openOrganizedNote} />
+            <RenameNote key={`rename-view-${viewingNote.id}`} note={viewingNote}
+              onSaved={saved => setViewingNote(current => current?.id === saved.id ? saved : current)} />
+            {viewingNote.topicPage
+              ? <TopicPageContents key={`topic-view-${viewingNote.id}`} topic={viewingNote.topicPage} onOpen={openOrganizedNote} />
+              : <NoteOrganizationTools key={`organize-view-${viewingNote.id}`} note={viewingNote} onOpen={openOrganizedNote} />}
+            {!viewingNote.topicPage && <ResumableNoteViewer
+              onOpenNote={openOrganizedNote}
               key={viewingNote.id}
               noteId={viewingNote.id}
               active={active}
@@ -937,7 +967,7 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
               pageRanges={viewingNote.pageRanges}
               initialCharStart={viewingNoteStart}
               initialAnchor={viewingNoteAnchor}
-            />
+            />}
             {/* 标签：可编辑（增删后直接保存；标签是检索的重要依据） */}
             <div className="cozy-tag-editor">
               <h4 className="panel-section-title">{t('标签')}</h4>
@@ -991,14 +1021,15 @@ export function KnowledgePanel({ active = true }: { active?: boolean }) {
                 <button
                   type="button"
                   className="cozy-btn-secondary"
-                  disabled={linking}
-                  title={t('用本地模型检索相关旧笔记并建议建链')}
+                  disabled={linking || Boolean(organizationBlocked)}
+                  title={t(organizationBlocked ?? '仅使用 DeepSeek 分析相关笔记，确认后建立关联')}
                   onClick={() => void relinkNote(viewingNote.id)}
                 >
                   {linking ? t('查找中…') : t('查找关联笔记')}
                 </button>
                 {canCancelLinks && <button type="button" className="cozy-btn-secondary" onClick={cancelLinks}>{t('停止查找关联')}</button>}
               </div>
+              {organizationBlocked && <p className="cozy-knowledge-hint">{t(organizationBlocked)}</p>}
               {related.length > 0 ? (
                 <ul className="cozy-related-notes__list">
                   {related.map((item) => (

@@ -10,6 +10,6 @@ export function registerNoteIndexSubscriber(
 ): () => void {
   // Imports already committed their first job. Edits still request a reindex here.
   return eventBus.subscribe('NoteUpdated', async (event) => {
-    if (event.contentChanged) await jobQueue.enqueue({ type: 'reindex_note', entityId: event.noteId });
+    if (event.contentChanged && !event.indexQueued) await jobQueue.enqueue({ type: 'reindex_note', entityId: event.noteId });
   });
 }

@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order"],
+  "properties": {
+    "order": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 20,
+      "items": { "type": "integer", "minimum": 0, "maximum": 19 }
+    }
+  }
+}

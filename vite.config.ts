@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { optimizeAppMedia } from './scripts/build/optimize-media';
@@ -17,6 +18,7 @@ const alias = {
 export const mediaOptimizer = optimizeAppMedia(fileURLToPath(new URL('.', import.meta.url)));
 
 export default defineConfig({
+  define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify((JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version) },
   plugins: [react(), mediaOptimizer],
   clearScreen: false,
   resolve: { alias },

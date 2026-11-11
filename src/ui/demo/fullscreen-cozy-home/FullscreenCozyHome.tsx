@@ -1001,7 +1001,7 @@ export function FullscreenCozyHome() {
       />
 
       {/* 常驻挂载：面板关闭后本地状态保留 */}
-      <DemoSheet panel={activePanel} onClose={requestClose} sceneControls={sceneControls} />
+      <DemoSheet panel={activePanel} onClose={requestClose} sceneControls={sceneControls} onOpenPanel={openPanel} />
 
       {confirmPanel ? (
         <Modal

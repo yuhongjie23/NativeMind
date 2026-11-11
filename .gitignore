@@ -9,7 +9,9 @@ anna/packages/
 
 # Build outputs
 dist/
+/output/
 src-tauri/target/
+src-tauri/target-release/
 
 # Tauri / Rust
 src-tauri/target/

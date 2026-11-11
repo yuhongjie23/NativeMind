@@ -10,6 +10,10 @@ import type { FileImportPort, Note, NoteRepository, NoteImportRepository } from 
 describe('ImportNoteUseCase', () => {
   const makeDeps = (saved: Note[]) => {
     const noteRepo: NoteRepository & NoteImportRepository = {
+      listGraphReferences: async () => [],
+      listGraphSummaries: async () => [],
+      findReferencingNotes: async () => [],
+      findByTitle: async () => [],
       findByContentHash: async () => null,
       findByTags: async () => [],
       findByIds: async () => [],

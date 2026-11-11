@@ -1,0 +1,10 @@
+{
+  "type": "object", "additionalProperties": false,
+  "required": ["status", "title", "reason", "quote"],
+  "properties": {
+    "status": { "type": "string", "enum": ["suggested", "insufficient"] },
+    "title": { "type": "string", "maxLength": 60 },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 400 },
+    "quote": { "type": "string", "maxLength": 500 }
+  }
+}

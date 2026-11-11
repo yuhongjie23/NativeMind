@@ -2,25 +2,29 @@ import { LearningPanel } from '../panels/LearningPanel';
 /**
  * 底部副面板通用容器（V4 §37）。
  *
- * 常驻挂载：六个面板用 hidden 切换显示，关闭后本地状态保留（草稿、备注、
+ * 知识与复盘首次打开后常驻，其余面板常驻；用 hidden 切换，保留本地状态（草稿、备注、
  * 拆解预览等不丢失）。打开时 role="dialog" + aria-modal，焦点进入面板、
  * 关闭回到 Dock；Tab 在面板内循环。关闭前若面板有未完成内容，由根组件
  * 弹确认（requestClose）。
  */
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { RetryableView } from '../../../components/common/RetryableView';
+import { RetainedPanel } from '../../../components/common/RetainedPanel';
 import { useT } from '../../../i18n';
+import { useSettingsStore } from '../../../stores/settings-store';
 import type { PanelKey, SceneId, TimeMode, TimePhase, WeatherType } from '../types';
 import type { AmbientMode } from '../types';
 import type { DemoSettings } from '../types';
 import { DailyPoem } from './DailyPoem';
 import { CompanionPanel } from '../panels/CompanionPanel';
 import { FocusPanel } from '../panels/FocusPanel';
-import { KnowledgePanel } from '../panels/KnowledgePanel';
 import { LetterPanel } from '../panels/LetterPanel';
-import { ReviewPanel } from '../panels/ReviewPanel';
 import { SettingsPanel } from '../panels/SettingsPanel';
 import { TodayPanel } from '../panels/TodayPanel';
+
+const loadKnowledgePanel = () => import('../panels/KnowledgePanel').then(module => ({ default: module.KnowledgePanel }));
+const loadReviewPanel = () => import('../panels/ReviewPanel').then(module => ({ default: module.ReviewPanel }));
 
 const panelMeta: Record<PanelKey, { title: string; subtitle: string }> = {
   learning: { title: '学习计划', subtitle: '按你的时间提醒，记录自己的理解变化。' },
@@ -53,12 +57,13 @@ export interface SceneControls {
 interface DemoSheetProps {
   panel: PanelKey | null;
   onClose: () => void;
+  onOpenPanel: (panel: PanelKey) => void;
   sceneControls: SceneControls;
 }
 
 const FOCUSABLE = 'button, [href], input, textarea, select, [role="switch"], [tabindex]:not([tabindex="-1"])';
 
-export function DemoSheet({ panel, onClose, sceneControls }: DemoSheetProps) {
+export function DemoSheet({ panel, onClose, sceneControls, onOpenPanel }: DemoSheetProps) {
   const t = useT();
   const sheetRef = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
@@ -137,12 +142,20 @@ export function DemoSheet({ panel, onClose, sceneControls }: DemoSheetProps) {
           <div hidden={panel !== 'focus'}>
             <FocusPanel />
           </div>
-          <div hidden={panel !== 'knowledge'}>
-            <KnowledgePanel active={panel === 'knowledge'} />
-          </div>
-          <div hidden={panel !== 'review'}>
-            <ReviewPanel />
-          </div>
+          <RetainedPanel active={panel === 'knowledge'}>
+            <RetryableView load={loadKnowledgePanel} viewProps={{ active: panel === 'knowledge', onConfigureOrganization: () => {
+              onOpenPanel('settings');
+              window.requestAnimationFrame(() => {
+                const target = document.getElementById(useSettingsStore.getState().models.apiKey?.trim()
+                  ? 'knowledge-organization-settings' : 'deepseek-connection-settings');
+                target?.focus({ preventScroll: true });
+                target?.scrollIntoView({ block: 'start' });
+              });
+            } }} />
+          </RetainedPanel>
+          <RetainedPanel active={panel === 'review'}>
+            <RetryableView load={loadReviewPanel} viewProps={{}} />
+          </RetainedPanel>
           <div hidden={panel !== 'companion'}>
             <CompanionPanel />
           </div>

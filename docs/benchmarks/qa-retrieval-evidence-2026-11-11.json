@@ -1,0 +1,5281 @@
+{
+  "createdAt": "2026-11-11T04:31:55.530Z",
+  "models": [
+    "qwen3:14b",
+    "nomic-embed-text"
+  ],
+  "sourceHashes": {
+    "src/ai/rag/query-keywords.ts": "0c834c3833e06bbc385b99be0a88999efcaffe3719f6bc3fece7a7c0dcd532ab",
+    "src/ai/rag/retrieval-strategy.ts": "decb04aa9de0245faeae80ea1fe39648c08165e3e131771ed99b552c08e1d728",
+    "src/infrastructure/rag/note-candidate-provider.ts": "640bbdc70a6ef972d668e7cd44b322483b115c9855e46301837aa7c715e693ef",
+    "src/ai/rag/self-rag.ts": "fb4f59e3c0d8fd8bb707a36c783c919e6cf3a85bdaf0571ad16bfe779af944b7",
+    "src/ai/rag/qa-evidence-review.ts": "e2aa56927153e233a4ab37c2d8438a7c2aea67ff70a640a1a39e2b214779f352",
+    "src/ai/schemas/qa-critic.v2.json": "677d1930cae4a670c821d3a6498fdb500b5ab4543d79c77624385e2297afdc67"
+  },
+  "validation": {
+    "testsPassed": 1104,
+    "testsSkipped": 4,
+    "typecheck": true,
+    "lint": true,
+    "frontendBuild": true,
+    "installedBinaryUpdated": false,
+    "published": false
+  },
+  "limitations": "Opt-in production import/search/QA against isolated local temporary databases. Full original text, quotes and model prompts omitted from this report. Fixed-anchor recall is not semantic accuracy. Manual review is stricter than presence of citations; 14B pair checking still accepts incomplete causal evidence. Different runtime load and rerank timeouts prevent stable speed claims. No cloud calls.",
+  "runs": [
+    {
+      "label": "previous-baseline",
+      "rawReportDirectory": "nativemind-rag-check-VfWJZz",
+      "createdAt": "2026-11-11T03:59:18.801Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chars": 91512,
+          "indexMs": 5466,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chars": 136371,
+          "pages": 36,
+          "indexMs": 5590,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "language": "en",
+          "searchMs": 405,
+          "qaMs": 14872,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citationCount": 1,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "4058d469-1054-4d0f-b248-315fd23cfa3f",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 11.281699999999546
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7363000000004831
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3010.7592000000004
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1490.6025000000009
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.720499999999447
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.788199999999051
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.686600000000908
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4012.432100000002
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1761.2825999999986
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4572.149899999997
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "language": "zh",
+          "searchMs": 1052,
+          "qaMs": 17572,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": false,
+          "regenerated": false,
+          "answer": "证据核验未完成，暂不提供确定答案。请重试或先查看原文。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 12.641099999993457
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.3123999999952503
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3005.1052999999956
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1028.1949999999997
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.5173999999969965
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.9386000000013155
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.013999999995576
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4005.6621000000014
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3359.4249000000054
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6145.263299999999
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "language": "zh",
+          "searchMs": 1048,
+          "qaMs": 30112,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 11.21979999999894
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.8559000000022934
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3014.448400000001
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 933.2099000000017
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.54649999999674
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 5.153099999995902
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4009.438099999992
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 4565.289000000004
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7844.310199999993
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3646.811499999996
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6076.041499999992
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "language": "en",
+          "searchMs": 1049,
+          "qaMs": 17292,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": false,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 20.99770000000717
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.2986999999993714
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3002.241599999994
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1019.9220999999961
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.8782999999966705
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.779500000004191
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3343.972200000004
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3453.6572000000015
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6440.127000000008
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "language": "zh",
+          "searchMs": 1057,
+          "qaMs": 25369,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 16.594399999987218
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.14080000000831205
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3007.06240000001
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1028.6152000000002
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.093800000002375
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.9866000000038184
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.0671000000002095
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4011.3784000000014
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 7848.045599999998
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4301.510500000004
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2150.3034999999945
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2992.8473999999987
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "language": "en",
+          "searchMs": 1048,
+          "qaMs": 15537,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 10.826600000000326
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7603999999992084
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3013.419900000008
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1023.9396000000124
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.904000000009546
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.564199999993434
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.8158999999868684
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3540.892999999982
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1866.4858999999997
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2984.526900000026
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1030.588300000003
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2053.174699999974
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "segmentation-and-bounded-repair",
+      "rawReportDirectory": "nativemind-rag-check-U8kDnZ",
+      "createdAt": "2026-11-11T04:10:32.004Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chars": 91512,
+          "indexMs": 5736,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chars": 136371,
+          "pages": 36,
+          "indexMs": 5203,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "language": "en",
+          "searchMs": 495,
+          "qaMs": 15253,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citationCount": 1,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "b756d237-e198-4226-a42a-a282f51b4786",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 10.235400000001391
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7940999999991618
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3005.6375000000007
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1486.9099000000024
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 5.251499999998487
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.316300000002229
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.2246999999988475
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4006.774999999998
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1868.015800000001
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4855.616500000004
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "language": "zh",
+          "searchMs": 1057,
+          "qaMs": 29853,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 12.949700000004668
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.7134000000005472
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3003.5004000000044
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.6943000000028
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.537100000001374
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.8329999999987194
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.8729999999995925
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4017.0350999999937
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 4017.0521999999983
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7386.325999999994
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3182.466100000005
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7192.475799999993
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "language": "zh",
+          "searchMs": 1044,
+          "qaMs": 30952,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 11.16479999999865
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.5311999999976251
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3016.0841999999975
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1400.2538000000059
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.269699999989825
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.190600000001723
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4002.0494000000035
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3548.5734999999986
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8499.2399
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3450.255799999999
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7013.992900000012
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "language": "en",
+          "searchMs": 1051,
+          "qaMs": 26469,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 21.52509999999893
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.4156999999977415
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3005.2183000000077
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1021.5263000000123
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.7171000000089407
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.4940000000060536
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3916.0818
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3265.3833000000013
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6270.063699999999
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3357.0141000000003
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5601.292499999996
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "language": "zh",
+          "searchMs": 1056,
+          "qaMs": 19831,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 15.822799999994459
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.223599999997532
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3004.3747999999905
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1023.7621999999974
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.248599999991711
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.874500000005355
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.8022000000055414
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4008.0038999999815
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2055.0083999999915
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4585.214800000016
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2137.160900000017
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2988.686699999991
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "language": "en",
+          "searchMs": 1054,
+          "qaMs": 16282,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 10.596500000014203
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7809999999881256
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3002.6505999999936
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1494.6405999999843
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.117300000012619
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.8655000000144355
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.7946999999985565
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4012.073399999994
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1770.4626999999746
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2897.0529000000097
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1029.4623000000138
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2051.317700000014
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "hybrid-before-full-query-fix",
+      "rawReportDirectory": "nativemind-rag-check-UaYKAg",
+      "createdAt": "2026-11-11T04:14:19.679Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chars": 91512,
+          "indexMs": 5534,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chars": 136371,
+          "pages": 36,
+          "indexMs": 5241,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "language": "en",
+          "searchMs": 398,
+          "qaMs": 14797,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citationCount": 1,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "35e6d424-9db2-43f5-80df-7ca3d07ac8c3",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 14.272100000001956
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7716000000000349
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3001.288700000001
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1490.6278999999995
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.7171000000016647
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.673399999999674
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.4882999999972526
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4015.3711999999978
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1684.9148999999961
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4577.1662
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "language": "zh",
+          "searchMs": 1101,
+          "qaMs": 25317,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 69.05050000000483
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 2.8747000000003027
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3008.250399999997
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.0123999999996
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.256700000005367
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.183199999999488
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.9562999999980093
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4005.609900000003
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3733.577600000004
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6074.816100000004
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2996.443100000004
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4385.799200000001
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "language": "zh",
+          "searchMs": 1051,
+          "qaMs": 20883,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": false,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 23.515499999994063
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.9496999999973923
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3005.2747999999992
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1026.5629999999946
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.201400000005378
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.3193000000028405
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4015.020900000003
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 4485.172299999991
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8316.574500000002
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "language": "en",
+          "searchMs": 1082,
+          "qaMs": 29947,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 40.76470000001427
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.2626000000018394
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3002.4038
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1026.5025999999925
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.6560999999928754
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.9407999999966705
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4012.8255999999965
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3737.617100000003
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7850.709499999997
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3178.129700000005
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7087.848800000007
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "language": "zh",
+          "searchMs": 1056,
+          "qaMs": 20602,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 22.652600000001257
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.8438000000023749
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3006.409700000004
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.5532999999996
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.186499999996158
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.982399999993504
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 3.7393000000010943
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4010.984899999996
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2432.256899999993
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4673.437000000005
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2334.8326000000234
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 3080.947899999999
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "language": "en",
+          "searchMs": 1043,
+          "qaMs": 14048,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": false,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 23.53809999997611
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.9966000000131316
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3009.494000000006
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1304.8500999999815
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.012400000006892
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.213300000003073
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 4.30449999999837
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4001.2495000000054
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1774.3428999999887
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 3919.0151000000187
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "full-query-and-recall-pool",
+      "rawReportDirectory": "nativemind-rag-check-UKhrPY",
+      "createdAt": "2026-11-11T04:17:18.057Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chars": 91512,
+          "indexMs": 5422,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chars": 136371,
+          "pages": 36,
+          "indexMs": 5378,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "language": "en",
+          "searchMs": 506,
+          "qaMs": 14890,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citationCount": 1,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "bf0c8462-af93-4628-b4bb-89e780e947c7",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 13.205500000000029
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.4063000000023749
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3006.7731999999996
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1492.6856999999982
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.1886000000013155
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 5.943100000000413
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.458099999999831
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4004.294900000001
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1777.893799999998
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4574.958200000001
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "language": "zh",
+          "searchMs": 1110,
+          "qaMs": 28226,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 62.18029999999999
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.2067999999999302
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3013.1287999999986
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.7292000000016
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.940300000002026
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.515700000003562
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.764100000000326
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4000.692600000002
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3459.4805999999953
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6551.1129
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2804.1702000000005
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7285.248800000001
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "language": "zh",
+          "searchMs": 1057,
+          "qaMs": 23499,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": false,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 24.280299999998533
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7393999999912921
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3004.5848000000115
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 935.4642000000022
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.320699999996577
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.132299999997485
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4015.534700000004
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 6621.069199999998
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8880.421200000012
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "language": "en",
+          "searchMs": 1084,
+          "qaMs": 39163,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 45.287100000001374
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7819000000017695
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3005.4590000000026
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1022.7116999999998
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.588900000002468
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.148300000000745
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4007.4105999999883
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 9524.229600000006
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 12593.835500000001
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2800.0390000000043
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6149.406500000012
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "language": "zh",
+          "searchMs": 1071,
+          "qaMs": 22814,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 23.998700000025565
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7700999999942724
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3009.305399999983
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1021.9668999999994
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.153499999985797
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.763000000006286
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.648100000020349
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4003.3812000000034
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2229.950899999996
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4195.652000000002
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2426.910899999988
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5877.864100000006
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "language": "en",
+          "searchMs": 1339,
+          "qaMs": 14719,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 27.14299999998184
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.5077999999921303
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3015.8793000000005
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1029.163499999995
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.383299999986775
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.189800000021933
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.728100000007544
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2690.5348999999987
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1776.1457999999984
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 3078.0766000000003
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1026.8319999999949
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2054.496600000013
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "evidence-ranges-and-source-enum",
+      "rawReportDirectory": "nativemind-rag-check-93HCP6",
+      "createdAt": "2026-11-11T04:22:13.930Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chars": 91512,
+          "indexMs": 5491,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chars": 136371,
+          "pages": 36,
+          "indexMs": 5415,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "language": "en",
+          "searchMs": 503,
+          "qaMs": 14665,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citationCount": 1,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "87b389f8-a242-443c-b4cb-7c7b07179c08",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 14.670600000001286
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.4258000000008906
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3002.4467000000004
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1492.4753000000019
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.112199999999575
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.194499999997788
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.518299999999726
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4001.5801999999967
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1673.7352000000028
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4458.872300000003
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "language": "zh",
+          "searchMs": 1106,
+          "qaMs": 16300,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "根据《爱的艺术》中的观点，真正的爱包含以下基本要素：关心、责任心、尊重和了解。 [1]\n\n根据《爱的艺术》中的观点，真正的爱包含以下基本要素：关心、责任心、尊重和了解。 [2]",
+          "citationCount": 2,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "1c0f6b67-7c4d-4e24-80d2-b59affea8260",
+              "charStart": 79015,
+              "exact": true,
+              "readerOffset": 79015
+            },
+            {
+              "noteId": "1c0f6b67-7c4d-4e24-80d2-b59affea8260",
+              "charStart": 81670,
+              "exact": true,
+              "readerOffset": 81670
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 64.01520000000164
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.3827000000019325
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3008.199099999998
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1023.5841
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.774600000004284
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.7083999999958905
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.279500000004191
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3346.115399999995
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2509.238099999995
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6321.567799999997
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "language": "zh",
+          "searchMs": 1058,
+          "qaMs": 18314,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": false,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 22.830899999993562
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.6857000000018161
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3001.312100000003
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 935.2275999999983
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.29790000000503
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.037799999998242
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3446.3326999999917
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3819.79280000001
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7070.659599999999
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "language": "en",
+          "searchMs": 1082,
+          "qaMs": 25621,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 44.34470000000147
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7700000000040745
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3005.8603999999905
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1025.0492000000086
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.310100000002421
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.140700000003562
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3263.814000000013
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3642.8369999999995
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6243.399799999999
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3073.237200000003
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5308.6682
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "language": "zh",
+          "searchMs": 1148,
+          "qaMs": 14206,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": false,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 22.730299999995623
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7713999999978114
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 2883.7523000000074
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 925.8637000000017
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 464.190300000002
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 10.095800000010058
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 9.864400000005844
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 10.034500000008848
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.805399999997462
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 10.440399999992223
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3256.021200000003
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2050.9101999999984
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4552.117999999988
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "language": "en",
+          "searchMs": 1052,
+          "qaMs": 15528,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 23.08859999998822
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.36819999999715947
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3001.520399999994
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.454899999997
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.547000000005937
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.1370999999926426
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.465400000000955
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3074.453899999993
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1859.4389000000083
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 3258.54280000001
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1119.7412999999942
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2142.6587
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "final-expanded-suite",
+      "rawReportDirectory": "nativemind-rag-check-gkTLeG",
+      "createdAt": "2026-11-11T04:26:44.726Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chars": 91512,
+          "indexMs": 5691,
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chars": 136371,
+          "pages": 36,
+          "indexMs": 5189,
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true,
+          "duplicateIdPreserved": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "language": "en",
+          "searchMs": 409,
+          "qaMs": 15167,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citationCount": 1,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 13.987100000002101
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.39870000000155414
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3012.654999999999
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1490.2882000000027
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.707900000001246
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.111499999999069
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.202999999997701
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4011.818199999998
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1773.251400000001
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4843.697500000002
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "language": "zh",
+          "searchMs": 1106,
+          "qaMs": 26328,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": true,
+          "answer": "真爱的基本要素包括“给”而不是“得”、关心、责任心、尊重和了解。 [1]",
+          "citationCount": 1,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "ed9cb8a2-f7bc-493d-9dde-8a1f4e5725d0",
+              "charStart": 78907,
+              "exact": true,
+              "readerOffset": 78907
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 69.30240000000049
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 2.510200000004261
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3008.5097000000023
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1020.4156999999977
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.045500000000175
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.978399999999965
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.915100000005623
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4011.8727
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3260.2458000000042
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5883.221799999999
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2526.7886999999973
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6520.5288
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "language": "zh",
+          "searchMs": 1057,
+          "qaMs": 24026,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": false,
+          "regenerated": false,
+          "answer": "证据核验未完成，暂不提供确定答案。请重试或先查看原文。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 23.393900000010035
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.694099999993341
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3009.196100000001
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 933.375
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.7682999999960884
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.621200000008685
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4007.2196000000113
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 5969.573799999998
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 10066.44339999999
+            }
+          ]
+        },
+        {
+          "id": "practice-patience",
+          "query": "学会爱为什么不能急于求成，需要练习哪些基本能力？",
+          "language": "zh",
+          "searchMs": 1072,
+          "qaMs": 31049,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 30.9432000000088
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.1552000000083353
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3011.2497999999905
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.2013000000006
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.526400000002468
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.808799999998882
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.773499999995693
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4000.8801000000094
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3654.713100000008
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8095.895099999994
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3645.4545999999973
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7560.455300000001
+            }
+          ]
+        },
+        {
+          "id": "cross-chapters",
+          "query": "结合爱的理论和爱的实践，解释爱的基本要素与训练纪律、集中和耐心的关系。",
+          "language": "zh",
+          "searchMs": 1382,
+          "qaMs": 31788,
+          "recall3": [
+            true,
+            true
+          ],
+          "recall8": [
+            true,
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false,
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 58.689200000007986
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.6578000000008615
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3013.476800000004
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1027.6989999999932
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 11.507800000006682
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 12.418399999995017
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 14.12840000000142
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3361.5200000000186
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3644.5944999999774
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8039.301199999987
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3371.531500000012
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 9230.058799999999
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "language": "en",
+          "searchMs": 1270,
+          "qaMs": 24308,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 43.741500000003725
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.9216000000014901
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3002.171799999982
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1023.875400000019
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.70250000001397
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.340900000010151
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2609.329299999983
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3179.8763000000035
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6068.09149999998
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3070.916499999992
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5293.091400000005
+            }
+          ]
+        },
+        {
+          "id": "mamba-mechanism",
+          "query": "Why do input-dependent state space parameters prevent efficient convolutions, and how does Mamba solve this?",
+          "language": "en",
+          "searchMs": 1105,
+          "qaMs": 15675,
+          "recall3": [
+            true
+          ],
+          "recall8": [
+            true
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": false,
+          "answer": "Input-dependent state space parameters prevent efficient convolutions because they break the time-invariance required for convolutional computations, making it impossible to use the standard convolutional form. [1]\n\nMamba solves this by using a hardware-aware parallel algorithm in recurrent mode, which allows efficient computation despite the input-dependent dynamics. [2]\n\nThis approach enables Mamba to achieve fast inference and linear scaling in sequence length. [3]",
+          "citationCount": 3,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            true
+          ],
+          "locations": [
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 9156,
+              "exact": true,
+              "readerOffset": 9156,
+              "page": 3
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 1133,
+              "exact": true,
+              "readerOffset": 1133,
+              "page": 1
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 1411,
+              "exact": true,
+              "readerOffset": 1411,
+              "page": 1
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 49.86939999999595
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.0176999999966938
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3011.3428999999887
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1030.4745000000112
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.096400000009453
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.177200000005541
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.0292000000190455
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2514.5657000000065
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3078.655300000013
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5969.582999999984
+            }
+          ]
+        },
+        {
+          "id": "mamba-chinese",
+          "query": "Mamba如何通过选择性状态空间模型解决长序列推理的计算效率问题？",
+          "language": "en",
+          "searchMs": 1068,
+          "qaMs": 30561,
+          "recall3": [
+            false
+          ],
+          "recall8": [
+            false
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Mamba uses selective state spaces (SSMs) to achieve linear-time complexity for sequence modeling, improving computational efficiency for long sequences. [1]\n\nMamba's efficient SSM scan operation is faster than attention-based implementations like FlashAttention-2 for sequence lengths beyond 2K. [2]\n\nMamba achieves higher inference throughput than Transformers of similar size due to its recurrent structure and ability to use larger batch sizes. [3]",
+          "citationCount": 3,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [
+            false
+          ],
+          "locations": [
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 0,
+              "exact": true,
+              "readerOffset": 0,
+              "page": 1
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 55640,
+              "exact": true,
+              "readerOffset": 55640,
+              "page": 15
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 55857,
+              "exact": true,
+              "readerOffset": 55857,
+              "page": 15
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 56.82469999999739
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.7005000000062864
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3007.178199999995
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.2803999999887
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.7154000000155065
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.21129999999539
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2700.9650000000256
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 4472.507500000007
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8838.837200000009
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 4291.831600000005
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6151.09090000001
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "language": "zh",
+          "searchMs": 1078,
+          "qaMs": 28262,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 24.218699999997625
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7967000000062399
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3014.783599999995
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1585.7785999999905
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 9.223300000012387
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.406300000002375
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.4375
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4010.27429999999
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 5132.7451
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5970.890700000018
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2525.440800000011
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5969.627500000002
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "language": "en",
+          "searchMs": 1076,
+          "qaMs": 15098,
+          "recall3": [],
+          "recall8": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "judged": true,
+          "regenerated": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citationCount": 0,
+          "citationLocationsValid": true,
+          "evidenceInCitations": [],
+          "locations": [],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 24.90830000001006
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.359599999996135
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3013.4284000000334
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.7632999999914
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.008099999977276
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.350099999981467
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.2946000000229105
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2984.832999999984
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1773.888099999982
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 3178.413500000024
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1026.6399000000092
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2049.8104000000167
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "manualReview": {
+    "mamba-appendix-normalization": {
+      "accepted": true,
+      "reason": "Exact quote names RMSNorm instead of LayerNorm; original offset and PDF page resolve."
+    },
+    "love-elements": {
+      "accepted": true,
+      "reason": "Continuous original passage explicitly includes giving, care, responsibility, respect and understanding. Combined neighboring evidence now supports the complete claim."
+    },
+    "mother-unconditional": {
+      "accepted": false,
+      "reason": "Fixed anchor missed; reviewer selected unmappable sentence ranges. Final UI correctly distinguishes verification failure from absence of material."
+    },
+    "practice-patience": {
+      "accepted": false,
+      "reason": "Required passage missed; no supported answer."
+    },
+    "cross-chapters": {
+      "accepted": false,
+      "reason": "Both fixed passages retrieved but no answer passed evidence verification."
+    },
+    "mamba-speed": {
+      "accepted": false,
+      "reason": "Retrieval includes expected passage but answer/evidence pairing still rejected."
+    },
+    "mamba-mechanism": {
+      "accepted": false,
+      "reason": "Model approved 3 pairs; first quote only says prior SSM computation requires time-invariance, without directly establishing the complete convolution causal claim. Third quote reports performance but not its claimed cause. Treat as incomplete support, not a verified success."
+    },
+    "mamba-chinese": {
+      "accepted": false,
+      "reason": "Fixed mechanism passage missed. First quote is merely the paper title; final causal claim adds recurrent structure beyond the selected quote. Other performance evidence is valid but does not fully answer the mechanism question."
+    },
+    "absent-private": {
+      "accepted": true,
+      "reason": "Correctly abstains, no invented password or citation."
+    },
+    "absent-date": {
+      "accepted": true,
+      "reason": "Correctly abstains, no invented release date or citation."
+    }
+  },
+  "finalAcceptance": false
+}

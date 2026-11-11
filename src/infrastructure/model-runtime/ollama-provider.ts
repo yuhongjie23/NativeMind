@@ -216,11 +216,13 @@ export class OllamaProvider implements ModelRuntime, EmbeddingProvider {
    */
   async embed(texts: string[], signal?: AbortSignal, purpose: EmbeddingPurpose = 'document'): Promise<number[][]> {
     const vectors: number[][] = [];
-    for (const text of texts) {
+    for (const [index, text] of texts.entries()) {
       signal?.throwIfAborted();
       const data = await this.withDeadline(signal, activeSignal => this.post<{ embedding?: number[] }>('/api/embeddings', {
         model: this.embeddingModel,
         prompt: embeddingInput(this.embeddingModel, text, purpose),
+        // Leave GPU room for answer generation; bulk indexing stays warm.
+        ...(purpose === 'query' && index === texts.length - 1 ? { keep_alive: 0 } : {}),
       }, activeSignal));
       vectors.push(data.embedding ?? []);
     }

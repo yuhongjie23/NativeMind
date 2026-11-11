@@ -1,6 +1,6 @@
 {
   "productName": "NativeMind",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "identifier": "com.nativemind.app",
   "mainBinaryName": "nativemind",
   "build": {

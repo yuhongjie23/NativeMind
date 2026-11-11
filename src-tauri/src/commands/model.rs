@@ -132,12 +132,13 @@ pub async fn model_embed(
     request_id: Option<String>,
     model: String,
     texts: Vec<String>,
+    release_after: Option<bool>,
 ) -> CommandResult<Vec<Vec<f32>>> {
     requests
         .run(
             window.label(),
             request_id.as_deref(),
-            client.embed(&model, &texts),
+            client.embed(&model, &texts, release_after.unwrap_or(false)),
         )
         .await
 }

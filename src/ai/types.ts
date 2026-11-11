@@ -19,6 +19,10 @@ export type ModelTier = 'fast' | 'coach' | 'deep';
 
 /** 任务类型。新增任务在此追加，并同步 TASK_ROUTES。 */
 export type TaskType =
+  | 'note_standardization'
+  | 'note_title'
+  | 'note_organization'
+  | 'topic_organization'
   // 快速执行层
   | 'intent'
   | 'todo_structuring'
@@ -66,6 +70,11 @@ export type PromptId =
   | 'query-rewrite.v1';
 
 export type SchemaId =
+  | 'rerank-order.v1'
+  | 'standard-note.v1'
+  | 'note-title.v1'
+  | 'note-cards.v1'
+  | 'topic-page.v1'
   | 'review-check.v1'
   | 'review-grounded.v1'
   | 'companion-turn.v1'
@@ -77,6 +86,9 @@ export type SchemaId =
   | 'knowledge-link.v1'
   | 'link-hyde.v1'
   | 'qa-critic.v1'
+  | 'qa-critic.v2'
+  | 'qa-evidence-check.v1'
+  | 'qa-evidence-check.v2'
   | 'letter-emotion.v1'
   | 'letter-verify.v1';
 

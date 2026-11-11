@@ -1,0 +1,23 @@
+.topic-composer { margin-block: 16px; border: 1px solid var(--hud-border-dark); border-radius: 14px; background: color-mix(in srgb, var(--wall) 85%, transparent); color: var(--text-dark); min-width: 0; }
+.topic-composer > summary { padding: 16px; cursor: pointer; overflow-wrap: anywhere; }
+.topic-composer > summary > span { display: block; margin-top: 6px; font-size: 13px; color: var(--text-muted-dark); }
+.topic-composer__body { padding: 0 16px 16px; }
+.topic-composer__body p { margin-block: 10px; line-height: 1.65; overflow-wrap: anywhere; }
+.topic-composer__hint, .topic-composer small { font-size: 13px; color: var(--text-muted-dark); line-height: 1.6; }
+.topic-composer__body h4 { margin: 18px 0 10px; }
+.topic-composer__example { margin-block: 14px; }
+.topic-composer__example summary { cursor: pointer; font-size: 14px; }
+.topic-composer__preview { display: grid; gap: 10px; padding: 14px; margin-top: 10px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); overflow-wrap: anywhere; }
+.topic-composer__privacy { margin-block: 14px; padding: 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 13px; }
+.topic-composer__privacy p { margin-bottom: 0; }
+.topic-composer__setup { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.topic-composer__search { box-sizing: border-box; width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--hud-border-dark); border-radius: 10px; background: var(--wall); color: var(--text-dark); }
+.topic-composer__notes { max-height: 250px; overflow-y: auto; margin-block: 10px; overscroll-behavior: contain; }
+.topic-composer__note { display: flex; gap: 10px; align-items: flex-start; padding: 10px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; }
+.topic-composer__note[data-selected='true'] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.topic-composer__note input { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; accent-color: var(--accent); }
+.topic-composer__note span { min-width: 0; overflow-wrap: anywhere; }
+.topic-composer__selection { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.topic-composer__selected { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 8px; }
+.topic-composer__selected button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.topic-composer__body > button + button { margin-left: 8px; }

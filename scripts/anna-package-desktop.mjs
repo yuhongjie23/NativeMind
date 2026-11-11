@@ -16,7 +16,7 @@ const run = (command, args, options = {}) => {
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const toolId = 'tool-forforever23-hongjie-yu-3qny9w3z';
 const version = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version;
-const target = join(root, 'src-tauri', 'target');
+const target = resolve(process.env.CARGO_TARGET_DIR || join(root, 'src-tauri', 'target'));
 // Reuse dependency cache; the final candidate is copied into a unique package directory.
 run(process.execPath, ['node_modules/@tauri-apps/cli/tauri.js', 'build', '--no-bundle', '--features', 'anna-local', '--config', resolve(root, 'anna/desktop/tauri.local.conf.json')], {
   env: { ...process.env, CARGO_TARGET_DIR: target },
@@ -31,6 +31,17 @@ run('cargo', ['test', '--locked', '--manifest-path', 'anna/launcher/Cargo.toml']
 const packages = join(root, 'anna/desktop/packages');
 await mkdir(packages, { recursive: true });
 const output = await mkdtemp(join(packages, `nativemind-${version}-`));
+// Reuse the server-minted identity when a later build lives in a new package directory.
+// Without this CLI cache, `executa publish` attempts to create a duplicate tool.
+const identityPath = join(root, 'anna/desktop/.anna/executa.json');
+try {
+  const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+  if (identity.tool_id !== toolId || identity.host !== 'https://anna.partners') throw new Error('Unexpected Executa identity');
+  await mkdir(join(output, '.anna'));
+  await copyFile(identityPath, join(output, '.anna/executa.json'));
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
 const payload = join(output, 'payload');
 await mkdir(join(payload, 'bin'), { recursive: true });
 await mkdir(join(payload, 'desktop'));

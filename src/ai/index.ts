@@ -63,6 +63,11 @@ import { SelfRag } from './rag/self-rag';
 import { LinkHydeGenerator } from './rag/link-hyde';
 import { ModelRouter, type RouterOptions } from './router/model-router';
 import { getModelConfig } from './router/model-config';
+import { NoteStandardizer } from './knowledge/note-standardizer';
+import { NoteTitleOrganizer } from './knowledge/note-title-organizer';
+import { NoteOrganizer } from './knowledge/note-organizer';
+import { TopicOrganizer } from './knowledge/topic-organizer';
+import { knowledgeOrganizationBlockReason } from '@application/policies/knowledge-organization-policy';
 import { KeywordGenerator } from './search/keyword-generator';
 import { ResultFilter } from './search/result-filter';
 import { SearchGate, type SearchProvider } from './search/search-gate';
@@ -112,6 +117,10 @@ export interface AILayer {
     socraticQuestion: SocraticQuestionAdapter;
     noteSearch: NoteSearchAdapter;
     suggestionPort: KnowledgeLinkSuggestionAdapter;
+    noteStandardization: NoteStandardizer;
+    noteTitle: NoteTitleOrganizer;
+    noteOrganization: NoteOrganizer;
+    topicOrganization: TopicOrganizer;
     searchResultEnhancer: SearchResultEnhancerAdapter;
     noteDigest: MonthlyDigestAdapter;
     deepQA: DeepQAAdapter;
@@ -177,6 +186,42 @@ export function createAILayer(deps: AILayerDeps): AILayer {
 
   const companion = new InteractionGenerator(router, deps.companionVoice, deps.readLanguage);
 
+  const assertOrganizationConsent = (): void => {
+    const reason = knowledgeOrganizationBlockReason({ ...getModelConfig(), localOnly: deps.localOnly });
+    if (reason) throw new Error(reason);
+  };
+  const requireOrganizationAccess = async (): Promise<void> => {
+    assertOrganizationConsent();
+    const config = getModelConfig();
+    if (!deepseek || !(await deepseek.isAvailable(config.deepseekModel))) {
+      throw new Error('DeepSeek 不可用，请检查设置中的 API Key。');
+    }
+    assertOrganizationConsent();
+  };
+  // A separate router ensures every generation stage stays on DeepSeek, including retries.
+  const organizationProvider: ModelProvider = {
+    isAvailable: async () => { await requireOrganizationAccess(); return true; },
+    complete: async (request) => {
+      await requireOrganizationAccess();
+      // Availability may yield while the user cancels or revokes cloud consent.
+      // Keep this last check synchronous with dispatch so no text leaves afterward.
+      request.signal?.throwIfAborted();
+      assertOrganizationConsent();
+      return deepseek!.complete(request);
+    },
+  };
+  const organizationRouter = new ModelRouter(organizationProvider, {
+    ...deps.options?.router,
+    resolveModel: () => getModelConfig().deepseekModel,
+    recorder: deps.modelRunRecorder ?? deps.options?.router?.recorder,
+  });
+  const organizationRag = createRAGOrchestrator({
+    router: organizationRouter,
+    retrieval: new RetrievalStrategy(deps.embeddingProvider, deps.vectorStore, deps.options?.retrievalWeights),
+    candidateProvider: deps.candidateProvider,
+    options: deps.options?.orchestrator,
+  });
+
   const searchGate = deps.searchProvider
     ? new SearchGate(deps.searchProvider, new KeywordGenerator(router), new ResultFilter(router))
     : undefined;
@@ -192,10 +237,14 @@ export function createAILayer(deps: AILayerDeps): AILayer {
       companionQuestion: new CompanionQuestionAdapter(companion),
       socraticQuestion: new SocraticQuestionAdapter(router, rag),
       noteSearch: new NoteSearchAdapter(rag),
-      suggestionPort: new KnowledgeLinkSuggestionAdapter(rag, new LinkHydeGenerator(router)),
+      suggestionPort: new KnowledgeLinkSuggestionAdapter(organizationRag, new LinkHydeGenerator(organizationRouter), requireOrganizationAccess),
+      noteStandardization: new NoteStandardizer(organizationRouter, requireOrganizationAccess),
+      noteTitle: new NoteTitleOrganizer(organizationRouter, requireOrganizationAccess),
+      noteOrganization: new NoteOrganizer(organizationRouter, requireOrganizationAccess),
+      topicOrganization: new TopicOrganizer(organizationRouter, requireOrganizationAccess),
       searchResultEnhancer: new SearchResultEnhancerAdapter(router),
       noteDigest: new MonthlyDigestAdapter(router),
-      deepQA: new DeepQAAdapter(new SelfRag(router, rag)),
+      deepQA: new DeepQAAdapter(new SelfRag(router, rag), deps.readLanguage),
       flora: new FloraAdapter(new FloraAgent(router)),
     },
   };

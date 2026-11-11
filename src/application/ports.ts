@@ -54,8 +54,97 @@ export interface Note {
   tags: string[];
   /** PDF 的页 → 字符区间，查看长文时定位页码用 */
   pageRanges?: NotePageRange[];
+  /** Immutable extraction provenance; survives editing the card or deleting its source. */
+  cardSource?: NoteCardSource;
+  topicPage?: TopicPage;
   createdAt: ISO8601DateTime;
   updatedAt: ISO8601DateTime;
+}
+
+export interface NoteCardSource {
+  noteId: UUID;
+  title: string;
+  contentHash: string;
+  quote: string;
+  charStart: number;
+  charEnd: number;
+}
+
+export interface TopicMemberDraft { noteId: UUID; quote: string; reason: string }
+export interface TopicGroupDraft { title: string; members: TopicMemberDraft[] }
+export interface TopicDraft { title: string; groups: TopicGroupDraft[] }
+export interface TopicSource { noteId: UUID; title: string; contentHash: string; excerpt: string; totalChars: number }
+export interface TopicProposal extends TopicDraft { sources: TopicSource[] }
+export interface TopicPage extends TopicProposal { selectionKey: string }
+export interface TopicOrganizationPort {
+  requireAccess(): Promise<void>;
+  draft(sources: TopicSource[], language: 'zh' | 'en', options?: GenerationOptions): Promise<TopicDraft>;
+}
+export interface TopicPageRepository {
+  /** Check every referenced revision and save page + index job together. Never modify sources. */
+  commitTopic(page: Note): Promise<Note>;
+}
+
+export interface NoteCardDraft {
+  title: string;
+  body: string;
+  quote: string;
+}
+
+export interface NoteCardsProposal {
+  sourceId: UUID;
+  sourceHash: string;
+  sourceTitle: string;
+  analyzedChars: number;
+  totalChars: number;
+  /** New coverage excludes the repeated context before start. */
+  batch: { start: number; end: number; inputStart: number };
+  cards: NoteCardDraft[];
+}
+
+export interface NoteOrganizationPort {
+  requireAccess(): Promise<void>;
+  draft(content: string, language: 'zh' | 'en', options?: GenerationOptions & { contextPrefixChars?: number }): Promise<NoteCardDraft[]>;
+}
+
+export interface StandardNoteDraft {
+  status: 'ready' | 'insufficient';
+  title: string;
+  blocks: Array<{ kind: 'overview' | 'concepts' | 'conditions' | 'steps' | 'examples' | 'questions'; text: string; quote: string }>;
+}
+export interface NoteStandardizationPort {
+  requireAccess(): Promise<void>;
+  draft(content: string, language: 'zh' | 'en', options?: GenerationOptions): Promise<StandardNoteDraft>;
+}
+export interface NoteTitleDraft { status: 'suggested' | 'insufficient'; title: string; reason: string; quote: string }
+export interface NoteTitlePort {
+  requireAccess(): Promise<void>;
+  draft(content: string, language: 'zh' | 'en', options?: GenerationOptions): Promise<NoteTitleDraft>;
+}
+
+export interface NoteOrganizationBatchRecord {
+  sourceId: UUID;
+  sourceHash: string;
+  start: number;
+  end: number;
+  inputStart: number;
+  reviewedAt: ISO8601DateTime;
+}
+
+export interface NoteOrganizationProgress {
+  totalChars: number;
+  reviewedChars: number;
+  reviewedBatches: number;
+  sourceChanged: boolean;
+  nextBatch?: { start: number; end: number; inputStart: number };
+}
+
+export interface NoteCardRepository {
+  /** Recheck source revision and save cards + index jobs atomically; same source span is idempotent. */
+  commitCards(sourceId: UUID, sourceHash: string, cards: Note[], batch?: NoteOrganizationBatchRecord): Promise<Note[]>;
+  listCards(sourceId: UUID): Promise<Note[]>;
+  listOrganizationBatches(sourceId: UUID): Promise<NoteOrganizationBatchRecord[]>;
+  resetOrganizationBatches(sourceId: UUID): Promise<void>;
 }
 
 /** User-requested repair of the derived search index. */
@@ -257,7 +346,17 @@ export interface FocusRepository {
   save(session: FocusSession): Promise<void>;
 }
 
+export interface NoteGraphReference { fromId: UUID; toId: UUID; kind: 'link' | 'card' | 'topic' }
+
 export interface NoteRepository {
+  /** Read existing citations for visible notes; does not create semantic relationships. */
+  listGraphReferences(noteIds: UUID[], limit: number): Promise<NoteGraphReference[]>;
+  /** Graph metadata only; never loads document bodies. */
+  listGraphSummaries(limit: number): Promise<Array<{ id: UUID; title: string }>>;
+  /** Exact, case-sensitive title lookup; two matches suffice to detect ambiguity. */
+  findByTitle(title: string): Promise<Note[]>;
+  /** Saved card/topic references only, newest first; independent of the note-list limit. */
+  findReferencingNotes(noteId: UUID, limit: number, offset: number): Promise<Note[]>;
   findById(id: UUID): Promise<Note | null>;
   findByContentHash(hash: string): Promise<Note | null>;
   /** 按标签查笔记（任一枚标签命中即返回），标签参与检索时用 */
@@ -266,6 +365,19 @@ export interface NoteRepository {
   findByIds(ids: UUID[]): Promise<Note[]>;
   save(note: Note): Promise<void>;
   delete(id: UUID): Promise<void>;
+}
+
+export interface NoteRenamePlan {
+  sourceId: UUID;
+  oldTitle: string;
+  newTitle: string;
+  oldTitleUnique: boolean;
+  changes: Array<{ before: Note; after: Note; linkCount: number }>;
+}
+
+export interface NoteRenameRepository {
+  /** Recheck titles, revisions and incoming links; save every change + indexing jobs atomically. */
+  commitRename(plan: NoteRenamePlan): Promise<void>;
 }
 
 /** 删除笔记时清理它的向量（note_chunk_embeddings 不走外键级联） */
@@ -370,6 +482,8 @@ export interface AuditRepository {
 /* ---------- 检索与 AI 端口（只产出草稿，不写库） ---------- */
 
 export interface SearchHit {
+  /** A complete title lookup found the requested note; no automatic web supplement is needed. */
+  exactTitleMatch?: boolean;
   supportingClaim?: string;
   chunkId: UUID;
   noteId: UUID;

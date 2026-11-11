@@ -147,6 +147,7 @@ export class TauriModelProvider implements ModelRuntime, EmbeddingProvider {
     return this.invoke<number[][]>('model_embed', {
       model: this.embeddingModel,
       texts: texts.map(text => embeddingInput(this.embeddingModel, text, purpose)),
+      release_after: purpose === 'query',
     }, { signal });
   }
 }

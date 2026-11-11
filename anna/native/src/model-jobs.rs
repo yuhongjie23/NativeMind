@@ -85,7 +85,7 @@ impl ModelJobs {
                         let model = payload["model"]
                             .as_str()
                             .ok_or_else(|| CommandError::new("Missing model"))?;
-                        Ok(json!(client.embed(model, &texts).await?))
+                        Ok(json!(client.embed(model, &texts, payload["release_after"].as_bool().unwrap_or(false)).await?))
                     }
                     "model_is_ready" => Ok(json!(client.is_ready().await)),
                     "model_list" => Ok(json!(client.list_models_checked().await?)),

@@ -349,15 +349,21 @@ impl OllamaClient {
     ///
     /// 串行发送：Ollama 的 /api/embeddings 一次只收一段文本，
     /// 并发会把本地显存打满，反而更慢。
-    pub async fn embed(&self, model: &str, texts: &[String]) -> CommandResult<Vec<Vec<f32>>> {
+    pub async fn embed(&self, model: &str, texts: &[String], release_after: bool) -> CommandResult<Vec<Vec<f32>>> {
         let mut vectors = Vec::with_capacity(texts.len());
 
-        for text in texts {
+        for (index, text) in texts.iter().enumerate() {
+            let mut body = serde_json::json!({ "model": model, "prompt": text });
+            // Release only after the last query vector. Document indexing keeps
+            // the model warm across batches; no extra API call or prompt is sent.
+            if release_after && index + 1 == texts.len() {
+                body["keep_alive"] = serde_json::json!(0);
+            }
             let response = self
                 .http
                 .post(format!("{}/api/embeddings", self.base_url))
                 .timeout(Duration::from_secs(60))
-                .json(&serde_json::json!({ "model": model, "prompt": text }))
+                .json(&body)
                 .send()
                 .await?;
 
@@ -384,6 +390,51 @@ impl OllamaClient {
 #[cfg(test)]
 mod tests {
     use super::assert_local;
+
+    #[test]
+    fn query_embedding_releases_only_after_last_input() {
+        use std::io::{BufRead, BufReader, Read, Write};
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = super::OllamaClient::new(Some(&format!("http://{}", listener.local_addr().unwrap()))).unwrap();
+        let server = std::thread::spawn(move || {
+            let mut bodies = Vec::new();
+            for _ in 0..4 {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+                let mut reader = BufReader::new(&mut socket);
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                assert!(line.starts_with("POST /api/embeddings "));
+                let mut length = 0;
+                loop {
+                    line.clear();
+                    reader.read_line(&mut line).unwrap();
+                    if line == "\r\n" { break; }
+                    if let Some(value) = line.to_lowercase().strip_prefix("content-length:") {
+                        length = value.trim().parse::<usize>().unwrap();
+                    }
+                }
+                let mut body = vec![0; length];
+                reader.read_exact(&mut body).unwrap();
+                bodies.push(serde_json::from_slice::<serde_json::Value>(&body).unwrap());
+                let response = r#"{"embedding":[0.25,0.5]}"#;
+                write!(socket, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
+            }
+            bodies
+        });
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let vectors = client.embed("nomic-test", &["a".into(), "b".into()], true).await.unwrap();
+            assert_eq!(vectors, vec![vec![0.25, 0.5], vec![0.25, 0.5]]);
+            client.embed("nomic-test", &["c".into(), "d".into()], false).await.unwrap();
+        });
+        let bodies = server.join().unwrap();
+        assert!(bodies[0].get("keep_alive").is_none());
+        assert_eq!(bodies[1]["keep_alive"], 0);
+        assert!(bodies[2].get("keep_alive").is_none());
+        assert!(bodies[3].get("keep_alive").is_none());
+    }
 
     #[test]
     fn loopback_model_cannot_redirect_a_prompt() {

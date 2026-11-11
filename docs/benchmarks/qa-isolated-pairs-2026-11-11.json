@@ -1,0 +1,3599 @@
+{
+  "createdAt": "2026-11-11T04:45:01.705Z",
+  "models": [
+    "qwen3:14b",
+    "nomic-embed-text"
+  ],
+  "hashes": {
+    "src/ai/rag/qa-pair-verifier.ts": "b5568111b5c9b1bc5a654c7455424a408ace19d9cc7730c57721f6adf822ca8b",
+    "src/ai/rag/self-rag.ts": "7b5c9297fc6ca2fca7dccf4a37a59cf43ade3edc5183cdc35c2b316f393aba7a",
+    "src/ai/schemas/qa-evidence-check.v2.json": "eee977aa2850704f9b24dda677158ac6ca2a333a4353c82dd3e1cd694304a583"
+  },
+  "pairReports": [
+    {
+      "rawReportDirectory": "nativemind-pair-verifier-e6F9G4",
+      "createdAt": "2026-11-11T04:34:36.607Z",
+      "cases": [
+        {
+          "id": "mamba-appendix-normalization-0",
+          "expected": true
+        },
+        {
+          "id": "love-elements-0",
+          "expected": true
+        },
+        {
+          "id": "mamba-mechanism-0",
+          "expected": false
+        },
+        {
+          "id": "mamba-mechanism-1",
+          "expected": true
+        },
+        {
+          "id": "mamba-mechanism-2",
+          "expected": false
+        },
+        {
+          "id": "mamba-chinese-0",
+          "expected": false
+        },
+        {
+          "id": "mamba-chinese-1",
+          "expected": true
+        },
+        {
+          "id": "mamba-chinese-2",
+          "expected": false
+        },
+        {
+          "id": "novel-causal-gap",
+          "expected": false
+        },
+        {
+          "id": "novel-causal-supported",
+          "expected": true
+        },
+        {
+          "id": "novel-scope-gap",
+          "expected": false
+        },
+        {
+          "id": "novel-condition-supported",
+          "expected": true
+        }
+      ],
+      "runs": [
+        {
+          "id": "mamba-appendix-normalization-0",
+          "arm": "v1",
+          "ms": 440,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-appendix-normalization-0",
+          "arm": "v2",
+          "ms": 968,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "love-elements-0",
+          "arm": "v2",
+          "ms": 635,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "love-elements-0",
+          "arm": "v1",
+          "ms": 4410,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-0",
+          "arm": "v1",
+          "ms": 191,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-0",
+          "arm": "v2",
+          "ms": 696,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "input-dependent state space parameters break time-invariance",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "mamba-mechanism-1",
+          "arm": "v2",
+          "ms": 620,
+          "accepted": false,
+          "pass": false,
+          "output": {
+            "missing": "efficient computation despite the input-dependent dynamics",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "mamba-mechanism-1",
+          "arm": "v1",
+          "ms": 195,
+          "accepted": false,
+          "pass": false,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-2",
+          "arm": "v1",
+          "ms": 183,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-2",
+          "arm": "v2",
+          "ms": 253,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "mamba-chinese-0",
+          "arm": "v2",
+          "ms": 248,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "mamba-chinese-0",
+          "arm": "v1",
+          "ms": 193,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-1",
+          "arm": "v1",
+          "ms": 176,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-1",
+          "arm": "v2",
+          "ms": 433,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "mamba-chinese-2",
+          "arm": "v2",
+          "ms": 501,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "recurrent structure",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "mamba-chinese-2",
+          "arm": "v1",
+          "ms": 204,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "novel-causal-gap",
+          "arm": "v1",
+          "ms": 176,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "novel-causal-gap",
+          "arm": "v2",
+          "ms": 571,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "its pores are smaller",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "novel-causal-supported",
+          "arm": "v2",
+          "ms": 238,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "novel-causal-supported",
+          "arm": "v1",
+          "ms": 180,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "novel-scope-gap",
+          "arm": "v1",
+          "ms": 172,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "novel-scope-gap",
+          "arm": "v2",
+          "ms": 490,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "所有学生",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "novel-condition-supported",
+          "arm": "v2",
+          "ms": 251,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "novel-condition-supported",
+          "arm": "v1",
+          "ms": 180,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        }
+      ],
+      "scores": [
+        {
+          "arm": "v1",
+          "passed": 9,
+          "total": 12
+        },
+        {
+          "arm": "v2",
+          "passed": 9,
+          "total": 12
+        }
+      ]
+    },
+    {
+      "rawReportDirectory": "nativemind-pair-verifier-fhqQPE",
+      "createdAt": "2026-11-11T04:38:35.589Z",
+      "cases": [
+        {
+          "id": "mamba-appendix-normalization-0",
+          "expected": true
+        },
+        {
+          "id": "love-elements-0",
+          "expected": true
+        },
+        {
+          "id": "mamba-mechanism-0",
+          "expected": false
+        },
+        {
+          "id": "mamba-mechanism-1",
+          "expected": true
+        },
+        {
+          "id": "mamba-mechanism-2",
+          "expected": false
+        },
+        {
+          "id": "mamba-chinese-0",
+          "expected": false
+        },
+        {
+          "id": "mamba-chinese-1",
+          "expected": true
+        },
+        {
+          "id": "mamba-chinese-2",
+          "expected": false
+        },
+        {
+          "id": "novel-causal-gap",
+          "expected": false
+        },
+        {
+          "id": "novel-causal-supported",
+          "expected": true
+        },
+        {
+          "id": "novel-scope-gap",
+          "expected": false
+        },
+        {
+          "id": "novel-condition-supported",
+          "expected": true
+        }
+      ],
+      "runs": [
+        {
+          "id": "mamba-appendix-normalization-0",
+          "arm": "v1",
+          "ms": 189,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-appendix-normalization-0",
+          "arm": "v2",
+          "ms": 253,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "mamba-appendix-normalization-0",
+          "arm": "combined",
+          "ms": 4167,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "love-elements-0",
+          "arm": "combined",
+          "ms": 651,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "love-elements-0",
+          "arm": "v2",
+          "ms": 389,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "love-elements-0",
+          "arm": "v1",
+          "ms": 198,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-0",
+          "arm": "v1",
+          "ms": 189,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-0",
+          "arm": "v2",
+          "ms": 644,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "input-dependent state space parameters break time-invariance",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "mamba-mechanism-0",
+          "arm": "combined",
+          "ms": 187,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-1",
+          "arm": "combined",
+          "ms": 164,
+          "accepted": false,
+          "pass": false,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-1",
+          "arm": "v2",
+          "ms": 603,
+          "accepted": false,
+          "pass": false,
+          "output": {
+            "missing": "efficient computation despite the input-dependent dynamics",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "mamba-mechanism-1",
+          "arm": "v1",
+          "ms": 174,
+          "accepted": false,
+          "pass": false,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-2",
+          "arm": "v1",
+          "ms": 172,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-mechanism-2",
+          "arm": "v2",
+          "ms": 259,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "mamba-mechanism-2",
+          "arm": "combined",
+          "ms": 397,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-0",
+          "arm": "combined",
+          "ms": 180,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-0",
+          "arm": "v2",
+          "ms": 263,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "mamba-chinese-0",
+          "arm": "v1",
+          "ms": 172,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-1",
+          "arm": "v1",
+          "ms": 174,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-1",
+          "arm": "v2",
+          "ms": 407,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "mamba-chinese-1",
+          "arm": "combined",
+          "ms": 564,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-2",
+          "arm": "combined",
+          "ms": 682,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "mamba-chinese-2",
+          "arm": "v2",
+          "ms": 468,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "recurrent structure",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "mamba-chinese-2",
+          "arm": "v1",
+          "ms": 178,
+          "accepted": true,
+          "pass": false,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "novel-causal-gap",
+          "arm": "v1",
+          "ms": 200,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "novel-causal-gap",
+          "arm": "v2",
+          "ms": 499,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "its pores are smaller",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "novel-causal-gap",
+          "arm": "combined",
+          "ms": 164,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "novel-causal-supported",
+          "arm": "combined",
+          "ms": 393,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "novel-causal-supported",
+          "arm": "v2",
+          "ms": 208,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "novel-causal-supported",
+          "arm": "v1",
+          "ms": 176,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "novel-scope-gap",
+          "arm": "v1",
+          "ms": 159,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "novel-scope-gap",
+          "arm": "v2",
+          "ms": 441,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "missing": "所有学生",
+            "verdict": "partial"
+          }
+        },
+        {
+          "id": "novel-scope-gap",
+          "arm": "combined",
+          "ms": 167,
+          "accepted": false,
+          "pass": true,
+          "output": {
+            "supported": [
+              false
+            ]
+          }
+        },
+        {
+          "id": "novel-condition-supported",
+          "arm": "combined",
+          "ms": 405,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        },
+        {
+          "id": "novel-condition-supported",
+          "arm": "v2",
+          "ms": 234,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "missing": "",
+            "verdict": "supported"
+          }
+        },
+        {
+          "id": "novel-condition-supported",
+          "arm": "v1",
+          "ms": 165,
+          "accepted": true,
+          "pass": true,
+          "output": {
+            "supported": [
+              true
+            ]
+          }
+        }
+      ],
+      "scores": [
+        {
+          "arm": "v1",
+          "passed": 9,
+          "total": 12
+        },
+        {
+          "arm": "v2",
+          "passed": 9,
+          "total": 12
+        },
+        {
+          "arm": "combined",
+          "passed": 10,
+          "total": 12
+        }
+      ]
+    }
+  ],
+  "pipelines": [
+    {
+      "label": "before",
+      "rawReportDirectory": "nativemind-rag-check-gkTLeG",
+      "createdAt": "2026-11-11T04:26:44.726Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "searchMs": 409,
+          "qaMs": 15167,
+          "judged": true,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citations": 1,
+          "regenerated": false,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            true
+          ],
+          "citationLocationsValid": true,
+          "locations": [
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2688,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3722,
+              "error": "Error: 重排超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 13.987100000002101
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.39870000000155414
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3012.654999999999
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1490.2882000000027
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.707900000001246
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.111499999999069
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.202999999997701
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4011.818199999998
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1773.251400000001
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4843.697500000002
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "searchMs": 1106,
+          "qaMs": 26328,
+          "judged": true,
+          "answer": "真爱的基本要素包括“给”而不是“得”、关心、责任心、尊重和了解。 [1]",
+          "citations": 1,
+          "regenerated": true,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            true
+          ],
+          "citationLocationsValid": true,
+          "locations": [
+            {
+              "noteId": "ed9cb8a2-f7bc-493d-9dde-8a1f4e5725d0",
+              "charStart": 78907,
+              "exact": true,
+              "readerOffset": 78907
+            }
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2685,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3730,
+              "error": "Error: 重排超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 69.30240000000049
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 2.510200000004261
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3008.5097000000023
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1020.4156999999977
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.045500000000175
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.978399999999965
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.915100000005623
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4011.8727
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3260.2458000000042
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5883.221799999999
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2526.7886999999973
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6520.5288
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "searchMs": 1057,
+          "qaMs": 24026,
+          "judged": false,
+          "answer": "证据核验未完成，暂不提供确定答案。请重试或先查看原文。",
+          "citations": 0,
+          "regenerated": false,
+          "recall8": [
+            false
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2706,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3636,
+              "error": "Error: 重排超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 23.393900000010035
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.694099999993341
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3009.196100000001
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 933.375
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.7682999999960884
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.621200000008685
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4007.2196000000113
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 5969.573799999998
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 10066.44339999999
+            }
+          ]
+        },
+        {
+          "id": "practice-patience",
+          "query": "学会爱为什么不能急于求成，需要练习哪些基本能力？",
+          "searchMs": 1072,
+          "qaMs": 31049,
+          "judged": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            false
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2697,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3639,
+              "error": "Error: 重排超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 30.9432000000088
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.1552000000083353
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3011.2497999999905
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.2013000000006
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.526400000002468
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.808799999998882
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.773499999995693
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4000.8801000000094
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3654.713100000008
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8095.895099999994
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3645.4545999999973
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7560.455300000001
+            }
+          ]
+        },
+        {
+          "id": "cross-chapters",
+          "query": "结合爱的理论和爱的实践，解释爱的基本要素与训练纪律、集中和耐心的关系。",
+          "searchMs": 1382,
+          "qaMs": 31788,
+          "judged": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            true,
+            true
+          ],
+          "evidenceInCitations": [
+            false,
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2702,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 58.689200000007986
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.6578000000008615
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3013.476800000004
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1027.6989999999932
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 11.507800000006682
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 12.418399999995017
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 14.12840000000142
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3361.5200000000186
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3644.5944999999774
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8039.301199999987
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3371.531500000012
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 9230.058799999999
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "searchMs": 1270,
+          "qaMs": 24308,
+          "judged": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2704,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 43.741500000003725
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.9216000000014901
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3002.171799999982
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1023.875400000019
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.70250000001397
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.340900000010151
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2609.329299999983
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3179.8763000000035
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6068.09149999998
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3070.916499999992
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5293.091400000005
+            }
+          ]
+        },
+        {
+          "id": "mamba-mechanism",
+          "query": "Why do input-dependent state space parameters prevent efficient convolutions, and how does Mamba solve this?",
+          "searchMs": 1105,
+          "qaMs": 15675,
+          "judged": true,
+          "answer": "Input-dependent state space parameters prevent efficient convolutions because they break the time-invariance required for convolutional computations, making it impossible to use the standard convolutional form. [1]\n\nMamba solves this by using a hardware-aware parallel algorithm in recurrent mode, which allows efficient computation despite the input-dependent dynamics. [2]\n\nThis approach enables Mamba to achieve fast inference and linear scaling in sequence length. [3]",
+          "citations": 3,
+          "regenerated": false,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            true
+          ],
+          "citationLocationsValid": true,
+          "locations": [
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 9156,
+              "exact": true,
+              "readerOffset": 9156,
+              "page": 3
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 1133,
+              "exact": true,
+              "readerOffset": 1133,
+              "page": 1
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 1411,
+              "exact": true,
+              "readerOffset": 1411,
+              "page": 1
+            }
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2694,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 49.86939999999595
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.0176999999966938
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3011.3428999999887
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1030.4745000000112
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.096400000009453
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.177200000005541
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.0292000000190455
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2514.5657000000065
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3078.655300000013
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5969.582999999984
+            }
+          ]
+        },
+        {
+          "id": "mamba-chinese",
+          "query": "Mamba如何通过选择性状态空间模型解决长序列推理的计算效率问题？",
+          "searchMs": 1068,
+          "qaMs": 30561,
+          "judged": true,
+          "answer": "Mamba uses selective state spaces (SSMs) to achieve linear-time complexity for sequence modeling, improving computational efficiency for long sequences. [1]\n\nMamba's efficient SSM scan operation is faster than attention-based implementations like FlashAttention-2 for sequence lengths beyond 2K. [2]\n\nMamba achieves higher inference throughput than Transformers of similar size due to its recurrent structure and ability to use larger batch sizes. [3]",
+          "citations": 3,
+          "regenerated": true,
+          "recall8": [
+            false
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 0,
+              "exact": true,
+              "readerOffset": 0,
+              "page": 1
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 55640,
+              "exact": true,
+              "readerOffset": 55640,
+              "page": 15
+            },
+            {
+              "noteId": "33298982-df00-46d8-8192-2067e0747777",
+              "charStart": 55857,
+              "exact": true,
+              "readerOffset": 55857,
+              "page": 15
+            }
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2694,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 56.82469999999739
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.7005000000062864
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3007.178199999995
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.2803999999887
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.7154000000155065
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.21129999999539
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2700.9650000000256
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 4472.507500000007
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8838.837200000009
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 4291.831600000005
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6151.09090000001
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "searchMs": 1078,
+          "qaMs": 28262,
+          "judged": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [],
+          "evidenceInCitations": [],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2714,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3645,
+              "error": "Error: 重排超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 24.218699999997625
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7967000000062399
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3014.783599999995
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1585.7785999999905
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 9.223300000012387
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.406300000002375
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.4375
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4010.27429999999
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 5132.7451
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5970.890700000018
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2525.440800000011
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5969.627500000002
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "searchMs": 1076,
+          "qaMs": 15098,
+          "judged": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [],
+          "evidenceInCitations": [],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2705,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 24.90830000001006
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.359599999996135
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3013.4284000000334
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.7632999999914
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.008099999977276
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.350099999981467
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.2946000000229105
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2984.832999999984
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1773.888099999982
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 3178.413500000024
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1026.6399000000092
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2049.8104000000167
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "after",
+      "rawReportDirectory": "nativemind-rag-check-clXaPY",
+      "createdAt": "2026-11-11T04:39:28.600Z",
+      "accepted": false,
+      "documents": [
+        {
+          "title": "爱的艺术",
+          "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+          "chunkCount": 131,
+          "vectors": 131,
+          "chunkOffsetsValid": true
+        },
+        {
+          "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+          "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+          "chunkCount": 141,
+          "vectors": 141,
+          "chunkOffsetsValid": true
+        }
+      ],
+      "results": [
+        {
+          "id": "mamba-appendix-normalization",
+          "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+          "searchMs": 494,
+          "qaMs": 15737,
+          "judged": true,
+          "answer": "In the improved training recipe, RMSNorm replaces LayerNorm. [1]",
+          "citations": 1,
+          "regenerated": false,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            true
+          ],
+          "citationLocationsValid": true,
+          "locations": [
+            {
+              "noteId": "77f4714b-c4fe-4c83-a95d-093ce1eee867",
+              "charStart": 114389,
+              "exact": true,
+              "readerOffset": 114389,
+              "page": 30
+            }
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2694,
+              "error": "Error: 查询改写超时"
+            },
+            {
+              "ms": 3637,
+              "error": "Error: 重排超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 15.16649999999936
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.6327000000019325
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3014.906500000001
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1498.1710999999996
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.136699999999109
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 5.785800000001473
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 5.933899999999994
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 4003.4097999999976
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1675.8643999999986
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5509.0942
+            }
+          ]
+        },
+        {
+          "id": "love-elements",
+          "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+          "searchMs": 1112,
+          "qaMs": 29766,
+          "judged": true,
+          "answer": "《爱的艺术》中认为，真正的爱包含的基本要素是关心、责任心、尊重和了解。 [1] [2]",
+          "citations": 2,
+          "regenerated": true,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            true
+          ],
+          "citationLocationsValid": true,
+          "locations": [
+            {
+              "noteId": "a0dd9f8d-e96e-49ae-a813-c18427585faf",
+              "charStart": 79015,
+              "exact": true,
+              "readerOffset": 79015
+            },
+            {
+              "noteId": "a0dd9f8d-e96e-49ae-a813-c18427585faf",
+              "charStart": 81670,
+              "exact": true,
+              "readerOffset": 81670
+            }
+          ],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2703,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 60.67919999999867
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.2404999999998836
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3008.1578999999983
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1029.5440999999992
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.708599999998114
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.70969999999943
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.925800000004529
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3539.9181000000026
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2515.8801999999996
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 9420.411799999994
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2332.7747999999992
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7833.364199999996
+            }
+          ]
+        },
+        {
+          "id": "mother-unconditional",
+          "query": "为什么孩子不需要用表现来换取母亲的爱？",
+          "searchMs": 1056,
+          "qaMs": 18797,
+          "judged": false,
+          "answer": "证据核验未完成，暂不提供确定答案。请重试或先查看原文。",
+          "citations": 0,
+          "regenerated": false,
+          "recall8": [
+            false
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": false,
+          "errors": [
+            {
+              "ms": 2701,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 22.367299999998068
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.6714000000065425
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3003.065400000007
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1025.926099999997
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.8646999999909895
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.757500000006985
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3641.0368000000017
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3904.1150999999954
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7182.928899999999
+            }
+          ]
+        },
+        {
+          "id": "practice-patience",
+          "query": "学会爱为什么不能急于求成，需要练习哪些基本能力？",
+          "searchMs": 1077,
+          "qaMs": 34104,
+          "judged": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            false
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2702,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 30.957299999994575
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.1567999999970198
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3001.703999999998
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1026.1468999999925
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.044300000008661
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.110799999994924
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.345400000005611
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3914.851299999995
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3899.5302999999985
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 7556.0055999999895
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3256.141499999998
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 11393.666900000011
+            }
+          ]
+        },
+        {
+          "id": "cross-chapters",
+          "query": "结合爱的理论和爱的实践，解释爱的基本要素与训练纪律、集中和耐心的关系。",
+          "searchMs": 1092,
+          "qaMs": 33095,
+          "judged": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            true,
+            true
+          ],
+          "evidenceInCitations": [
+            false,
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2711,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 44.64890000000014
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.4866000000038184
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3009.6420999999973
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1023.0258999999933
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.18540000001667
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.150200000003679
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.706199999985984
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3719.297099999996
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3923.1859000000113
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 8572.971900000004
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3441.3896999999997
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 9333.951499999996
+            }
+          ]
+        },
+        {
+          "id": "mamba-speed",
+          "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+          "searchMs": 1083,
+          "qaMs": 24535,
+          "judged": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2698,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 44.60529999999562
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7405999999900814
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3011.805699999997
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1028.7957999999926
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.113299999997253
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 5.907999999995809
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2799.197200000024
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3261.1566999999923
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6060.587399999989
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3084.1324000000022
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5230.287199999992
+            }
+          ]
+        },
+        {
+          "id": "mamba-mechanism",
+          "query": "Why do input-dependent state space parameters prevent efficient convolutions, and how does Mamba solve this?",
+          "searchMs": 1181,
+          "qaMs": 24576,
+          "judged": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            true
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2701,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 48.08400000000256
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.8957999999984168
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3005.650400000013
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1028.041900000011
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 5.997000000003027
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.256200000003446
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.535100000008242
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2685.8897999999754
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3357.856299999985
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6229.042699999991
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2977.4484999999986
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5223.057100000005
+            }
+          ]
+        },
+        {
+          "id": "mamba-chinese",
+          "query": "Mamba如何通过选择性状态空间模型解决长序列推理的计算效率问题？",
+          "searchMs": 1067,
+          "qaMs": 25460,
+          "judged": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [
+            false
+          ],
+          "evidenceInCitations": [
+            false
+          ],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": false,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2700,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 37.06609999999637
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 1.0898999999917578
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3006.782600000006
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 930.4766999999993
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.863499999977648
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.2084000000031665
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2804.3893999999855
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3930.0581999999995
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 6160.502399999998
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 3171.549700000003
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5404.647000000026
+            }
+          ]
+        },
+        {
+          "id": "absent-private",
+          "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+          "searchMs": 1065,
+          "qaMs": 22428,
+          "judged": true,
+          "answer": "资料不足：未能确认支持答案的原文证据。请补充相关资料或缩小问题范围。",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [],
+          "evidenceInCitations": [],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2709,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 21.24780000001192
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.7441999999864493
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3014.8598000000056
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1024.1203999999852
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.150299999979325
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.7308000000193715
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 8.021299999993062
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 3631.686000000016
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2329.778900000005
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 4179.128800000006
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 2419.0799000000115
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 5782.916199999978
+            }
+          ]
+        },
+        {
+          "id": "absent-date",
+          "query": "According to these documents, what exact date will GPT-8 be released?",
+          "searchMs": 1054,
+          "qaMs": 14617,
+          "judged": true,
+          "answer": "Insufficient evidence: no source passage could be verified to support an answer. Please add relevant material or narrow your question.",
+          "citations": 0,
+          "regenerated": true,
+          "recall8": [],
+          "evidenceInCitations": [],
+          "citationLocationsValid": true,
+          "locations": [],
+          "expectedAbsent": true,
+          "abstained": true,
+          "errors": [
+            {
+              "ms": 2706,
+              "error": "Error: 查询改写超时"
+            }
+          ],
+          "stages": [
+            {
+              "stage": "candidates",
+              "state": "running"
+            },
+            {
+              "stage": "candidates",
+              "state": "finished",
+              "durationMs": 21.63959999999497
+            },
+            {
+              "stage": "keywords",
+              "state": "running"
+            },
+            {
+              "stage": "keywords",
+              "state": "finished",
+              "durationMs": 0.354300000006333
+            },
+            {
+              "stage": "rewrite",
+              "state": "running"
+            },
+            {
+              "stage": "rewrite",
+              "state": "finished",
+              "durationMs": 3004.109300000011
+            },
+            {
+              "stage": "embedding",
+              "state": "running"
+            },
+            {
+              "stage": "embedding",
+              "state": "finished",
+              "durationMs": 1028.923300000024
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.317600000009406
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 6.350999999966007
+            },
+            {
+              "stage": "vector",
+              "state": "running"
+            },
+            {
+              "stage": "vector",
+              "state": "finished",
+              "durationMs": 7.379899999999907
+            },
+            {
+              "stage": "rerank",
+              "state": "running"
+            },
+            {
+              "stage": "rerank",
+              "state": "finished",
+              "durationMs": 2703.850299999991
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1768.8624999999884
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2989.357000000018
+            },
+            {
+              "stage": "generating",
+              "state": "running"
+            },
+            {
+              "stage": "generating",
+              "state": "finished",
+              "durationMs": 1028.3593999999575
+            },
+            {
+              "stage": "judging",
+              "state": "running"
+            },
+            {
+              "stage": "judging",
+              "state": "finished",
+              "durationMs": 2050.4342999999644
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "testsPassed": 1114,
+    "testsSkipped": 4,
+    "build": true,
+    "lint": true
+  },
+  "manualAssessment": {
+    "correctPositive": [
+      "mamba-appendix-normalization",
+      "love-elements"
+    ],
+    "correctAbsent": [
+      "absent-private",
+      "absent-date"
+    ],
+    "previouslyOveracceptedNowBlocked": [
+      "mamba-mechanism",
+      "mamba-chinese"
+    ],
+    "unresolved": [
+      "mother-unconditional",
+      "practice-patience",
+      "cross-chapters",
+      "mamba-speed",
+      "mamba-mechanism",
+      "mamba-chinese"
+    ],
+    "note": "Blocking an incomplete claim is a safety improvement, not a correct answer. Both retained answers have manually checked direct original evidence and exact locations. Whole pipeline acceptance remains false."
+  },
+  "limitations": "Two prompts use the same model, not independent corroboration. Fixed isolated A/B improves 9/12 to 10/12 but one causal false positive remains and one context-dependent expected-positive pair is rejected. Preserve that disputed case rather than relabel it after observing output. Full text/prompts remain only in local temporary reports. More model calls share the unchanged 20-second review deadline; no stable speedup claim. No installed app update or publication."
+}

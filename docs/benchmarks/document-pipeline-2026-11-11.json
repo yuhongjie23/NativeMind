@@ -1,0 +1,692 @@
+{
+  "date": "2026-11-11",
+  "accepted": false,
+  "method": "Fresh isolated native SQLite runtime; production import use case, background chunk/embed jobs, ordinary search and default deep QA; all models local. No fixed retrieved candidates or manual vector insertion. One run per question after source-offset fix.",
+  "models": [
+    "qwen3:14b",
+    "nomic-embed-text"
+  ],
+  "documents": [
+    {
+      "index": 0,
+      "title": "爱的艺术",
+      "chars": 91512,
+      "importMs": 156,
+      "sha256": "3458d3a6d8dcb8a643d279414dabad7b2328e6b6049528c0b70e0209593d410c",
+      "indexMs": 5562,
+      "indexStatus": "indexed",
+      "chunkCount": 131,
+      "vectors": 131,
+      "chunkOffsetsValid": true,
+      "duplicateIdPreserved": true,
+      "find": {
+        "query": "关心、责任心、尊重和了解",
+        "matches": 3,
+        "ms": 0.2011000000002241
+      }
+    },
+    {
+      "index": 1,
+      "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+      "chars": 136371,
+      "pages": 36,
+      "importMs": 1686,
+      "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+      "indexMs": 5282,
+      "indexStatus": "indexed",
+      "chunkCount": 141,
+      "vectors": 141,
+      "chunkOffsetsValid": true,
+      "duplicateIdPreserved": true,
+      "find": {
+        "query": "5× higher throughput",
+        "matches": 2,
+        "ms": 0.13720000000103028
+      }
+    }
+  ],
+  "initialOffsetFailure": {
+    "epubChunks": 127,
+    "exact": 1,
+    "incorrect": 126
+  },
+  "sourceOffsetFix": {
+    "epubChunks": 131,
+    "pdfChunks": 141,
+    "exact": 272,
+    "incorrect": 0
+  },
+  "results": [
+    {
+      "id": "love-elements",
+      "query": "爱的艺术认为，真正的爱包含哪些共同的基本要素？",
+      "language": "zh",
+      "searchMs": 488,
+      "recall3": [
+        false
+      ],
+      "recall8": [
+        true
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 28083,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 13
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3015
+        },
+        {
+          "stage": "embedding",
+          "ms": 1488
+        },
+        {
+          "stage": "vector",
+          "ms": 5
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "rerank",
+          "ms": 4006
+        },
+        {
+          "stage": "generating",
+          "ms": 9534
+        },
+        {
+          "stage": "judging",
+          "ms": 10011
+        }
+      ]
+    },
+    {
+      "id": "mother-unconditional",
+      "query": "为什么孩子不需要用表现来换取母亲的爱？",
+      "language": "zh",
+      "searchMs": 1221,
+      "recall3": [
+        false
+      ],
+      "recall8": [
+        false
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 26913,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 11
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3006
+        },
+        {
+          "stage": "embedding",
+          "ms": 370
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 5
+        },
+        {
+          "stage": "rerank",
+          "ms": 2585
+        },
+        {
+          "stage": "generating",
+          "ms": 10918
+        },
+        {
+          "stage": "judging",
+          "ms": 10012
+        }
+      ]
+    },
+    {
+      "id": "practice-patience",
+      "query": "学会爱为什么不能急于求成，需要练习哪些基本能力？",
+      "language": "zh",
+      "searchMs": 397,
+      "recall3": [
+        false
+      ],
+      "recall8": [
+        false
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 35381,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 10
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3004
+        },
+        {
+          "stage": "embedding",
+          "ms": 371
+        },
+        {
+          "stage": "vector",
+          "ms": 5
+        },
+        {
+          "stage": "vector",
+          "ms": 5
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "rerank",
+          "ms": 3156
+        },
+        {
+          "stage": "generating",
+          "ms": 18811
+        },
+        {
+          "stage": "judging",
+          "ms": 10015
+        }
+      ]
+    },
+    {
+      "id": "cross-chapters",
+      "query": "结合爱的理论和爱的实践，解释爱的基本要素与训练纪律、集中和耐心的关系。",
+      "language": "zh",
+      "searchMs": 494,
+      "recall3": [
+        true,
+        false
+      ],
+      "recall8": [
+        true,
+        false
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 36775,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 14
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3004
+        },
+        {
+          "stage": "embedding",
+          "ms": 372
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "rerank",
+          "ms": 3988
+        },
+        {
+          "stage": "generating",
+          "ms": 19369
+        },
+        {
+          "stage": "judging",
+          "ms": 10014
+        }
+      ]
+    },
+    {
+      "id": "mamba-speed",
+      "query": "How does Mamba compare with Transformers in inference throughput and scaling with sequence length?",
+      "language": "en",
+      "searchMs": 394,
+      "recall3": [
+        true
+      ],
+      "recall8": [
+        true
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 25565,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 19
+        },
+        {
+          "stage": "keywords",
+          "ms": 2
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3002
+        },
+        {
+          "stage": "embedding",
+          "ms": 371
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 3
+        },
+        {
+          "stage": "rerank",
+          "ms": 2964
+        },
+        {
+          "stage": "generating",
+          "ms": 9184
+        },
+        {
+          "stage": "judging",
+          "ms": 10014
+        }
+      ]
+    },
+    {
+      "id": "mamba-mechanism",
+      "query": "Why do input-dependent state space parameters prevent efficient convolutions, and how does Mamba solve this?",
+      "language": "en",
+      "searchMs": 399,
+      "recall3": [
+        true
+      ],
+      "recall8": [
+        true
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 24826,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 12
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3005
+        },
+        {
+          "stage": "embedding",
+          "ms": 370
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "rerank",
+          "ms": 3152
+        },
+        {
+          "stage": "generating",
+          "ms": 8263
+        },
+        {
+          "stage": "judging",
+          "ms": 10009
+        }
+      ]
+    },
+    {
+      "id": "mamba-chinese",
+      "query": "Mamba如何通过选择性状态空间模型解决长序列推理的计算效率问题？",
+      "language": "en",
+      "searchMs": 408,
+      "recall3": [
+        false
+      ],
+      "recall8": [
+        false
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 28979,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 23
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3004
+        },
+        {
+          "stage": "embedding",
+          "ms": 370
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "rerank",
+          "ms": 3890
+        },
+        {
+          "stage": "generating",
+          "ms": 11668
+        },
+        {
+          "stage": "judging",
+          "ms": 10014
+        }
+      ]
+    },
+    {
+      "id": "absent-private",
+      "query": "根据这些资料，我家路由器的Wi-Fi密码是什么？不要猜测。",
+      "language": "zh",
+      "searchMs": 395,
+      "recall3": [],
+      "recall8": [],
+      "externalSearchAttempted": false,
+      "qaMs": 15945,
+      "abstained": true,
+      "expectedAbsent": true,
+      "judged": true,
+      "citations": 0,
+      "answerStatus": "insufficient-evidence",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 16
+        },
+        {
+          "stage": "keywords",
+          "ms": 0
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3002
+        },
+        {
+          "stage": "embedding",
+          "ms": 370
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "rerank",
+          "ms": 4000
+        },
+        {
+          "stage": "generating",
+          "ms": 2141
+        },
+        {
+          "stage": "judging",
+          "ms": 6402
+        }
+      ]
+    },
+    {
+      "id": "absent-date",
+      "query": "According to these documents, what exact date will GPT-8 be released?",
+      "language": "en",
+      "searchMs": 397,
+      "recall3": [],
+      "recall8": [],
+      "externalSearchAttempted": false,
+      "qaMs": 14809,
+      "abstained": true,
+      "expectedAbsent": true,
+      "judged": true,
+      "citations": 0,
+      "answerStatus": "insufficient-evidence",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 11
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3002
+        },
+        {
+          "stage": "embedding",
+          "ms": 372
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "vector",
+          "ms": 4
+        },
+        {
+          "stage": "rerank",
+          "ms": 2961
+        },
+        {
+          "stage": "generating",
+          "ms": 1946
+        },
+        {
+          "stage": "judging",
+          "ms": 6505
+        }
+      ]
+    },
+    {
+      "id": "mamba-appendix-normalization",
+      "query": "In the improved training recipe, which normalization replaces LayerNorm?",
+      "language": "en",
+      "searchMs": 2145,
+      "recall3": [
+        true
+      ],
+      "recall8": [
+        true
+      ],
+      "externalSearchAttempted": false,
+      "qaMs": 23544,
+      "abstained": false,
+      "expectedAbsent": false,
+      "judged": false,
+      "citations": 0,
+      "answerStatus": "verification-timeout",
+      "stageTimesMs": [
+        {
+          "stage": "candidates",
+          "ms": 12
+        },
+        {
+          "stage": "keywords",
+          "ms": 1
+        },
+        {
+          "stage": "rewrite",
+          "ms": 3003
+        },
+        {
+          "stage": "embedding",
+          "ms": 368
+        },
+        {
+          "stage": "vector",
+          "ms": 5
+        },
+        {
+          "stage": "vector",
+          "ms": 5
+        },
+        {
+          "stage": "vector",
+          "ms": 5
+        },
+        {
+          "stage": "rerank",
+          "ms": 4016
+        },
+        {
+          "stage": "generating",
+          "ms": 6112
+        },
+        {
+          "stage": "judging",
+          "ms": 10015
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "questions": 10,
+    "positiveQuestions": 8,
+    "positiveAnswersVerified": 0,
+    "absentQuestions": 2,
+    "absentAbstained": 2,
+    "anchorCount": 9,
+    "anchorsInTop3": 4,
+    "anchorsInTop8": 5,
+    "searchMedianMs": 403.5
+  },
+  "reader": {
+    "component": "production NoteViewer in isolated browser harness",
+    "epubTailOffset": 56749,
+    "epubFind": "14 matches, next/previous verified",
+    "pdfFind": "RMSNorm instead of LayerNorm: 2 matches, pages 11 -> 30 verified against rendered PDF page 30",
+    "scroll": "PageDown responds; no FPS measurement",
+    "modelCitationClick": "Not accepted: no positive model answers passed verification. Reader was tested using known original-source anchors."
+  },
+  "checks": {
+    "defaultTestsPassed": 1061,
+    "defaultTestsSkipped": 4,
+    "lint": "passed",
+    "build": "passed; existing large-chunk warning",
+    "nativeOptIn": "1 passed, 1 failed, 1 skipped; repeated twice. Cancellation immediately followed by import reports parser workers still closing. Embedding-version upgrade assertions occurred before this failure."
+  },
+  "rawLocalRunDirectories": [
+    "nativemind-rag-check-WrO199",
+    "nativemind-rag-check-o46AWq",
+    "nativemind-rag-check-HUxK4j"
+  ],
+  "limitations": [
+    "Exact expected-passage matching is not a complete semantic relevance measure.",
+    "Only two documents; no scanned-PDF OCR, equations, table reconstruction or large-library coverage.",
+    "No fresh Windows installation or installed application UI acceptance.",
+    "No reliable model citation click evidence because positive QA all timed out.",
+    "No document content or full retrieval excerpts committed to repository.",
+    "Initial runner passed flag reflected execution only; new pipeline runner now exits nonzero for quality failure."
+  ]
+}

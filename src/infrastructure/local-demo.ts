@@ -1,4 +1,8 @@
+import { collectGraphReferences } from './note-graph-references';
 import { InMemoryLearningRepository } from './learning-memory';
+import { parseWikiLinks } from '@domain/note/wiki-link';
+import { applyRenameSnapshot, assertRenameSnapshot, RENAME_STALE } from '@application/use-cases/note/rename-note-snapshot';
+import type { NoteRenamePlan, NoteRenameRepository } from '@application/ports';
 import { createApplication, type Application } from '@application/bootstrap';
 import { DeepSeekProvider } from './model-runtime/deepseek-provider';
 import { isSameLocalDay, splitPlainIntoParagraphs } from '@application/shared/utils';
@@ -231,8 +235,50 @@ export class InMemoryFocusRepository implements FocusRepository {
   }
 }
 
-export class InMemoryNoteRepository implements NoteRepository {
+export class InMemoryNoteRepository implements NoteRepository, NoteRenameRepository {
+  async listGraphReferences(noteIds: string[], limit: number) {
+    const notes = this.notes;
+    async function* sources() { for (const id of noteIds) { const note = notes.get(id); if (note) yield copy(note); } }
+    return collectGraphReferences(sources(), new Set(noteIds), limit, async title => {
+      const matches = [...notes.values()].filter(note => note.title === title);
+      return matches.length === 1 ? matches[0].id : undefined;
+    });
+  }
   private readonly notes = new Map<UUID, Note>();
+
+  async listGraphSummaries(limit: number): Promise<Array<{ id: UUID; title: string }>> {
+    return [...this.notes.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id))
+      .slice(0, limit).map(note => ({ id: note.id, title: note.title }));
+  }
+
+  async commitRename(plan: NoteRenamePlan): Promise<void> {
+    const revision = JSON.stringify([...this.notes.entries()]);
+    const current = await assertRenameSnapshot(this, plan);
+    if (JSON.stringify([...this.notes.entries()]) !== revision) throw new Error(RENAME_STALE);
+    const stored = plan.changes.map(change => copy(applyRenameSnapshot(current.get(change.after.id)!, change.after)));
+    const jobs = plan.changes.filter(change => change.before.content !== change.after.content)
+      .map(change => ({ type: 'reindex_note' as const, entityId: change.after.id }));
+    // All allocations/validation precede the synchronous in-memory commit.
+    this.importJobs.pushMany(jobs);
+    for (const note of stored) this.notes.set(note.id, note);
+    saveMapEntries('nm.notes', this.notes);
+  }
+
+  async findReferencingNotes(noteId: UUID, limit: number, offset: number): Promise<Note[]> {
+    const source = this.notes.get(noteId);
+    const title = source && (await this.findByTitle(source.title)).length === 1 ? source.title : undefined;
+    return [...this.notes.values()]
+      .filter(note => note.id !== noteId && (note.cardSource?.noteId === noteId ||
+        note.topicPage?.groups.some(group => group.members.some(member => member.noteId === noteId)) ||
+        (title !== undefined && parseWikiLinks(note.content).some(link => link.title === title))))
+      .sort((a, b) => a.updatedAt === b.updatedAt ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+        : a.updatedAt > b.updatedAt ? -1 : 1)
+      .slice(offset, offset + limit).map(copy);
+  }
+
+  async findByTitle(title: string): Promise<Note[]> {
+    return [...this.notes.values()].filter(note => note.title === title).slice(0, 2).map(copy);
+  }
 
   constructor(private readonly importJobs = new InMemoryJobQueue()) {
     loadMapEntries('nm.notes', this.notes);
@@ -771,6 +817,11 @@ export class InMemoryJobQueue implements JobQueuePort {
     this.jobs.push(copy(job));
   }
 
+  pushMany(jobs: QueuedJob[]): void {
+    const stored = jobs.map(copy);
+    this.jobs.push(...stored);
+  }
+
   async listAll(): Promise<QueuedJob[]> {
     return this.jobs.map(copy);
   }
@@ -1147,7 +1198,7 @@ export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDem
     socraticQuestion: new TemplateSocraticQuestionPort(),
     noteSearch: new LocalNoteSearchPort(note),
     // 模板 AI 无法判断关系，demo 环境一律不产出建议
-    suggestionPort: { suggestForNote: async () => [] },
+    suggestionPort: { suggestForNote: async () => { throw new Error('浏览器演示模式不支持 DeepSeek 知识整理，请使用桌面版。'); } },
     searchResultEnhancer: new TemplateSearchResultEnhancerPort(),
     noteDigest: new TemplateMonthlyDigestPort(),
     // 模板 AI 没有生成能力，深度问答返回空（UI 提示换问法）
@@ -1171,6 +1222,7 @@ export const createLocalDemoRuntime = (options: LocalDemoOptions = {}): LocalDem
       todo,
       focus,
       note,
+      noteRenames: note,
       review,
       companionInteraction,
       socratic,

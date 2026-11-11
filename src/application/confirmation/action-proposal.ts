@@ -8,6 +8,10 @@ import { newId, now } from '../shared/utils';
 export type ActionType =
   | 'create_todos'
   | 'create_knowledge_link'
+  | 'create_note_cards'
+  | 'create_topic_page'
+  | 'standardize_note'
+  | 'rename_note'
   | 'generate_review'
   | 'delete_review'
   | 'delete_note'

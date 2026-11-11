@@ -89,6 +89,8 @@ export class ConfirmationService {
     // 库里会留下一条「已确认但什么都没写」的假记录，审计就失真了。
     // Once confirmed persistence starts, finish it; the UI can no longer stop generation.
     options?.onCommit?.();
+    // The card editor lets the user select and edit drafts before approving them.
+    if (proposal.actionType === 'create_note_cards' || proposal.actionType === 'create_topic_page') await this.proposalRepo.save(proposal as ActionProposal);
     const result = await commit(proposal.payload, proposal.id);
     await this.proposalRepo.updateStatus(proposal.id, 'confirmed', now());
 

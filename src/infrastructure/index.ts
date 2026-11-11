@@ -185,7 +185,8 @@ export function createInfrastructure(config: InfrastructureConfig): Infrastructu
       await jobQueue.recoverStaleJobs();
       // 维度或输入策略升级时，事务内清除旧空间并从保存正文重建，不重新解析源文件。
       if (await vectorStore.isAvailable() && vectorStore instanceof SqliteVecProvider) {
-        await prepareEmbeddingIndex(db, modelRuntime.version, vectorStore.didRebuild);
+        // Rebuild old chunks too: pre-v2 offsets may drift after whitespace trimming/merging.
+        await prepareEmbeddingIndex(db, `${modelRuntime.version}:source-offset-v2`, vectorStore.didRebuild);
       }
     },
   };

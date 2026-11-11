@@ -1,0 +1,22 @@
+{
+  "$id": "note-cards.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cards"],
+  "properties": {
+    "cards": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "body", "quote"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "body": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "quote": { "type": "string", "minLength": 12, "maxLength": 1800 }
+        }
+      }
+    }
+  }
+}

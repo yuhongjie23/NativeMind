@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "qa-critic.v2",
+  "title": "Numbered answer-to-source evidence review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["grounded", "hallucination_risk", "relevance", "quality", "evidence", "critique"],
+  "properties": {
+    "grounded": { "type": "boolean" },
+    "hallucination_risk": { "type": "boolean" },
+    "relevance": { "type": "number", "enum": [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] },
+    "quality": { "type": "number", "minimum": 0, "maximum": 10 },
+    "evidence": {
+      "type": "array", "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["claim", "source", "from", "to"],
+        "properties": {
+          "claim": { "type": "integer", "minimum": 1 },
+          "source": { "type": "integer", "enum": [1, 2, 3, 4, 5, 6] },
+          "from": { "type": "integer", "minimum": 1 },
+          "to": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "critique": { "type": "string", "maxLength": 150 }
+  }
+}

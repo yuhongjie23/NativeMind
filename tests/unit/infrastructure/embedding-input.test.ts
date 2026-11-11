@@ -15,6 +15,8 @@ describe('Nomic retrieval task prefixes', () => {
     await provider.embed(['问题'], undefined, 'query');
     expect(invoke.mock.calls[0][1].texts).toEqual(['search_document: 正文']);
     expect(invoke.mock.calls[1][1].texts).toEqual(['search_query: 问题']);
+    expect(invoke.mock.calls[0][1].release_after).toBe(false);
+    expect(invoke.mock.calls[1][1].release_after).toBe(true);
     expect(provider.version).toContain('search-prefix-v1');
   });
 });

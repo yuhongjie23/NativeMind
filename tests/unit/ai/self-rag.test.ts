@@ -9,11 +9,18 @@ import { DeepQAAdapter } from '@ai/adapters';
  * - citations 与评判器 used_chunk_ids 对齐
  */
 import { describe, expect, it, vi } from 'vitest';
-import { SelfRag, type SelfCritique } from '@ai/rag/self-rag';
+import { SelfRag } from '@ai/rag/self-rag';
+import type { IndexedReview } from '@ai/rag/qa-evidence-review';
 import type { RAGOrchestrator } from '@ai/rag/rag-orchestrator';
 import type { RetrievalCandidate } from '@ai/rag/retrieval-strategy';
 import { ModelRouter } from '@ai/router/model-router';
 import type { ModelCompletionRequest, ModelProvider } from '@ai/types';
+
+const acceptPairs = (request: { jsonSchema?: unknown; prompt: string }) =>
+  (request.jsonSchema as { $id?: string } | undefined)?.$id === 'qa-evidence-check.v2'
+    ? JSON.stringify({ missing: '', verdict: 'supported' }) :
+  (request.jsonSchema as { $id?: string } | undefined)?.$id === 'qa-evidence-check.v1'
+    ? JSON.stringify({ supported: (JSON.parse(request.prompt) as unknown[]).map(() => true) }) : undefined;
 
 const candidates: RetrievalCandidate[] = [
   { chunkId: 'c1', noteId: 'n1', text: 'LoRA 通过低秩分解减少可训练参数量', score: 0.8, matchedBy: ['rule'] },
@@ -28,7 +35,7 @@ const fakeRag = (result: RetrievalCandidate[]): RAGOrchestrator =>
 const routerWith = (handler: (req: ModelCompletionRequest) => string): ModelRouter => {
   const provider: ModelProvider = {
     isAvailable: async () => true,
-    complete: async (req) => handler(req),
+    complete: async (req) => acceptPairs(req) ?? handler(req),
   };
   return new ModelRouter(provider);
 };
@@ -36,13 +43,12 @@ const routerWith = (handler: (req: ModelCompletionRequest) => string): ModelRout
 const isCritic = (req: ModelCompletionRequest): boolean =>
   (req.system ?? '').includes('质量评审');
 
-const groundedCritic: SelfCritique = {
+const groundedCritic: IndexedReview = {
   relevance: 0.9,
   grounded: true,
   hallucination_risk: false,
   quality: 8,
-  used_chunk_ids: ['c1'],
-  evidence: [{ chunk_id: 'c1', quote: candidates[0].text, claim: '低秩分解' }],
+  evidence: [{ source: 1, from: 1, to: 1, claim: 1 }],
   critique: '',
 };
 
@@ -96,7 +102,7 @@ describe('SelfRag', () => {
     expect(result.judged).toBe(true);
     expect(generateCount).toBe(2);
     expect(criticCount).toBe(2);
-    expect(result.answer).toBe('低秩分解 [1]');
+    expect(result.answer).toBe('严格依据 c1 资料的答案：低秩分解 [1]');
   });
 
   it('评判失败（输出不合法）→ 不将草稿作为确定答案，judged=false，不冒充已有支持性引用', async () => {
@@ -113,14 +119,14 @@ describe('SelfRag', () => {
   });
 
   it.each([
-    { ...groundedCritic, used_chunk_ids: [] },
-    { ...groundedCritic, used_chunk_ids: ['invented'] },
+    { ...groundedCritic, evidence: [] },
+    { ...groundedCritic, evidence: [{ source: 99, from: 1, to: 1, claim: 1 }] },
     { ...groundedCritic, grounded: false, quality: 10, relevance: 1 },
     { ...groundedCritic, hallucination_risk: true, quality: 10, relevance: 1 },
   ])('无有效依据或仍存在编造风险时不返回高分和候选引用', async critique => {
     const router = routerWith(req => isCritic(req) ? JSON.stringify(critique) : '资料不足');
     const result = await new SelfRag(router, fakeRag(candidates)).ask('资料没有回答的问题');
-    expect(result.judged).toBe(true);
+    expect(result.judged).toBe(critique.evidence.every(item => item.source <= 6));
     expect(result.citations).toEqual([]);
     expect(result.confidence).toBe(0);
   });
@@ -152,7 +158,7 @@ describe('SelfRag', () => {
     });
 
     expect(deltas).toEqual(['你', '好']);
-    expect(result.answer).toBe('低秩分解 [1]');
+    expect(result.answer).toBe('你好，这是答案：低秩分解 [1]');
   });
 
   it('无相关候选 → 返回 empty，不调模型', async () => {
@@ -169,40 +175,40 @@ describe('SelfRag', () => {
 });
 
  it.each([
-   { evidence: [{ chunk_id: 'c1', quote: 'fabricated quote', claim: '低秩分解' }] },
-   { evidence: [{ chunk_id: 'invented', quote: candidates[0].text, claim: '低秩分解' }] },
-   { evidence: [{ chunk_id: 'c1', quote: candidates[0].text, claim: 'not in the answer' }] },
+   { evidence: [{ source: 1, from: 99, to: 99, claim: 1 }] },
+   { evidence: [{ source: 99, from: 1, to: 1, claim: 1 }] },
+   { evidence: [{ source: 1, from: 1, to: 1, claim: 99 }] },
    { evidence: [] },
  ])('does not present unsupported statements as an answer: %j', async ({ evidence }) => {
    const router = routerWith(req => isCritic(req) ? JSON.stringify({ ...groundedCritic, evidence }) : '低秩分解的发明者是一个编造的人');
    const result = await new SelfRag(router, fakeRag(candidates)).ask('Who invented it?');
    expect(result.citations).toEqual([]);
    expect(result.confidence).toBe(0);
-   expect(result.answer).toContain('资料不足');
+   expect(result.answer).toContain(evidence.length ? '证据核验未完成' : '资料不足');
    expect(result.answer).not.toContain('编造的人');
  });
  it('returns the exact source quote paired with a statement that appears in the answer', async () => {
    const result = await new SelfRag(routerWith(req => isCritic(req) ? JSON.stringify(groundedCritic) : 'LoRA 使用低秩分解。'), fakeRag(candidates)).ask('LoRA?');
    expect(result.citations[0].text).toBe(candidates[0].text);
-   expect(result.citations[0].supportingClaim).toBe('低秩分解');
+   expect(result.citations[0].supportingClaim).toBe('LoRA 使用低秩分解。');
  });
 
  it('drops unsupported trailing sentences even when another sentence has evidence', async () => {
    const result = await new SelfRag(routerWith(req => isCritic(req) ? JSON.stringify(groundedCritic) : '低秩分解。作者是杜撰人物。'), fakeRag(candidates)).ask('Explain');
-   expect(result.answer).toBe('低秩分解 [1]');
+   expect(result.answer).toBe('低秩分解。 [1]');
    expect(result.answer).not.toContain('杜撰');
  });
  it('keeps multiple claim pairs from one chunk and adjusts source offsets to the quote', async () => {
    const text = '背景内容。第一项证据。第二项证据。';
    const evidence = [
-     { chunk_id: 'c1', quote: '第一项证据', claim: '第一项结论' },
-     { chunk_id: 'c1', quote: '第二项证据', claim: '第二项结论' },
+     { source: 1, from: 2, to: 2, claim: 1 },
+     { source: 1, from: 3, to: 3, claim: 2 },
    ];
    const router = routerWith(req => isCritic(req) ? JSON.stringify({ ...groundedCritic, evidence: [...evidence, evidence[0]] }) : '第一项结论。第二项结论。');
    const result = await new SelfRag(router, fakeRag([{ ...candidates[0], text, charStart: 100 }])).ask('Compare');
    expect(result.citations).toHaveLength(2);
    expect(result.citations.map(c => c.charStart)).toEqual([100 + text.indexOf('第一项证据'), 100 + text.indexOf('第二项证据')]);
-   expect(result.answer).toBe('第一项结论 [1]\n\n第二项结论 [2]');
+   expect(result.answer).toBe('第一项结论。 [1]\n\n第二项结论。 [2]');
  });
 
  it('preserves the statement and quote offset through the application adapter', async () => {

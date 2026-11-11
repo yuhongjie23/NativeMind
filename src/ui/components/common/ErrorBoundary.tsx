@@ -9,7 +9,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<{ children: ReactNode; onRetry?: () => void }, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -22,12 +22,25 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
 
   override render(): ReactNode {
     if (!this.state.error) return this.props.children;
-    return <ErrorFallback error={this.state.error} />;
+    return <ErrorFallback error={this.state.error} onRetry={this.props.onRetry} />;
   }
 }
 
-function ErrorFallback({ error }: { error: Error }) {
+function ErrorFallback({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   const t = useT();
+  if (onRetry) return (
+    <div className="cozy-today-empty" role="alert">
+      <p>{t('这个界面暂时无法打开。请重试，或关闭后继续使用其他功能。')}</p>
+      <p>{t('重试只重新打开当前界面，不会刷新整个应用；当前界面尚未保存的输入可能需要重新填写。')}</p>
+      <button type="button" className="cozy-btn-secondary" onClick={onRetry}>
+        {t('重试打开')}
+      </button>
+      <details>
+        <summary>{t('查看错误详情')}</summary>
+        <code className="cozy-error-boundary__message">{error.message}</code>
+      </details>
+    </div>
+  );
   return (
     <div className="cozy-today-empty">
       <p>{t('这个视图出错了，错误信息：')}</p>

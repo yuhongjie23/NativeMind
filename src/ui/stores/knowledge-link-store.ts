@@ -14,6 +14,8 @@ import { create } from 'zustand';
 import type { KnowledgeLink, LinkEntityType, LinkRelationType } from '@shared-types/domain';
 import type { GraphNode } from '@application/use-cases/knowledge-link/query-links';
 import { describeError, repositories, useCases } from './runtime';
+import { useToastStore } from './toast-store';
+import type { NoteGraphReference } from '@application/ports';
 
 /** 带展示名的图节点 */
 export interface LabeledGraphNode extends GraphNode {
@@ -23,6 +25,8 @@ export interface LabeledGraphNode extends GraphNode {
 export interface LinkGraph {
   nodes: LabeledGraphNode[];
   links: KnowledgeLink[];
+  truncated?: boolean;
+  references?: NoteGraphReference[];
 }
 
 /**
@@ -83,9 +87,6 @@ interface KnowledgeLinkState {
 
 const EMPTY_GRAPH: LinkGraph = { nodes: [], links: [] };
 
-/** id 兜底显示：全长 uuid 铺在图上没法看 */
-const shortId = (id: string): string => (id.length > 8 ? `${id.slice(0, 8)}…` : id);
-
 const TYPE_LABELS: Record<LinkEntityType, string> = {
   note: '笔记',
   chunk: '片段',
@@ -94,60 +95,15 @@ const TYPE_LABELS: Record<LinkEntityType, string> = {
   review_item: '复盘',
 };
 
-/**
- * 给节点补标签，并过滤悬空节点。
- *
- * 只查 note 和 todo：chunk / concept / review_item 目前没有独立的
- * 展示名来源，用「类型 + 短 id」已经够区分，不值得为此加仓储方法。
- *
- * 用 findByIds 而不是 listAll：listAll 默认只取前 100 条，笔记一多
- * 图上的节点就落进「笔记 xxxx…」兜底，看不出是哪篇。精确按图上
- * 的节点 id 查，笔记再多标签也对得上。
- *
- * 顺带把「指向已删除笔记」的悬空节点和边过滤掉：删除笔记时虽然会
- * 清理它的链接，但历史残留仍在——图上显示「笔记 xxxx…」既看不出是
- * 哪篇，点击也没有内容，不如直接不显示。
- */
-const labelNodes = async (nodes: GraphNode[], links: KnowledgeLink[]): Promise<LinkGraph> => {
-  const noteIds = nodes.filter((node) => node.type === 'note').map((node) => node.id);
-  const todoIds = nodes.filter((node) => node.type === 'todo').map((node) => node.id);
-
-  const titles = new Map<string, string>();
-
-  if (noteIds.length > 0) {
-    // 图节点可能很多：findByIds 默认 limit=100，节点一多后面的就查不到标题。
-    // 这里按图上实际数量分页拉，保证每个节点都拿到标题。
-    const notes = await repositories.note.findByIds(noteIds, Math.max(noteIds.length, 100));
-    notes.forEach((note) => titles.set(`note:${note.id}`, note.title));
-  }
-  if (todoIds.length > 0) {
-    const todos = await repositories.todo.listAll();
-    todos.forEach((todo) => titles.set(`todo:${todo.id}`, todo.title));
-  }
-
-  // 存在性判定：note/todo 类型查得到标题才算存在；其他类型（chunk 等）视为存在
-  const exists = (node: GraphNode): boolean =>
-    (node.type === 'note' || node.type === 'todo')
-      ? titles.has(`${node.type}:${node.id}`)
-      : true;
-
-  // 过滤悬空节点 + 关联它们的边
-  const alive = nodes.filter(exists);
-  const aliveKeys = new Set(alive.map((node) => `${node.type}:${node.id}`));
-  const aliveLinks = links.filter(
-    (link) =>
-      aliveKeys.has(`${link.fromType}:${link.fromId}`) &&
-      aliveKeys.has(`${link.toType}:${link.toId}`)
-  );
-
+/** Keep the graph note-only and include saved notes without semantic links. */
+const labelNodes = (notes: Array<{ id: string; title: string }>, links: KnowledgeLink[]): LinkGraph => {
+  const visible = notes.slice(0, 1000);
+  const ids = new Set(visible.map(note => note.id));
   return {
-    nodes: alive.map((node) => ({
-      ...node,
-      label:
-        titles.get(`${node.type}:${node.id}`) ??
-        `${TYPE_LABELS[node.type]} ${shortId(node.id)}`,
-    })),
-    links: aliveLinks,
+    nodes: visible.map(note => ({ type: 'note', id: note.id, label: note.title, degree: 0 })),
+    links: links.slice(0, 10000).filter(link => link.confirmedByUser && link.relationType !== 'review_later'
+      && link.fromType === 'note' && link.toType === 'note' && ids.has(link.fromId) && ids.has(link.toId)),
+    truncated: notes.length > 1000 || links.length > 10000,
   };
 };
 
@@ -159,7 +115,7 @@ const labelNodes = async (nodes: GraphNode[], links: KnowledgeLink[]): Promise<L
  */
 const loadEntityOptions = async (): Promise<EntityOption[]> => {
   const [notes, todos] = await Promise.all([
-    repositories.note.listAll(),
+    repositories.note.listGraphSummaries(1000),
     repositories.todo.listAll(),
   ]);
 
@@ -172,6 +128,7 @@ const loadEntityOptions = async (): Promise<EntityOption[]> => {
 };
 
 export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => {
+  let refreshSequence = 0;
   const requests = new Map<string, { controller: AbortController; committing: boolean }>();
   const syncRequests = () => set({
     suggesting: requests.size > 0,
@@ -196,29 +153,35 @@ export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => {
   entityOptions: [],
 
   refresh: async () => {
+    const sequence = ++refreshSequence;
     const { relationFilter, includeArchived } = get();
     set({ loading: true, error: undefined });
     try {
-      const [graph, allConfirmed] = await Promise.all([
-        useCases.queryKnowledgeLinks.executeAsGraph({
-          relationTypes: relationFilter.length > 0 ? relationFilter : undefined,
-          includeArchived,
-        }),
-        // 全量已确认边（不受筛选影响）算每篇笔记的关联数，笔记列表徽章用
-        useCases.queryKnowledgeLinks.execute({ onlyConfirmed: true, includeArchived: false }),
+      const [notes, allConfirmed] = await Promise.all([
+        repositories.note.listGraphSummaries(1001),
+        useCases.queryKnowledgeLinks.execute({ onlyConfirmed: true, includeArchived, limit: 10001 }),
       ]);
       const counts: Record<string, number> = {};
       for (const link of allConfirmed) {
+        if (link.archivedAt) continue;
         if (link.fromType === 'note') counts[link.fromId] = (counts[link.fromId] ?? 0) + 1;
         if (link.toType === 'note') counts[link.toId] = (counts[link.toId] ?? 0) + 1;
       }
+      const entityOptions = await loadEntityOptions();
+      const references = await repositories.note.listGraphReferences(notes.slice(0, 1000).map(note => note.id), 10001);
+      if (sequence !== refreshSequence) return;
+      const graph = labelNodes(notes, allConfirmed);
+      graph.references = references.slice(0, Math.max(0, 10000 - graph.links.length));
+      graph.truncated ||= graph.links.length + references.length > 10000;
+      if (relationFilter.length) graph.links = graph.links.filter(link => relationFilter.includes(link.relationType));
       set({
-        graph: await labelNodes(graph.nodes, graph.links),
+        graph,
         linkCounts: counts,
-        entityOptions: await loadEntityOptions(),
+        entityOptions,
         loading: false,
       });
     } catch (error) {
+      if (sequence !== refreshSequence) return;
       set({ loading: false, error: describeError(error) });
     }
   },
@@ -271,6 +234,7 @@ export const useKnowledgeLinkStore = create<KnowledgeLinkState>((set, get) => {
     } catch (error) {
       if (request.controller.signal.aborted) return { suggested: 0, created: [], cancelled: true };
       set({ error: describeError(error) });
+      useToastStore.getState().show(describeError(error), 'info');
       return { suggested: 0, created: [], skipped: true };
     } finally {
       if (requests.get(noteId) === request) requests.delete(noteId);

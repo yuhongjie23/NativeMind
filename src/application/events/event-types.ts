@@ -92,6 +92,8 @@ export interface NoteUpdatedEvent extends BaseEvent {
   type: 'NoteUpdated';
   noteId: UUID;
   contentChanged: boolean;
+  /** A multi-note write already queued its jobs in the same transaction. */
+  indexQueued?: boolean;
 }
 
 export interface NoteDeletedEvent extends BaseEvent {
@@ -146,6 +148,7 @@ export interface SocraticSessionStartedEvent extends BaseEvent {
 }
 
 export type DomainEvent =
+  | { type: 'NoteOrganizationProgressChanged'; noteId: UUID; timestamp: ISO8601DateTime }
   | AppEnteredEvent
   | AppExitingEvent
   | FocusSessionStartedEvent

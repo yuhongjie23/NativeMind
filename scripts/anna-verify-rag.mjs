@@ -42,8 +42,9 @@ lines.on('line', line => {
   } catch (error) { failPending(error); }
 });
 let connection;
-const documentManifest = process.argv[process.argv.indexOf('--documents') + 1];
-const withDocuments = process.argv.includes('--documents');
+const pipelineDocuments = process.argv.includes('--pipeline-documents');
+const documentManifest = process.argv[process.argv.indexOf(pipelineDocuments ? '--pipeline-documents' : '--documents') + 1];
+const withDocuments = pipelineDocuments || process.argv.includes('--documents');
 const deadline = setTimeout(() => { failPending(new Error('Acceptance check exceeded its time budget')); child.kill(); }, withDocuments ? 1_800_000 : 300_000);
 const report = { dataDir, passed: false, checks: [] };
 try {
@@ -72,7 +73,7 @@ try {
   assert(vectors[0].every(Number.isFinite));
   report.checks.push({ name: 'real embeddings', dimensions: vectors[0].length });
 
-  if (!resume) {
+  if (!resume && !pipelineDocuments) {
   const fixtures = [
     { title: '间隔复习', content: '把学习内容分散到多天回顾，比一天内重复阅读更有利于长期记忆。每次先不看材料，主动回忆答案，再检查遗漏。复习间隔可以逐步延长。', query: '怎样在几周之后仍能记住学过的知识？' },
     { title: '植物光合作用', content: '绿色植物利用叶绿体吸收太阳光，将二氧化碳和水转化为糖类，并释放氧气。光合作用把光能储存在有机物中。', query: '绿色叶片怎样利用阳光制造养分？' },
@@ -118,11 +119,16 @@ try {
     const label = process.argv.includes('--baseline') ? 'baseline' : 'after';
     report.performance = await measureSearch({ runtime, vite, dataDir, label });
   }
-  if (withDocuments) {
+  if (pipelineDocuments) {
+    assert(!resume, 'Pipeline acceptance must import into a fresh isolated database');
+    const { verifyDocumentPipeline } = await import('./lib/verify-document-pipeline.mjs');
+    report.documents = await verifyDocumentPipeline({ runtime, vite, dataDir, manifestPath: documentManifest });
+  } else if (withDocuments) {
     const { verifyDocuments } = await import('./lib/verify-documents.mjs');
     report.documents = await verifyDocuments({ runtime, vite, invoke, dataDir, manifestPath: documentManifest, inspect: process.argv.includes('--inspect'), evaluateOnly: resume });
   }
-  report.passed = true;
+  report.passed = pipelineDocuments ? report.documents.accepted : true;
+  if (!report.passed) process.exitCode = 1;
 } catch (error) {
   report.error = error instanceof Error ? error.message : String(error);
   process.exitCode = 1;
@@ -137,5 +143,9 @@ try {
   lines.close();
   await vite.close();
   await writeFile(join(dataDir, resume ? 'acceptance-after.json' : 'acceptance.json'), JSON.stringify(report, null, 2));
-  console.log(JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(pipelineDocuments
+    ? { dataDir, passed: report.passed, error: report.error, documents: report.documents?.documents,
+      results: report.documents?.results.map(r => ({ id: r.id, recall8: r.recall8, judged: r.answer?.judged,
+        citations: r.answer?.citations.length, qaMs: r.qaMs, error: r.qaError })) }
+    : report, null, 2));
 }

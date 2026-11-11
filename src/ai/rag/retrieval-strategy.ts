@@ -8,10 +8,13 @@ import { measureKnowledgeStage } from '../shared/knowledge-timing';
  */
 import type { EmbeddingProvider, RerankProvider, VectorStorePort } from '../types';
 import { expandQuery } from './query-expansion';
+import { extractKeywords } from './query-keywords';
+export { extractKeywords } from './query-keywords';
 import type { QueryRewriter } from './query-rewriter';
 import type { ReRanker } from './rerank';
 
 export interface RetrievalCandidate {
+  exactTitleMatch?: boolean;
   chunkId: string;
   noteId: string;
   text: string;
@@ -25,6 +28,8 @@ export interface RetrievalCandidate {
   headingPath?: string[];
   /** 段落在原笔记正文中的字符起始偏移（UI 定位用） */
   charStart?: number;
+  /** Original positions for promoted chunks; inserted separators are not source text. */
+  sourceSpans?: { start: number; end: number; charStart: number }[];
 }
 
 /** 规则层需要的最小元数据，由 application 层从 SQLite 取来传入 */
@@ -44,6 +49,8 @@ export interface RuleCandidateSource {
 }
 
 export interface RetrievalQuery {
+  /** Interactive note lookup: exact titles and literal hits precede semantic suggestions. */
+  preferLiteralMatches?: boolean;
   /** Ordinary interactive search skips generative reranking. */
   rerank?: boolean;
   onProgress?: (progress: KnowledgeProgress) => void;
@@ -68,18 +75,6 @@ export interface RetrievalWeights {
 }
 
 export const defaultWeights: RetrievalWeights = { rule: 0.4, vector: 0.6, minScore: 0.18 };
-
-/** 提取中英文关键词。中文按 2 字滑窗，够用且不引入分词库 */
-export const extractKeywords = (text: string, limit = 12): string[] => {
-  const latin = text.toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g) ?? [];
-  const cjk = text.match(/[\u4e00-\u9fa5]{2,}/g) ?? [];
-
-  const bigrams = cjk.flatMap((run) =>
-    run.length <= 4 ? [run] : Array.from({ length: run.length - 1 }, (_, i) => run.slice(i, i + 2))
-  );
-
-  return [...new Set([...latin, ...bigrams])].slice(0, limit);
-};
 
 /** 规则层打分：标签重合 + 关键词重合 + 关键词命中标签 + 同源 + 同日 */
 const scoreByRules = (candidate: RuleCandidateSource, query: RetrievalQuery): number => {
@@ -181,20 +176,35 @@ export class RetrievalStrategy {
     query.signal?.throwIfAborted();
     const excluded = new Set(query.excludeNoteIds ?? []);
     const merged = new Map<string, RetrievalCandidate>();
+    const literalLookup = query.preferLiteralMatches && !query.deep;
+    const normalizedQuery = query.text.trim().toLowerCase();
+    const exactTitles = literalLookup && normalizedQuery
+      ? ruleCandidates.filter(c => !excluded.has(c.noteId) && c.title?.trim().toLowerCase() === normalizedQuery)
+      : [];
+    if (exactTitles.length > 0) {
+      return measureKnowledgeStage('keywords', query.onProgress, async () => {
+        const hits: RetrievalCandidate[] = exactTitles.slice(0, limit).map(c => ({
+          chunkId: c.chunkId, noteId: c.noteId, title: c.title, text: c.text,
+          score: 1, matchedBy: ['rule'], exactTitleMatch: true, headingPath: c.headingPath, charStart: c.charStart,
+        }));
+        query.signal?.throwIfAborted();
+        query.onPartial?.(hits);
+        query.signal?.throwIfAborted();
+        return hits;
+      });
+    }
 
     // 查询展开：深度检索（LLM Multi-Query + HyDE）或启发式
     let variants = expandQuery(query.text);
     let hydePassage: string | undefined;
 
 
-    // 规则层：对每个查询变体分别打分，取该 chunk 的最优分
+    // Keep lexical scoring anchored to the user's complete question. A split
+    // fragment such as a book title must not give every passage a full match.
     const addRules = () => ruleCandidates
       .filter((c) => !excluded.has(c.noteId))
       .forEach((c) => {
-        let best = 0;
-        for (const variant of variants) {
-          best = Math.max(best, scoreByRules(c, { ...query, text: variant }));
-        }
+        const best = scoreByRules(c, query);
         const score = best * this.weights.rule;
         if (score <= 0) return;
         merged.set(c.chunkId, {
@@ -216,12 +226,19 @@ export class RetrievalStrategy {
         .sort((a, b) => b.score - a.score).slice(0, limit)
         .map(c => ({ ...c, matchedBy: [...c.matchedBy] })));
     });
+    // Capture rule-only evidence before combining vector scores. A weak
+    // incidental word must not gain priority merely by being in the rule map.
+    const literalChunks = new Set([...merged.values()]
+      .filter(c => c.score >= this.weights.minScore).map(c => c.chunkId));
+    const literalPriority = (a: RetrievalCandidate, b: RetrievalCandidate) => literalLookup
+      ? Number(literalChunks.has(b.chunkId)) - Number(literalChunks.has(a.chunkId)) : 0;
     if (query.deep && this.options.queryRewriter) {
       const rewritten = await measureKnowledgeStage('rewrite', query.onProgress, () => this.options.queryRewriter!.rewrite(query.text, query.signal));
       variants = rewritten.variants;
       hydePassage = rewritten.hypothetical;
     }
-    if (query.deep) addRules();
+    const ruleScores = new Map([...merged].map(([id, candidate]) => [id, candidate.score]));
+    const vectorScores = new Map<string, number>();
 
     try {
       // 向量层：把全部查询变体（+ HyDE 假设性答案）一起 embed，逐个查向量库，chunk 取各变体的最优分
@@ -230,20 +247,29 @@ export class RetrievalStrategy {
       for (const c of ruleCandidates) {
         if (c.title) titleByNote.set(c.noteId, c.title);
       }
+      // HyDE keeps its document prefix. Run it first so the final query batch
+      // can release the embedding model before reranking/answer generation.
+      const hydeVectors = hydePassage
+        ? await measureKnowledgeStage('embedding', query.onProgress, () => this.embedding.embed([hydePassage!], query.signal, 'document')) : [];
       const vectors = await measureKnowledgeStage('embedding', query.onProgress, () => this.embedding.embed(variants, query.signal, 'query'));
-      // HyDE is a hypothetical document, not a user query.
-      if (hydePassage) vectors.push(...await measureKnowledgeStage('embedding', query.onProgress, () => this.embedding.embed([hydePassage!], query.signal, 'document')));
+      vectors.push(...hydeVectors);
       query.signal?.throwIfAborted();
       for (const vector of vectors) {
-        const matches = await measureKnowledgeStage('vector', query.onProgress, () => this.vectorStore.query(vector, limit * 2));
+        // Recall more than the final display size before combining signals.
+        // A near-miss vector can still be the best exact keyword passage.
+        const matches = await measureKnowledgeStage('vector', query.onProgress, () => this.vectorStore.query(vector, Math.max(limit * 2, 64)));
         matches
           .filter((m) => !excluded.has(m.noteId))
           .forEach((m) => {
             const weighted = m.score * this.weights.vector;
+            const bestVector = Math.max(vectorScores.get(m.chunkId) ?? 0, weighted);
+            vectorScores.set(m.chunkId, bestVector);
             const existing = merged.get(m.chunkId);
             if (existing) {
-              if (weighted > existing.score) {
-                existing.score = weighted;
+              // Independent lexical and semantic evidence both contribute.
+              // Repeated query variants only update the best vector score.
+              existing.score = Math.min(1, (ruleScores.get(m.chunkId) ?? 0) + bestVector);
+              if (!existing.matchedBy.includes('vector')) {
                 existing.matchedBy.push('vector');
               }
             } else {
@@ -267,7 +293,7 @@ export class RetrievalStrategy {
     // 先按分排序，再过滤低于阈值的
     const scored = [...merged.values()]
       .filter((c) => c.score >= this.weights.minScore)
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => literalPriority(a, b) || b.score - a.score);
 
     // 子块→父块：同一章节（headingPath）下多个子块命中，合并成完整章节返回，
     // 兼顾精度与完整性。合并文本设上限，避免整章塞爆后续 LLM 上下文。
@@ -276,6 +302,7 @@ export class RetrievalStrategy {
       this.options.maxParentChars,
       this.options.maxSiblingsPerHeading
     );
+    promoted.sort(literalPriority);
 
     // 模型级 Rerank（深度检索或普通检索都启用，用本地小模型按相关性评判段落）：
     // 优先专用 cross-encoder（精度最高），失败/慢回退生成式 LLM 打分重排，
@@ -332,7 +359,7 @@ export class RetrievalStrategy {
       if (!added) break;
     }
     query.signal?.throwIfAborted();
-    return diverse;
+    return diverse.sort(literalPriority);
   }
 
   /** cross-encoder 打分重排；失败/超时返回 null，调用方回退生成式重排 */
@@ -409,8 +436,20 @@ function promoteSiblingChunks(
         title: group[0].title,
         headingPath: group[0].headingPath,
         charStart: group[0].charStart,
+        ...(group.length > 1 ? { sourceSpans: mergedSourceSpans(group) } : { sourceSpans: group[0].sourceSpans }),
       });
     }
   }
   return out.sort((a, b) => b.score - a.score);
+}
+
+function mergedSourceSpans(group: RetrievalCandidate[]): NonNullable<RetrievalCandidate['sourceSpans']> {
+  let offset = 0;
+  return group.flatMap(candidate => {
+    const spans = candidate.sourceSpans ?? (candidate.charStart === undefined ? []
+      : [{ start: 0, end: candidate.text.length, charStart: candidate.charStart }]);
+    const shifted = spans.map(span => ({ ...span, start: span.start + offset, end: span.end + offset }));
+    offset += candidate.text.length + 2; // Two synthetic newlines between promoted chunks.
+    return shifted;
+  });
 }

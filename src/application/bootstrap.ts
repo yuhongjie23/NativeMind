@@ -5,6 +5,12 @@
  */
 import type { ActionProposalRepository } from './confirmation/action-proposal';
 import { KnowledgeReadingUseCase } from './use-cases/knowledge-reading';
+import { StandardizeNoteUseCase } from './use-cases/note/standardize-note';
+import { OrganizeNoteTitleUseCase } from './use-cases/note/organize-note-title';
+import { QueryNoteReferencesUseCase } from './use-cases/note/query-note-references';
+import { ResolveWikiLinkUseCase } from './use-cases/note/resolve-wiki-link';
+import { RenameNoteUseCase } from './use-cases/note/rename-note';
+import type { NoteRenameRepository } from './ports';
 import {
   ConfirmationService,
   type ConfirmationPrompt,
@@ -90,6 +96,9 @@ import { AdoptReviewSuggestionUseCase } from './use-cases/review/adopt-review-su
 import { ProactiveCompanionTickUseCase } from './use-cases/companion/proactive-tick';
 import { CompanionContextBuilder } from './use-cases/companion/companion-context';
 import { DeleteNoteUseCase } from './use-cases/note/delete-note';
+import { OrganizeNoteUseCase } from './use-cases/note/organize-note';
+import { ComposeTopicUseCase } from './use-cases/note/compose-topic';
+import type { NoteStandardizationPort, NoteTitlePort, NoteCardRepository, NoteOrganizationPort, TopicOrganizationPort, TopicPageRepository } from './ports';
 import { RetryNoteIndexUseCase } from './use-cases/note/retry-note-index';
 import { AbandonSocraticSessionUseCase } from './use-cases/socratic/abandon-session';
 import { AskSocraticQuestionUseCase } from './use-cases/socratic/ask-question';
@@ -109,6 +118,9 @@ export interface ApplicationDeps {
     todo: TodoRepository;
     focus: FocusRepository;
     note: NoteRepository & NoteImportRepository;
+    noteCards?: NoteCardRepository;
+    topicPages?: TopicPageRepository;
+    noteRenames?: NoteRenameRepository;
     review: ReviewRepository;
     companionInteraction: CompanionInteractionRepository;
     socratic: SocraticRepository;
@@ -129,6 +141,10 @@ export interface ApplicationDeps {
     socraticQuestion: SocraticQuestionPort;
     noteSearch: NoteSearchPort;
     suggestionPort: KnowledgeLinkSuggestionPort;
+    noteStandardization?: NoteStandardizationPort;
+    noteTitle?: NoteTitlePort;
+    noteOrganization?: NoteOrganizationPort;
+    topicOrganization?: TopicOrganizationPort;
     searchResultEnhancer?: SearchResultEnhancerPort;
     /** 不注入则外部搜索整体关闭 */
     searchGate?: SearchGate;
@@ -177,6 +193,13 @@ export interface Application {
     completeFocus: CompleteFocusUseCase;
     abortFocus: AbortFocusUseCase;
     importNote: ImportNoteUseCase;
+    organizeNote: OrganizeNoteUseCase;
+    composeTopic: ComposeTopicUseCase;
+    queryNoteReferences: QueryNoteReferencesUseCase;
+    resolveWikiLink: ResolveWikiLinkUseCase;
+    renameNote: RenameNoteUseCase;
+    standardizeNote: StandardizeNoteUseCase;
+    organizeNoteTitle: OrganizeNoteTitleUseCase;
     retryNoteIndex: RetryNoteIndexUseCase;
     updateNote: UpdateNoteUseCase;
     deleteNote: DeleteNoteUseCase;
@@ -269,6 +292,8 @@ export function createApplication(deps: ApplicationDeps): Application {
     repos.note
   );
 
+  const importNote = new ImportNoteUseCase(repos.note, infra.fileImport, eventBus);
+  const renameNote = new RenameNoteUseCase(repos.note, repos.noteRenames, infra.fileImport, eventBus);
   const useCases: Application['useCases'] = {
     knowledgeReading: new KnowledgeReadingUseCase(repos.settings),
     adoptReviewSuggestion: new AdoptReviewSuggestionUseCase(repos.review, confirmation, eventBus),
@@ -279,7 +304,14 @@ export function createApplication(deps: ApplicationDeps): Application {
     startFocus: new StartFocusUseCase(repos.focus, eventBus, focusPolicy),
     completeFocus: new CompleteFocusUseCase(repos.focus, eventBus, focusPolicy),
     abortFocus: new AbortFocusUseCase(repos.focus, eventBus, focusPolicy),
-    importNote: new ImportNoteUseCase(repos.note, infra.fileImport, eventBus),
+    importNote,
+    standardizeNote: new StandardizeNoteUseCase(repos.note, ai.noteStandardization, confirmation, importNote),
+    organizeNote: new OrganizeNoteUseCase(repos.note, repos.noteCards, ai.noteOrganization, infra.fileImport, confirmation, eventBus, infra.jobQueue),
+    composeTopic: new ComposeTopicUseCase(repos.note, repos.topicPages, ai.topicOrganization, infra.fileImport, confirmation, eventBus, infra.jobQueue),
+    queryNoteReferences: new QueryNoteReferencesUseCase(repos.note, repos.knowledgeLink),
+    resolveWikiLink: new ResolveWikiLinkUseCase(repos.note),
+    renameNote,
+    organizeNoteTitle: new OrganizeNoteTitleUseCase(repos.note, ai.noteTitle, renameNote, confirmation),
     retryNoteIndex: new RetryNoteIndexUseCase(infra.noteIndexRetry),
     updateNote: new UpdateNoteUseCase(repos.note, infra.fileImport, eventBus),
     deleteNote: new DeleteNoteUseCase(repos.note, infra.vectorCleanup, confirmation, eventBus, repos.knowledgeLink),

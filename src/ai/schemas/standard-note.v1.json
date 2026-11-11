@@ -1,0 +1,15 @@
+{
+  "type": "object", "additionalProperties": false, "required": ["status", "title", "blocks"],
+  "properties": {
+    "status": { "type": "string", "enum": ["ready", "insufficient"] },
+    "title": { "type": "string", "maxLength": 100 },
+    "blocks": { "type": "array", "maxItems": 24, "items": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "text", "quote"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["overview", "concepts", "conditions", "steps", "examples", "questions"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1800 },
+        "quote": { "type": "string", "minLength": 12, "maxLength": 1200 }
+      }
+    } }
+  }
+}

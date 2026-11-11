@@ -309,12 +309,12 @@ export class NoteSearchAdapter implements NoteSearchPort {
   constructor(private readonly rag: RAGOrchestrator) {}
 
   async search(query: string, limit: number, deep?: boolean, options?: NoteSearchOptions): Promise<SearchHit[]> {
-    const candidates = await this.rag.retrieve({ text: query, deep, ...options, rerank: deep ?? false }, limit);
+    const candidates = await this.rag.retrieve({ text: query, deep, ...options, rerank: deep ?? false, preferLiteralMatches: !deep }, limit);
     return candidates.map((c) => ({
       chunkId: c.chunkId,
       noteId: c.noteId,
       text: c.text,
-
+      exactTitleMatch: c.exactTitleMatch,
       score: c.score,
       headingPath: c.headingPath,
       charStart: c.charStart,
@@ -490,7 +490,8 @@ export class MonthlyDigestAdapter implements MonthlyDigestPort {
 export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPort {
   constructor(
     private readonly rag: RAGOrchestrator,
-    private readonly hyde: LinkHydeGenerator
+    private readonly hyde: LinkHydeGenerator,
+    private readonly requireOrganizationAccess?: () => Promise<void>
   ) {}
 
   async suggestForNote(
@@ -500,10 +501,13 @@ export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPo
     existingTags: string[] = [],
     options?: GenerationOptions
   ): Promise<LinkSuggestionCandidate[]> {
+    options?.signal?.throwIfAborted();
+    await this.requireOrganizationAccess?.();
+    options?.signal?.throwIfAborted();
     // HyDE 召回：先让模型假设「相似的旧笔记会有什么标签/主题」，
     // 再用假设标签 + 原文一起检索，字面不重叠但语义相近的笔记也能被召回。
     const hyde = await this.hyde.generate(content, existingTags, options?.signal);
-    const { candidates, suggestions, relationJudged } = await this.rag.findConnections({
+    const { suggestions, relationJudged } = await this.rag.findConnections({
       text: content,
       signal: options?.signal,
       tags: hyde.tags,
@@ -514,31 +518,12 @@ export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPo
     // 模型判断成功（无论有没有关系）→ 以模型结论为准：
     // 有关系用模型的关系类型；模型认为无关系就返回空，不硬凑
     if (relationJudged) {
+      await this.requireOrganizationAccess?.();
+      options?.signal?.throwIfAborted();
       return this.toNoteCandidates(suggestions, limit);
     }
 
-    // relationJudged=false：模型不可用 / 判断失败（调用异常、超时、解析失败）。
-    // 这时不静默返回空——但只对「真正被检索命中的候选」降级为 review_later 建议
-    // （score > 0，规则/向量层确认过相关）。score=0 的兜底候选（listFallback 拉来的
-    // 「最近笔记」，只是最近的、未必相关）绝不能降级成建议——否则「秋收起义」会建议
-    // 关联「agent」，把无关笔记硬凑在一起。
-    const hitCandidates = candidates.filter((c) => c.score > 0);
-    if (hitCandidates.length > 0) {
-      return this.toNoteCandidates(
-        hitCandidates.map((c) => ({
-          toId: c.chunkId,
-          toType: 'chunk' as const,
-          relationType: 'review_later' as const,
-          reason: '本地模型暂不可用，这是检索到的最相关旧笔记，请人工判断是否关联',
-          confidence: Math.min(0.4 + c.score, 0.85),
-          toNoteId: c.noteId,
-          excerpt: c.text.slice(0, 120),
-        })),
-        limit
-      );
-    }
-
-    return [];
+    throw new Error('DeepSeek 知识整理失败，未生成关联建议。请检查 API Key、余额和网络后重试。');
   }
 
   /** 关系判断的端点是 chunk，落到知识图上用「笔记」更直观。同一篇旧笔记只保留置信度最高的一条 */
@@ -576,10 +561,16 @@ export class KnowledgeLinkSuggestionAdapter implements KnowledgeLinkSuggestionPo
 
 /** 薄映射：SelfRag 产出 → application 端口类型。citations 复用检索的 SearchHit 形状 */
 export class DeepQAAdapter implements AskNotesPort {
-  constructor(private readonly selfRag: SelfRag) {}
+  constructor(
+    private readonly selfRag: SelfRag,
+    private readonly readLanguage: () => Promise<'zh' | 'en'> = async () => 'zh',
+  ) {}
 
   async ask(input: AskNotesQuestion): Promise<AskNotesAnswer> {
+    input.signal?.throwIfAborted();
+    const language = await this.readLanguage();
     const result = await this.selfRag.ask(input.question, {
+      language,
       deep: input.deep,
       signal: input.signal,
       excludeNoteIds: input.excludeNoteIds,

@@ -12,7 +12,13 @@
 import { useConfirmation } from '../../hooks/use-confirmation';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
-import type { ReviewTrace } from '@application/ports';
+import type { NoteCardsProposal, ReviewTrace, TopicProposal } from '@application/ports';
+import { TopicConfirmation } from './TopicConfirmation';
+import { NoteTitleConfirmation } from './NoteTitleConfirmation';
+import { StandardNoteConfirmation } from './StandardNoteConfirmation';
+import type { StandardNoteProposal } from '@application/use-cases/note/standardize-note';
+import type { NoteTitleProposal } from '@application/use-cases/note/organize-note-title';
+import { NoteCardsConfirmation } from './NoteCardsConfirmation';
 import { ReviewEvidenceDetails } from './ReviewEvidenceDetails';
 
 const actionLabel: Record<string, string> = {
@@ -53,6 +59,27 @@ export function ConfirmationModal() {
   const { proposal, queued, approve, reject } = useConfirmation();
 
   if (!proposal) return null;
+
+  if (proposal.actionType === 'standardize_note') return <StandardNoteConfirmation key={proposal.id}
+    proposal={proposal.payload as StandardNoteProposal} onApprove={approve} onReject={reject} />;
+
+  if (proposal.actionType === 'rename_note') return <NoteTitleConfirmation proposal={proposal.payload as NoteTitleProposal} onApprove={approve} onReject={reject} />;
+
+  if (proposal.actionType === 'create_topic_page') {
+    return <TopicConfirmation key={proposal.id} proposal={proposal.payload as TopicProposal}
+      onReject={reject} onApprove={draft => {
+        proposal.payload = { ...(proposal.payload as TopicProposal), ...draft };
+        approve();
+      }} />;
+  }
+
+  if (proposal.actionType === 'create_note_cards') {
+    return <NoteCardsConfirmation key={proposal.id} proposal={proposal.payload as NoteCardsProposal}
+      onReject={reject} onApprove={cards => {
+        proposal.payload = { ...(proposal.payload as NoteCardsProposal), cards };
+        approve();
+      }} />;
+  }
 
   return (
     <Modal

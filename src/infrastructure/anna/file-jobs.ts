@@ -9,7 +9,21 @@ export async function runFileJob<T>(invoke: TauriInvoke, command: string, payloa
   const cancel = () => { void invoke('file_job_cancel', { id }).catch(() => undefined); };
   signal?.addEventListener('abort', cancel, { once: true });
   try {
-    await invoke('file_job_start', { id, command, payload });
+    // Cancellation acknowledges the request before the OS process and output
+    // reader have exited. Keep the native capacity bound; briefly retry only a
+    // rejected start, never a parser error or an ambiguously accepted request.
+    for (let retry = 0; ; retry++) {
+      signal?.throwIfAborted();
+      try {
+        await invoke('file_job_start', { id, command, payload });
+        break;
+      } catch (error) {
+        signal?.throwIfAborted();
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.startsWith('FILE_JOB_BUSY:') || retry >= 20) throw error;
+        await new Promise<void>(resolve => setTimeout(resolve, 100));
+      }
+    }
     while (true) {
       signal?.throwIfAborted();
       const update = await invoke<{ done: boolean; value?: T; error?: string }>('file_job_poll', { id });

@@ -48,8 +48,9 @@ const splitMarkdownSections = (markdown: string): Section[] => {
   let bufferOffset = 0;
 
   const flush = () => {
-    const body = buffer.join('\n').trim();
-    if (body) sections.push({ headingPath: [...headingStack], body, offset: bufferOffset });
+    const raw = buffer.join('\n');
+    const body = raw.trim();
+    if (body) sections.push({ headingPath: [...headingStack], body, offset: bufferOffset + raw.length - raw.trimStart().length });
     buffer = [];
   };
 
@@ -74,47 +75,44 @@ const splitMarkdownSections = (markdown: string): Section[] => {
 
 /** 按空行分段，再贪心聚合到 targetChars */
 const packParagraphs = (section: Section, options: ChunkOptions): ChunkDraft[] => {
-  const paragraphs = section.body.split(/\n{2,}/).filter((p) => p.trim());
+  const paragraphs = Array.from(section.body.matchAll(/[^\n]+(?:\n[^\n]+)*/g))
+    .filter(match => match[0].trim())
+    .map(match => ({ start: match.index + match[0].length - match[0].trimStart().length,
+      end: match.index + match[0].trimEnd().length }));
   const chunks: ChunkDraft[] = [];
 
-  let current: string[] = [];
-  let currentLen = 0;
-  let cursor = section.offset;
-  let chunkOffset = section.offset;
+  let start: number | undefined;
+  let end = 0;
 
   const flush = () => {
-    if (current.length === 0) return;
+    if (start === undefined) return;
     chunks.push({
-      text: current.join('\n\n'),
+      text: section.body.slice(start, end),
       headingPath: section.headingPath,
-      offset: chunkOffset,
+      offset: section.offset + start,
     });
-    current = [];
-    currentLen = 0;
+    start = undefined;
   };
 
   paragraphs.forEach((paragraph) => {
     // 单段就超上限：硬切，避免出现巨型 chunk 拖慢检索
-    if (paragraph.length > options.maxChars) {
+    if (paragraph.end - paragraph.start > options.maxChars) {
       flush();
-      for (let i = 0; i < paragraph.length; i += options.targetChars) {
+      for (let i = paragraph.start; i < paragraph.end; i += options.targetChars) {
         chunks.push({
-          text: paragraph.slice(i, i + options.targetChars),
+          text: section.body.slice(i, Math.min(i + options.targetChars, paragraph.end)),
           headingPath: section.headingPath,
-          offset: cursor + i,
+          offset: section.offset + i,
         });
       }
-      cursor += paragraph.length + 2;
-      chunkOffset = cursor;
       return;
     }
 
-    if (current.length === 0) chunkOffset = cursor;
-    current.push(paragraph);
-    currentLen += paragraph.length;
-    cursor += paragraph.length + 2;
+    if (start !== undefined && paragraph.end - start > options.maxChars) flush();
+    if (start === undefined) start = paragraph.start;
+    end = paragraph.end;
 
-    if (currentLen >= options.targetChars) flush();
+    if (end - start >= options.targetChars) flush();
   });
 
   flush();
@@ -122,18 +120,19 @@ const packParagraphs = (section: Section, options: ChunkOptions): ChunkDraft[] =
 };
 
 /** 把过短的 chunk 并进前一个，减少碎片 */
-const mergeShortChunks = (chunks: ChunkDraft[], minChars: number, maxChars: number): ChunkDraft[] =>
+const mergeShortChunks = (chunks: ChunkDraft[], source: string, minChars: number, maxChars: number): ChunkDraft[] =>
   chunks.reduce<ChunkDraft[]>((acc, chunk) => {
     const prev = acc[acc.length - 1];
     // 判断当前块是否过短（而不是上一块）：独立短块后接正常块时也会被吸收，
     // 不再留下「短块碎片」。用 maxChars 兜底，避免一个块无限吞并短块。
     const sameSection =
       prev &&
-      prev.headingPath.join('/') === chunk.headingPath.join('/') &&
+      JSON.stringify(prev.headingPath) === JSON.stringify(chunk.headingPath) &&
       chunk.text.length < minChars &&
-      prev.text.length < maxChars;
+      chunk.offset + chunk.text.length - prev.offset <= maxChars &&
+      !source.slice(prev.offset + prev.text.length, chunk.offset).trim();
 
-    if (sameSection) prev.text = `${prev.text}\n\n${chunk.text}`;
+    if (sameSection) prev.text = source.slice(prev.offset, chunk.offset + chunk.text.length);
     else acc.push({ ...chunk });
 
     return acc;
@@ -143,13 +142,13 @@ export function chunkMarkdown(markdown: string, options = defaultChunkOptions): 
   const chunks = splitMarkdownSections(markdown).flatMap((section) =>
     packParagraphs(section, options)
   );
-  return mergeShortChunks(chunks, options.minChars, options.maxChars).filter((c) => c.text.trim());
+  return mergeShortChunks(chunks, markdown, options.minChars, options.maxChars).filter((c) => c.text.trim());
 }
 
 /** PDF / 纯文本：没有标题结构，直接按段落聚合 */
 export function chunkPlainText(text: string, options = defaultChunkOptions): ChunkDraft[] {
   const chunks = packParagraphs({ headingPath: [], body: text, offset: 0 }, options);
-  return mergeShortChunks(chunks, options.minChars, options.maxChars).filter((c) => c.text.trim());
+  return mergeShortChunks(chunks, text, options.minChars, options.maxChars).filter((c) => c.text.trim());
 }
 
 export function chunkText(

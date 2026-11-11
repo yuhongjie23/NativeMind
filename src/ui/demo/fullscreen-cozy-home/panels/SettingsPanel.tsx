@@ -22,6 +22,7 @@ import type { AppLanguage, ThemeMode } from '@shared-types/config';
 import { ENGINE_LIST } from '@shared-types/search-config';
 import type { SearchEngineConfig } from '@shared-types/search-config';
 import { BackgroundVideoSettings } from './BackgroundVideoSettings';
+import { BuiltinVideoScenes } from './BuiltinVideoScenes';
 import type { SceneControls } from '../components/DemoSheet';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { useToastStore } from '../../../stores/toast-store';
@@ -332,7 +333,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
 
   /** 切回本地模型（教练档回退本地大模型，key 保留但不使用） */
   const disableDeepseek = async () => {
-    await updateModels({ providerMode: 'local' });
+    await updateModels({ providerMode: 'local', knowledgeOrganizationEnabled: false });
     setDeepseekStatus('idle');
     useToastStore.getState().show(t('已切回本地模型'), 'info');
   };
@@ -495,6 +496,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
 
   return (
     <div className="cozy-settings">
+      <p className="cozy-companion-panel__hint">NativeMind {import.meta.env.VITE_APP_VERSION} · {localOnly ? 'Anna Local' : t('桌面版')}</p>
       <StartupCheckPanel />
       {/* ---- 场景（视觉偏好，本地） ---- */}
       <section className="cozy-settings__group">
@@ -572,6 +574,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
           </div>
         </div>
 
+        <BuiltinVideoScenes controls={controls} onSelect={() => setFollowTime(false)} />
         <BackgroundVideoSettings scene={settings.sceneId} weather={settings.weather} phase={controls.timePhase} />
 
         <div className="cozy-settings-row">
@@ -1152,7 +1155,7 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
         {/* ---- DeepSeek 云端：教练档（任务拆解/复盘/知识关联/陪伴） ---- */}
         {localOnly ? <p className="cozy-companion-panel__hint">
           {t('Anna 本地版只使用本机模型，笔记与复盘不发送到云端模型。')}
-        </p> : <div className="cozy-model-deepseek">
+        </p> : <div className="cozy-model-deepseek" id="deepseek-connection-settings" tabIndex={-1}>
           <div className="cozy-settings-row">
             <span className="cozy-settings-row__label">{t('教练模型 (DeepSeek)')}</span>
             <span className="cozy-settings-row__value">
@@ -1239,6 +1242,23 @@ export function SettingsPanel({ controls }: { controls: SceneControls }) {
             </button>
           </div>
         </div>}
+        <div className="cozy-settings-row" id="knowledge-organization-settings" tabIndex={-1}>
+          <label>
+            <input
+              type="checkbox"
+              checked={!localOnly && Boolean(models.apiKey?.trim()) && Boolean(models.knowledgeOrganizationEnabled)}
+              disabled={localOnly || !models.apiKey?.trim()}
+              onChange={(event) => void updateModels({ knowledgeOrganizationEnabled: event.target.checked })}
+            />{' '}{t('AI 知识整理（DeepSeek · 标准笔记、标题、关联、卡片与目录）')}
+          </label>
+        </div>
+        <p className="cozy-companion-panel__hint">
+          {t(localOnly
+            ? 'Anna 纯本地版不支持 DeepSeek 知识整理；仍可手动关联和本地检索。'
+            : !models.apiKey?.trim()
+              ? '未配置 DeepSeek API Key，无法开启 AI 知识整理。请前往设置配置。'
+              : '开启后，导入笔记会自动查找关联；当前笔记与候选笔记的相关片段会发送到 DeepSeek，可能产生 API 费用。建议确认后才保存；关闭后不再发起新的整理请求。')}
+        </p>
         <div className="cozy-settings-row">
           <span className="cozy-settings-row__label">{t('本地大模型（教练档兜底）')}</span>
           <ModelPicker

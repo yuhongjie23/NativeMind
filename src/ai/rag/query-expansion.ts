@@ -9,7 +9,7 @@
  * 模型可用时可再叠加 HyDE（假设性文档嵌入），见 RetrievalStrategy 的
  * hypotheticalGenerator 扩展位。
  */
-import { extractKeywords } from './retrieval-strategy';
+import { extractKeywords } from './query-keywords';
 
 export interface QueryExpansionOptions {
   /** 一个查询最多生成几个变体（含原查询） */

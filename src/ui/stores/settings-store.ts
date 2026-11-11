@@ -21,6 +21,8 @@ import { defaultSearchEngineConfig } from '@shared-types/search-config';
 import type { PrivacySettings } from '@application/policies/privacy-policy';
 import { defaultPrivacySettings } from '@application/policies/privacy-policy';
 import { getModelConfig, setModelConfig } from '@ai/router/model-config';
+import { knowledgeOrganizationBlockReason } from '@application/policies/knowledge-organization-policy';
+import { isAnna } from '@infrastructure/anna';
 import { setSearchConfig } from '@ai/search/search-config';
 import { setAppPaths, updateAppPaths } from '@infrastructure/paths/paths-api';
 import { describeError, policies, repositories, runtime } from './runtime';
@@ -56,6 +58,7 @@ const KEYS = {
   modelsApiKey: 'models.apiKey',
   modelsDeepseekModel: 'models.deepseekModel',
   modelsDeepseekThinking: 'models.deepseekThinking',
+  knowledgeOrganizationEnabled: 'models.knowledgeOrganizationEnabled',
   ambientFilesByWeather: 'ambient.filesByWeather',
   ambientModeByWeather: 'ambient.modeByWeather',
   /** 专注模式专属背景音乐文件路径（与天气环境音分开配置） */
@@ -123,6 +126,7 @@ export interface ModelsConfig {
   deepseekModel: string;
   /** DeepSeek 思考模式：true 走 thinking（更强但更慢更贵） */
   deepseekThinking: boolean;
+  knowledgeOrganizationEnabled?: boolean;
 }
 
 interface SettingsState {
@@ -202,7 +206,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     theme: defaultAppConfig.appearance.theme,
     search: defaultSearchEngineConfig,
     paths: { readDirs: [] },
-    models: { small: getModelConfig().small, big: getModelConfig().big, providerMode: 'local', deepseekModel: 'deepseek-v4-flash', deepseekThinking: false },
+    models: { small: getModelConfig().small, big: getModelConfig().big, providerMode: 'local', deepseekModel: 'deepseek-v4-flash', deepseekThinking: false, knowledgeOrganizationEnabled: false },
     ambientFilesByWeather: {},
     ambientModeByWeather: {},
     focusMusicFile: undefined,
@@ -283,6 +287,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
             apiKey: stored[KEYS.modelsApiKey] || undefined,
             deepseekModel: stored[KEYS.modelsDeepseekModel] || getModelConfig().deepseekModel,
             deepseekThinking: stored[KEYS.modelsDeepseekThinking] === 'true' || getModelConfig().deepseekThinking,
+            knowledgeOrganizationEnabled: stored[KEYS.knowledgeOrganizationEnabled] === 'true'
+              && Boolean(stored[KEYS.modelsApiKey]?.trim()) && !isAnna()
+              && import.meta.env.VITE_NATIVEMIND_LOCAL_ONLY !== 'true',
           },
           backgroundVideos: asStringRecord(stored[KEYS.backgroundVideos]),
           ambientFilesByWeather: asStringRecord(stored[KEYS.ambientFilesByWeather]),
@@ -297,7 +304,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         setModelConfig(get().models);
         // DeepSeek provider 热配置：key 注入后教练档自动走云端（无需重启）
         runtime.deepseek.configure({
-          apiKey: get().models.apiKey,
+          apiKey: get().models.apiKey ?? '',
           model: get().models.deepseekModel,
           thinking: get().models.deepseekThinking,
         });
@@ -458,15 +465,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     updateModels: async (patch) => {
       const next = { ...get().models, ...patch };
-      set({ models: next, error: undefined });
-      // ModelRouter 模块单例同步更新，换模型无需重启
-      setModelConfig(next);
-      // DeepSeek provider 热配置：key/档位变化立即生效
-      runtime.deepseek.configure({
-        apiKey: next.apiKey,
-        model: next.deepseekModel,
-        thinking: next.deepseekThinking,
+      const reason = knowledgeOrganizationBlockReason({
+        ...next, knowledgeOrganizationEnabled: true,
+        localOnly: isAnna() || import.meta.env.VITE_NATIVEMIND_LOCAL_ONLY === 'true',
       });
+      if (patch.knowledgeOrganizationEnabled && reason) {
+        set({ error: reason });
+        return;
+      }
+      if (reason) next.knowledgeOrganizationEnabled = false;
 
       try {
         await persist({
@@ -476,6 +483,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           [KEYS.modelsApiKey]: next.apiKey ?? '',
           [KEYS.modelsDeepseekModel]: next.deepseekModel,
           [KEYS.modelsDeepseekThinking]: String(next.deepseekThinking),
+          [KEYS.knowledgeOrganizationEnabled]: String(Boolean(next.knowledgeOrganizationEnabled)),
+        });
+        set({ models: next, error: undefined });
+        setModelConfig(next);
+        runtime.deepseek.configure({
+          apiKey: next.apiKey ?? '', model: next.deepseekModel, thinking: next.deepseekThinking,
         });
       } catch (error) {
         set({ error: describeError(error) });

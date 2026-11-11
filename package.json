@@ -1,7 +1,7 @@
 {
   "name": "nativemind",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "module",
   "description": "一个本地优先的 AI 学习节律工具",
   "scripts": {
@@ -60,6 +60,7 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "26.1.0",
     "postcss": "^8.4.0",
     "sharp": "0.34.5",
     "tailwindcss": "^3.4.0",

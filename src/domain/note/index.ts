@@ -4,3 +4,5 @@
 
 export * from './Note';
 export * from './NoteChunk';
+export * from './wiki-link';
+export * from './rename-wiki-links';

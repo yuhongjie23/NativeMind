@@ -84,7 +84,7 @@ export class SearchNotesUseCase {
     }
 
     // 本地结果够了就不联网
-    if (hits.length >= this.localThreshold) {
+    if (hits.length >= this.localThreshold || hits.some(hit => hit.exactTitleMatch)) {
       return {
         ...empty,
         hits,

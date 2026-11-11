@@ -34,6 +34,10 @@ export interface TaskRoute {
 }
 
 export const TASK_ROUTES: Record<TaskType, TaskRoute> = {
+  note_standardization: { tier: 'deep', schemaId: 'standard-note.v1', requiresJson: true },
+  note_title: { tier: 'deep', schemaId: 'note-title.v1', requiresJson: true },
+  note_organization: { tier: 'deep', schemaId: 'note-cards.v1', requiresJson: true },
+  topic_organization: { tier: 'deep', schemaId: 'topic-page.v1', requiresJson: true },
   review_check: { tier: 'coach', promptVersion: 'review-check.v1', schemaId: 'review-check.v1', requiresJson: true },
   // 快速执行层：格式稳定优先，低创造性
   intent: { tier: 'fast', promptVersion: 'intent.v1', schemaId: 'intent.v1', requiresJson: true },

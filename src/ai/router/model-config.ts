@@ -30,6 +30,8 @@ export interface ModelConfig {
   deepseekModel: string;
   /** DeepSeek 思考模式：true 走 thinking（更强但更慢更贵） */
   deepseekThinking: boolean;
+  /** Separate explicit consent for sending note excerpts to DeepSeek. */
+  knowledgeOrganizationEnabled?: boolean;
 }
 
 let current: ModelConfig = {
@@ -38,6 +40,7 @@ let current: ModelConfig = {
   providerMode: 'local',
   deepseekModel: 'deepseek-v4-flash',
   deepseekThinking: false,
+  knowledgeOrganizationEnabled: false,
 };
 
 export const getModelConfig = (): ModelConfig => current;

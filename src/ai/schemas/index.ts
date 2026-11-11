@@ -6,6 +6,11 @@
  */
 import type { JsonSchema } from '../evaluation/json-validator';
 import type { SchemaId } from '../types';
+import standardNoteV1 from './standard-note.v1.json';
+import rerankOrderV1 from './rerank-order.v1.json';
+import noteTitleV1 from './note-title.v1.json';
+import noteCardsV1 from './note-cards.v1.json';
+import topicPageV1 from './topic-page.v1.json';
 
 import intentV1 from './intent.v1.json';
 import reviewGroundedV1 from './review-grounded.v1.json';
@@ -16,12 +21,20 @@ import letterEmotionV1 from './letter-emotion.v1.json';
 import letterVerifyV1 from './letter-verify.v1.json';
 import linkHydeV1 from './link-hyde.v1.json';
 import qaCriticV1 from './qa-critic.v1.json';
+import qaCriticV2 from './qa-critic.v2.json';
+import qaEvidenceCheckV1 from './qa-evidence-check.v1.json';
+import qaEvidenceCheckV2 from './qa-evidence-check.v2.json';
 import reviewLogV1 from './review-log.v1.json';
 import todoV1 from './todo.v1.json';
 import todoV2 from './todo.v2.json';
 import todoBudgetedV1 from './todo-budgeted.v1.json';
 
 export const SCHEMAS: Record<SchemaId, JsonSchema> = {
+  'rerank-order.v1': rerankOrderV1 as JsonSchema,
+  'standard-note.v1': standardNoteV1 as JsonSchema,
+  'note-title.v1': noteTitleV1 as JsonSchema,
+  'note-cards.v1': noteCardsV1 as JsonSchema,
+  'topic-page.v1': topicPageV1 as JsonSchema,
   'review-check.v1': reviewCheckV1 as JsonSchema,
   'review-grounded.v1': reviewGroundedV1 as JsonSchema,
   'companion-turn.v1': companionTurnV1 as JsonSchema,
@@ -33,6 +46,9 @@ export const SCHEMAS: Record<SchemaId, JsonSchema> = {
   'knowledge-link.v1': knowledgeLinkV1 as JsonSchema,
   'link-hyde.v1': linkHydeV1 as JsonSchema,
   'qa-critic.v1': qaCriticV1 as JsonSchema,
+  'qa-critic.v2': qaCriticV2 as JsonSchema,
+  'qa-evidence-check.v1': qaEvidenceCheckV1 as JsonSchema,
+  'qa-evidence-check.v2': qaEvidenceCheckV2 as JsonSchema,
   'letter-emotion.v1': letterEmotionV1 as JsonSchema,
   'letter-verify.v1': letterVerifyV1 as JsonSchema,
 };

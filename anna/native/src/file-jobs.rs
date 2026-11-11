@@ -120,8 +120,11 @@ impl FileJobs {
         if id.len() != 36 || !id.bytes().all(|c| c.is_ascii_hexdigit() || c == b'-') {
             return Err(CommandError::new("Invalid file job id"));
         }
-        if self.jobs.len() >= 2 || self.jobs.contains_key(id) {
-            return Err(CommandError::new("文件解析任务仍在处理或收尾，请稍后再试"));
+        if self.jobs.contains_key(id) {
+            return Err(CommandError::new("Duplicate file job id"));
+        }
+        if self.jobs.len() >= 2 {
+            return Err(CommandError::new("FILE_JOB_BUSY: 文件解析任务仍在处理或收尾，请稍后再试"));
         }
         let command = args["command"].as_str().unwrap_or("");
         let uri = args["payload"]["path"]

@@ -215,7 +215,7 @@ impl Backend {
                         .ok_or_else(|| CommandError::new("Missing texts"))?,
                 )?;
                 Ok(json!(
-                    self.model.embed(string(&payload, "model")?, &texts).await?
+                    self.model.embed(string(&payload, "model")?, &texts, payload["release_after"].as_bool().unwrap_or(false)).await?
                 ))
             }
             "file_app_paths" => Ok(

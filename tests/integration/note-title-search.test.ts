@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Database } from '@infrastructure/db/database';
 import { SqliteNoteRepository } from '@infrastructure/db/repositories/note-repository';
 import { NoteCandidateProvider } from '@infrastructure/rag/note-candidate-provider';
 import { NodeSqliteDriver } from './sqlite-driver';
 import type { Note } from '@application/ports';
+import { InMemoryNoteRepository, LocalNoteSearchPort } from '@infrastructure/local-demo';
 
 const drivers: NodeSqliteDriver[] = [];
 afterEach(async () => { await Promise.all(drivers.splice(0).map(driver => driver.close())); });
@@ -13,7 +14,7 @@ const setup = async () => {
   const db = new Database(driver);
   await db.migrate();
   const repo = new SqliteNoteRepository(db);
-  return { repo, provider: new NoteCandidateProvider(repo) };
+  return { repo, driver, provider: new NoteCandidateProvider(repo) };
 };
 const note = (id: string, indexStatus: Note['indexStatus'] = 'pending'): Note => ({
   id, title: 'Tea extraction', content: 'A saved note about solvents.', contentHash: id,
@@ -63,5 +64,89 @@ describe('saved note title lookup', () => {
     const query = { text: 'Tea extraction', preferLiteralMatches: true };
     expect(await provider.listCandidates(query, 10)).toHaveLength(2);
     expect((await provider.listCandidates({ ...query, excludeNoteIds: ['tea'] }, 10)).map(hit => hit.noteId)).toEqual(['tea-2']);
+  });
+
+  it('finds an older exact title beyond 500 newer partial matches', async () => {
+    const { repo, provider } = await setup();
+    await repo.save({ ...note('z-target'), updatedAt: '2020-01-01T00:00:00Z' });
+    for (let i = 0; i < 505; i++) await repo.save({ ...note(`a-${i}`), title: `Tea extraction handbook ${i}` });
+    expect((await provider.listCandidates({ text: 'tea extraction', preferLiteralMatches: true }, 5)).map(c => c.noteId))
+      .toEqual(['z-target']);
+  });
+
+  it('returns one preview per matching note, preserving different notes with the same title', async () => {
+    const { repo, provider } = await setup();
+    for (const id of ['tea', 'tea-2']) {
+      await repo.save(note(id, 'indexed'));
+      await repo.replaceChunks(id, Array.from({ length: 8 }, (_, i) => ({ id: `${id}-${i}`, noteId: id,
+        text: `Passage ${i}`, headingPath: [], charStart: i * 20, charEnd: i * 20 + 9,
+        tags: [], createdAt: '2026-11-10T02:00:00Z' })));
+    }
+    expect((await provider.listCandidates({ text: 'Tea extraction', preferLiteralMatches: true }, 10)).map(c => c.noteId).sort())
+      .toEqual(['tea', 'tea-2']);
+  });
+
+  it('uses the same Unicode case and surrounding-whitespace rules as retrieval', async () => {
+    const { repo, provider } = await setup();
+    await repo.save({ ...note('unicode'), title: '\tÉTUDE\u3000' });
+    expect((await provider.listCandidates({ text: 'étude', preferLiteralMatches: true }, 10)).map(c => c.noteId)).toEqual(['unicode']);
+  });
+
+  it('pages metadata only, excludes before the cap, and loads bodies only for exact matches', async () => {
+    const { repo, driver } = await setup();
+    for (let i = 0; i < 270; i++) await repo.save({ ...note(`a-${i}`), content: 'Long body '.repeat(100) });
+    await repo.save(note('z-target'));
+    const select = vi.spyOn(driver, 'select');
+    const excluded = Array.from({ length: 270 }, (_, i) => `a-${i}`);
+    expect((await repo.findBySearchTitle('Tea extraction', excluded, 1)).map(n => n.id)).toEqual(['z-target']);
+    const bodyReads = select.mock.calls.filter(([sql]) => sql.includes('content_hash'));
+    expect(bodyReads).toHaveLength(1);
+    expect(bodyReads[0][1]).toEqual(['z-target']);
+    expect(select.mock.calls.filter(([sql]) => sql.includes('SELECT id, title, updated_at'))).toHaveLength(2);
+  });
+
+  it('stops a cancelled catalog scan before another page or body lookup', async () => {
+    const { repo, driver } = await setup();
+    for (let i = 0; i < 260; i++) await repo.save({ ...note(`a-${i}`), title: 'Unrelated' });
+    const controller = new AbortController();
+    const original = driver.select.bind(driver);
+    const select = vi.spyOn(driver, 'select').mockImplementation(async (sql, params) => {
+      const rows = await original(sql, params);
+      controller.abort();
+      return rows;
+    });
+    await expect(repo.findBySearchTitle('Tea extraction', [], 5, controller.signal)).rejects.toThrow();
+    expect(select).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not return a note renamed during catalog lookup or change wiki-link title resolution', async () => {
+    const { repo } = await setup();
+    await repo.save(note('tea'));
+    expect(await repo.findByTitle('tea extraction')).toEqual([]);
+    expect(await repo.findByTitle('Tea extraction')).toHaveLength(1);
+    vi.spyOn(repo, 'findByIds').mockResolvedValue([{ ...note('tea'), title: 'Renamed' }]);
+    expect(await repo.findBySearchTitle('Tea extraction', [], 5)).toEqual([]);
+  });
+
+  it('keeps exact-title previews distinct in the browser demo and leaves deep search unchanged', async () => {
+    const repo = new InMemoryNoteRepository();
+    await repo.save({ ...note('handbook'), title: 'Tea extraction handbook' });
+    await repo.save(note('tea'));
+    await repo.save(note('tea-2'));
+    const search = new LocalNoteSearchPort(repo);
+    const hits = await search.search(' TEA EXTRACTION ', 10);
+    expect(hits.map(hit => hit.noteId).sort()).toEqual(['tea', 'tea-2']);
+    expect(hits.every(hit => hit.exactTitleMatch)).toBe(true);
+    expect((await search.search('Tea extraction', 10, true)).some(hit => hit.noteId === 'handbook')).toBe(true);
+    expect(await search.search('Tea extraction', 0)).toEqual([]);
+  });
+
+  it('respects cancellation during browser exact-title publication', async () => {
+    const repo = new InMemoryNoteRepository();
+    await repo.save(note('tea'));
+    const controller = new AbortController();
+    await expect(new LocalNoteSearchPort(repo).search('Tea extraction', 10, false, {
+      signal: controller.signal, onPartial: () => controller.abort(),
+    })).rejects.toThrow();
   });
 });

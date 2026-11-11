@@ -1,4 +1,4 @@
-import type { KnowledgeProgress } from '@application/ports';
+import type { KnowledgeProgress, NoteEvidenceGuardPort } from '@application/ports';
 import { measureKnowledgeStage } from '../shared/knowledge-timing';
 import { withModelDeadline } from '../shared/model-deadline';
 /**
@@ -40,6 +40,7 @@ export interface SelfCritique {
 }
 
 export interface SelfRagResult {
+  sourceIssue?: 'changed' | 'unavailable';
   /** 模型生成是否成功。false 时 answer 是「最相关片段」最佳努力，UI 据此降级提示 */
   ok: boolean;
   answer: string;
@@ -102,7 +103,9 @@ export class SelfRag {
   constructor(
     private readonly router: ModelRouter,
     private readonly rag: RAGOrchestrator,
-    private readonly options: SelfRagOptions = defaultSelfRagOptions
+    private readonly options: SelfRagOptions = defaultSelfRagOptions,
+    /** Required by the application factory; omitted only for immutable standalone fixtures. */
+    private readonly evidenceGuard?: NoteEvidenceGuardPort
   ) {}
 
   /**
@@ -162,7 +165,38 @@ export class SelfRag {
     }));
     const context = this.formatContext(excerpts);
 
+    const checkSources = async (regenerated = false): Promise<SelfRagResult | undefined> => {
+      if (!this.evidenceGuard) return undefined;
+      let sourceIssue: 'changed' | 'unavailable';
+      try {
+        opts?.signal?.throwIfAborted();
+        const current = await this.evidenceGuard.check(candidates, opts?.signal);
+        opts?.signal?.throwIfAborted();
+        if (current) return undefined;
+        sourceIssue = 'changed';
+      } catch {
+        opts?.signal?.throwIfAborted();
+        sourceIssue = 'unavailable';
+      }
+      opts?.onToken?.('', true);
+      opts?.signal?.throwIfAborted();
+      return {
+        sourceIssue, ok: false, empty: false, judged: false, confidence: 0, citations: [], regenerated,
+        answer: sourceIssue === 'changed'
+          ? language === 'en'
+            ? 'The source material changed or was removed during this request. This draft has been withdrawn. Please ask again using the current material.'
+            : '本次请求使用的资料已修改、删除或重新索引，已撤下旧草稿。请重新提问，以当前资料为准。'
+          : language === 'en'
+            ? 'The current source material could not be checked. This draft has been withdrawn. Please retry; this does not mean the material has no answer.'
+            : '暂时无法核对资料的当前版本，已撤下草稿。请重试；这不代表资料中没有答案。',
+      };
+    };
+    const beforeGeneration = await checkSources();
+    if (beforeGeneration) return beforeGeneration;
+
     let draft = await measureKnowledgeStage('generating', opts?.onProgress, () => this.generate(query, context, { language, onToken: opts?.onToken, signal: opts?.signal }));
+    const afterGeneration = await checkSources();
+    if (afterGeneration) return afterGeneration;
     if (!draft.ok) {
       // 模型不可用：给出最相关片段作最佳努力，UI 提示降级
       return {
@@ -177,6 +211,8 @@ export class SelfRag {
     }
 
     let critique = await measureKnowledgeStage('judging', opts?.onProgress, () => this.criticize(query, excerpts, draft.text, language, opts?.signal));
+    const afterReview = await checkSources();
+    if (afterReview) return afterReview;
     let regenerated = false;
 
     // 不达标（评判成功且判为无据 / 有幻觉风险）→ 带意见重生成 → 再评判
@@ -194,11 +230,15 @@ export class SelfRag {
         onToken: opts?.onToken,
         signal: opts?.signal,
       }));
+      const afterRefinement = await checkSources(true);
+      if (afterRefinement) return afterRefinement;
       if (!refined.ok) break; // 重生成失败，保留首次草稿
       draft = refined;
       critique = await measureKnowledgeStage('judging', opts?.onProgress, () => this.criticize(query, excerpts, draft.text, language, opts?.signal));
       attempt += 1;
       regenerated = true;
+      const afterRefinedReview = await checkSources(true);
+      if (afterRefinedReview) return afterRefinedReview;
     }
 
     const citations = this.pickCitations(excerpts, draft.text, critique);

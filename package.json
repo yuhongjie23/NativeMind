@@ -1,7 +1,7 @@
 {
   "name": "nativemind",
   "private": true,
-  "version": "2.0.1",
+  "version": "2.0.2",
   "type": "module",
   "description": "一个本地优先的 AI 学习节律工具",
   "scripts": {

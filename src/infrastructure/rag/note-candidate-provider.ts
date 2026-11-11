@@ -10,6 +10,7 @@
  */
 import type { CandidateProvider, RetrievalQuery, RuleCandidateSource } from '@ai/index';
 import { extractKeywords } from '@ai/index';
+import { selectSourceExcerpt } from '@ai/rag/rerank-excerpt';
 import type { NoteChunk, SqliteNoteRepository } from '../db/repositories/note-repository';
 import type { KnowledgeLinkRepository } from '@application/ports';
 
@@ -32,35 +33,54 @@ export class NoteCandidateProvider implements CandidateProvider {
   ) {}
 
   async listCandidates(query: RetrievalQuery, limit: number): Promise<RuleCandidateSource[]> {
+    query.signal?.throwIfAborted();
+    if (limit <= 0) return [];
     const excluded = new Set(query.excludeNoteIds ?? []);
     const title = query.text.trim();
     if (query.preferLiteralMatches && !query.deep && title) {
       // Look up the title before the capped chunk scan, so long books cannot
       // crowd out a short imported note. This also works before indexing ends.
-      const exactNotes = (await this.notes.findByTitleKeyword(title, FALLBACK_SCAN_LIMIT))
-        .filter(note => !excluded.has(note.id) && note.title.trim().toLowerCase() === title.toLowerCase())
-        .slice(0, limit);
+      const exactNotes = await this.notes.findBySearchTitle(title, [...excluded], limit, query.signal);
+      query.signal?.throwIfAborted();
       if (exactNotes.length > 0) {
         const matches = await Promise.all(exactNotes.map(async note => {
-          const chunks = await this.notes.listChunksForNotes([note.id], limit);
-          return chunks.length > 0 ? chunks.map(chunk => toCandidate(chunk, note.title)) : [{
+          const chunks = await this.notes.listChunksForNotes([note.id], 1);
+          return chunks.length > 0 ? toCandidate(chunks[0], note.title) : {
             chunkId: `${note.id}#unindexed`, noteId: note.id, title: note.title,
             text: note.content.slice(0, 1200), tags: note.tags, charStart: 0,
-          }];
+          };
         }));
-        // Reserve one result per matching note before filling remaining slots.
-        return [...matches.map(group => group[0]), ...matches.flatMap(group => group.slice(1))].slice(0, limit);
+        query.signal?.throwIfAborted();
+        return matches;
       }
     }
     const chunks = await this.collectChunks(query, limit);
+    query.signal?.throwIfAborted();
 
     // 标题标注：给候选补上所属笔记标题（标题是强信号，UI 与模型判断都用得上）
     const titleById = await this.loadTitles(chunks.map((chunk) => chunk.noteId));
-
-    return chunks
+    query.signal?.throwIfAborted();
+    const candidates = chunks
       .filter((chunk) => !excluded.has(chunk.noteId))
-      .slice(0, limit)
       .map((chunk) => toCandidate(chunk, titleById.get(chunk.noteId)));
+
+    if (query.preferLiteralMatches && !query.deep) {
+      const terms = searchTerms(query.text);
+      const unchunked = await this.notes.findUnchunkedByKeywords(terms, [...excluded], limit);
+      query.signal?.throwIfAborted();
+      for (const note of unchunked) {
+        const excerpt = selectSourceExcerpt(note.content, query.text, 1200);
+        candidates.push({ chunkId: `${note.id}#unindexed`, noteId: note.id, title: note.title,
+          text: excerpt.text, tags: note.tags, charStart: excerpt.offset });
+      }
+      // Rank before the cap: unrelated recent chunks must not hide a saved hit.
+      const overlap = (candidate: RuleCandidateSource) => {
+        const text = `${candidate.title ?? ''}\n${candidate.text}`.toLowerCase();
+        return terms.filter(term => text.includes(term)).length;
+      };
+      candidates.sort((a, b) => overlap(b) - overlap(a));
+    }
+    return candidates.slice(0, limit);
   }
 
   /**

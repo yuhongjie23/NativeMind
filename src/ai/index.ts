@@ -60,6 +60,7 @@ import {
 import { QueryRewriter } from './rag/query-rewriter';
 import { ReRanker } from './rag/rerank';
 import { SelfRag } from './rag/self-rag';
+import type { NoteEvidenceGuardPort } from '@application/ports';
 import { LinkHydeGenerator } from './rag/link-hyde';
 import { ModelRouter, type RouterOptions } from './router/model-router';
 import { getModelConfig } from './router/model-config';
@@ -74,6 +75,7 @@ import { SearchGate, type SearchProvider } from './search/search-gate';
 import type { EmbeddingProvider, ModelProvider, ModelRunRecorder, RerankProvider, VectorStorePort } from './types';
 
 export interface AILayerDeps {
+  evidenceGuard: NoteEvidenceGuardPort;
   /** Enforce local model routing even when imported settings select a cloud provider. */
   localOnly?: boolean;
   /** 本地模型运行时（Ollama / llama.cpp），由 infrastructure 提供 */
@@ -244,7 +246,8 @@ export function createAILayer(deps: AILayerDeps): AILayer {
       topicOrganization: new TopicOrganizer(organizationRouter, requireOrganizationAccess),
       searchResultEnhancer: new SearchResultEnhancerAdapter(router),
       noteDigest: new MonthlyDigestAdapter(router),
-      deepQA: new DeepQAAdapter(new SelfRag(router, rag), deps.readLanguage),
+      deepQA: new DeepQAAdapter(new SelfRag(router, rag, undefined,
+        deps.evidenceGuard ?? { check: async () => { throw new Error('Source validation is unavailable'); } }), deps.readLanguage),
       flora: new FloraAdapter(new FloraAgent(router)),
     },
   };

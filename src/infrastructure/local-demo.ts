@@ -41,6 +41,7 @@ CompanionUtterance,
   MonthlyDigestPort,
   NoteRepository,
   NoteSearchPort,
+  NoteSearchOptions,
   ParsedFile,
   ReviewDraft,
   ReviewGeneratorPort,
@@ -992,7 +993,9 @@ export class TemplateSocraticQuestionPort implements SocraticQuestionPort {
 export class LocalNoteSearchPort implements NoteSearchPort {
   constructor(private readonly noteRepo: InMemoryNoteRepository) {}
 
-  async search(query: string, limit: number): Promise<SearchHit[]> {
+  async search(query: string, limit: number, deep?: boolean, options?: NoteSearchOptions): Promise<SearchHit[]> {
+    options?.signal?.throwIfAborted();
+    if (limit <= 0) return [];
     const terms = query
       .toLowerCase()
       .split(/\s+/)
@@ -1005,6 +1008,17 @@ export class LocalNoteSearchPort implements NoteSearchPort {
     // 和桌面端 chunk 级检索行为一致，用户能定位到具体哪一段命中。
     const MAX_PER_NOTE = 3;
     const notes = await this.noteRepo.listAll();
+    options?.signal?.throwIfAborted();
+    const exactNotes = deep ? [] : notes.filter(note => note.title.trim().toLowerCase() === query.trim().toLowerCase());
+    if (exactNotes.length) {
+      const matches: SearchHit[] = exactNotes.slice(0, limit).map(note => ({
+        chunkId: `${note.id}#0`, noteId: note.id, text: note.content.slice(0, 1200),
+        charStart: 0, score: 1, exactTitleMatch: true,
+      }));
+      options?.onPartial?.(matches);
+      options?.signal?.throwIfAborted();
+      return matches;
+    }
     const hits: SearchHit[] = [];
     for (const note of notes) {
       const paragraphs = splitPlainIntoParagraphs(note.content);

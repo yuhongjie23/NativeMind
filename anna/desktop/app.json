@@ -1,12 +1,12 @@
 {
   "slug": "nativemind",
   "name": "NativeMind",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "category": "education",
   "tagline": "A quiet, local-first learning companion for Windows",
   "description": "NativeMind combines learning tasks, focus sessions, local notes and documents, evidence-linked AI review, reading progress and study reminders. Open the complete app in a separate window on your Windows x64 PC from Anna. The Anna edition uses local Ollama models only; learning content stays on your PC. Anna receives the launch request and its fixed status, not notes or conversations. Requires Anna's local Windows Agent and Microsoft WebView2. Install Ollama and generation/embedding models separately for AI features; non-AI tasks and notes work without models. Video backgrounds include a daytime room, spring daytime, dusk library and summer firefly night. NativeMind Local uses a separate local data directory; existing desktop data can be restored from a user-selected backup. No macOS/Linux build in this release.",
   "homepage_url": "https://github.com/yuhongjie23/NativeMind",
   "support_url": "https://github.com/yuhongjie23/NativeMind/issues",
   "privacy_url": "https://github.com/yuhongjie23/NativeMind/blob/main/docs/PRIVACY.md",
-  "changelog": "2.0.1: rebuilt desktop with four bundled video scenes and direct scene shortcuts, improved knowledge graph navigation and wiki links, document import and evidence retrieval fixes, visible app version. Local-only edition: cloud knowledge organization remains disabled. Clean-PC and Anna installation/update acceptance remain pending."
+  "changelog": "2.0.2: fixed stale search results after note edits, exact-title lookup and duplicate long-note results. Index jobs reject outdated writes. AI answers recheck source validity before display and do not save invalid drafts. Four video backgrounds retained. Local-only edition; clean-PC and Anna installation/update acceptance remain pending."
 }

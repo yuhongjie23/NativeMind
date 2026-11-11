@@ -92,4 +92,13 @@ describe('interactive note search relevance', () => {
     await expect(retrieval.retrieve({ text: tea.title!, preferLiteralMatches: true,
       signal: controller.signal, onPartial: () => controller.abort() }, [tea])).rejects.toThrow();
   });
+
+  it('deduplicates exact-title previews by note before applying the limit', async () => {
+    const { retrieval, embedding } = setup();
+    const hits = await retrieval.retrieve({ text: tea.title!, preferLiteralMatches: true }, [
+      tea, { ...tea, chunkId: 'second-passage' }, { ...tea, noteId: 'other-note', chunkId: 'other-chunk' },
+    ], 2);
+    expect(hits.map(hit => hit.noteId)).toEqual(['tea', 'other-note']);
+    expect(embedding.embed).not.toHaveBeenCalled();
+  });
 });

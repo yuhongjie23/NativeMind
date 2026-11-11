@@ -7,9 +7,10 @@ import type { Job } from '@infrastructure/background-jobs/job-queue';
 const job: Job = { id: 'job', entityId: 'note', type: 'embed_chunks', status: 'pending', payload: {}, retryCount: 0, maxRetries: 3, createdAt: '' };
 function setup() {
   const notes = {
-    findById: vi.fn(async () => ({ id: 'note' } as Note)),
+    findForIndex: vi.fn(async () => ({ note: { id: 'note', content: '正文' } as Note, revision: 0 })),
+    isIndexCurrent: vi.fn(async () => true),
     listChunks: vi.fn(async () => [{ id: 'chunk', noteId: 'note', text: '正文' } as NoteChunk]),
-    updateIndexStatus: vi.fn(async () => undefined),
+    updateIndexStatus: vi.fn(async () => true),
   };
   const embedding = { version: 'test', embed: vi.fn(async () => [[1, 0]]) };
   const store = { name: 'test', dimension: 2, didRebuild: false, isAvailable: vi.fn(async () => true), upsert: vi.fn(async () => undefined), query: vi.fn(async () => []), deleteByNote: vi.fn(async () => undefined), clear: vi.fn(async () => undefined) };
@@ -25,7 +26,7 @@ describe('embedding completion integrity', () => {
     await expect(f.handler.run(job, controller.signal)).rejects.toThrow();
     expect(f.store.upsert).not.toHaveBeenCalled();
     expect(f.onIndexed).not.toHaveBeenCalled();
-    expect(f.notes.updateIndexStatus).not.toHaveBeenCalledWith('note', 'failed', expect.anything());
+    expect(f.notes.updateIndexStatus).not.toHaveBeenCalledWith('note', 'failed', expect.anything(), expect.anything());
     f.embedding.embed.mockResolvedValue([[1, 0]]);
     await f.handler.run(job);
     expect(f.onIndexed).toHaveBeenCalledTimes(1);
@@ -35,17 +36,17 @@ describe('embedding completion integrity', () => {
     f.embedding.embed.mockResolvedValue(rows as number[][]);
     await expect(f.handler.run(job)).rejects.toThrow('向量缺失或无效');
     expect(f.store.upsert).not.toHaveBeenCalled();
-    expect(f.notes.updateIndexStatus).toHaveBeenLastCalledWith('note', 'failed', { error: expect.any(String) });
+    expect(f.notes.updateIndexStatus).toHaveBeenLastCalledWith('note', 'failed', { error: expect.any(String) }, { revision: 0, chunkIds: ['chunk'] });
     expect(f.onIndexed).not.toHaveBeenCalled();
   });
   it('records a write error and succeeds only after a complete retry', async () => {
     const f = setup();
     f.store.upsert.mockRejectedValueOnce(new Error('disk failure'));
     await expect(f.handler.run(job)).rejects.toThrow('disk failure');
-    expect(f.notes.updateIndexStatus).toHaveBeenLastCalledWith('note', 'failed', { error: 'disk failure' });
+    expect(f.notes.updateIndexStatus).toHaveBeenLastCalledWith('note', 'failed', { error: 'disk failure' }, { revision: 0, chunkIds: ['chunk'] });
     expect(f.onIndexed).not.toHaveBeenCalled();
     await f.handler.run(job);
-    expect(f.notes.updateIndexStatus).toHaveBeenLastCalledWith('note', 'indexed', { chunkCount: 1, embeddingVersion: 'test' });
+    expect(f.notes.updateIndexStatus).toHaveBeenLastCalledWith('note', 'indexed', { chunkCount: 1, embeddingVersion: 'test' }, { revision: 0, chunkIds: ['chunk'] });
     expect(f.onIndexed).toHaveBeenCalledTimes(1);
   });
 });

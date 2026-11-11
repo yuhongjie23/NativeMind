@@ -578,6 +578,7 @@ export class DeepQAAdapter implements AskNotesPort {
       onProgress: input.onProgress,
     });
     return {
+      sourceIssue: result.sourceIssue,
       answer: result.answer,
       citations: result.citations.map((c) => ({
         chunkId: c.chunkId,

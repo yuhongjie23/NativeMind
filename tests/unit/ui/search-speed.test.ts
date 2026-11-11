@@ -3,9 +3,9 @@ import type { AskNotesQuestion, NoteSearchOptions, SearchHit } from '@applicatio
 import type { SearchNotesResult } from '@application/use-cases/note/search-notes';
 import { emptyAskNotesAnswer } from '@application/use-cases/note/ask-notes';
 
-const mocks = vi.hoisted(() => ({ search: vi.fn(), ask: vi.fn(), enhance: vi.fn() }));
+const mocks = vi.hoisted(() => ({ search: vi.fn(), ask: vi.fn(), enhance: vi.fn(), saveAsk: vi.fn() }));
 vi.mock('../../../src/ui/stores/runtime', () => ({
-  useCases: { searchNotes: { execute: mocks.search }, askNotes: { execute: mocks.ask }, enhanceSearchResults: { execute: mocks.enhance } },
+  useCases: { searchNotes: { execute: mocks.search }, askNotes: { execute: mocks.ask }, enhanceSearchResults: { execute: mocks.enhance }, saveAskSession: { execute: mocks.saveAsk } },
   repositories: { settings: { set: async () => undefined } }, ai: {}, aiMode: 'model', describeError: String,
 }));
 import { useNoteStore } from '@ui/stores/note-store';
@@ -18,6 +18,16 @@ describe('search latency UI state', () => {
     useNoteStore.getState().clearSearch();
     useNoteStore.setState({ history: [], notes: [], deep: false });
     vi.clearAllMocks();
+  });
+
+  it.each(['changed', 'unavailable'] as const)('discards the streamed draft and does not save a %s source failure as an answer', async sourceIssue => {
+    mocks.ask.mockImplementation(async (_question, options: AskNotesQuestion) => {
+      options.onToken?.('Old answer preview');
+      return { ...emptyAskNotesAnswer, empty: false, sourceIssue, answer: 'Please retry with current sources.' };
+    });
+    await useNoteStore.getState().askQuestion('question');
+    expect(useNoteStore.getState()).toMatchObject({ asking: false, streamingAnswer: '', deepAnswer: { sourceIssue, citations: [] } });
+    expect(mocks.saveAsk).not.toHaveBeenCalled();
   });
 
   it('shows keyword results while waiting, cancels old search and ignores its late callbacks', async () => {

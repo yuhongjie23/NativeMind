@@ -34,6 +34,7 @@ const fakeCandidate: CandidateProvider = { listCandidates: async () => [] };
 
 /** 构造最小 AILayer deps */
 const makeDeps = (local: ModelProvider, deepseek?: ModelProvider): AILayerDeps => ({
+  evidenceGuard: { check: async () => true },
   modelProvider: local,
   deepseekProvider: deepseek,
   embeddingProvider: fakeEmbedding,
@@ -46,6 +47,17 @@ describe('createAILayer 双 provider 兜底路由', () => {
   afterEach(() => setModelConfig(originalConfig));
   beforeEach(() => {
     setModelConfig({ providerMode: 'local', apiKey: undefined, deepseekModel: 'deepseek-v4-flash' });
+  });
+
+  it('fails closed if an untyped caller omits the source guard from the application factory', async () => {
+    const local = fakeProvider('local');
+    const deps = makeDeps(local);
+    deps.candidateProvider = { listCandidates: async () => [{ chunkId: 'c', noteId: 'n', text: 'needle', tags: [] }] };
+    Reflect.deleteProperty(deps, 'evidenceGuard');
+    const result = await createAILayer(deps).ports.deepQA.ask({ question: 'needle', deep: false });
+    expect(result.sourceIssue).toBe('unavailable');
+    expect(result.citations).toEqual([]);
+    expect(local.calls).toEqual([]);
   });
 
   it('Anna 本地策略忽略旧云端选择，所有档位使用当前本地模型且不改写设置', async () => {

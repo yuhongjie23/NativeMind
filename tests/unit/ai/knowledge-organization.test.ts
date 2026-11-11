@@ -22,6 +22,7 @@ describe('DeepSeek-only knowledge organization', () => {
     };
     const listCandidates = vi.fn(async () => []);
     const layer = createAILayer({
+      evidenceGuard: { check: async () => true },
       modelProvider: local, deepseekProvider: cloud, localOnly,
       embeddingProvider: { version: 'test', embed: async (texts) => texts.map(() => [1]) },
       vectorStore: { query: async () => [] },

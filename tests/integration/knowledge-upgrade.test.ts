@@ -59,12 +59,12 @@ describe('knowledge upgrade from v2.0.0 on a disk-backed database', () => {
   it('upgrades existing records without changing them, and does not rerun migrations on restart', async () => {
     const before = await db.select('SELECT * FROM notes ORDER BY id');
     const proposalsBefore = await db.select('SELECT * FROM action_proposals ORDER BY id');
-    expect((await reopen()).map(item => item.version)).toEqual([26, 27, 28, 29, 30, 31]);
-    expect(await db.select('SELECT * FROM notes ORDER BY id')).toEqual(before);
+    expect((await reopen()).map(item => item.version)).toEqual([26, 27, 28, 29, 30, 31, 32]);
+    expect(await db.select('SELECT * FROM notes ORDER BY id')).toEqual(before.map(row => ({ ...row, content_revision: 0 })));
     expect(await db.select('SELECT * FROM action_proposals ORDER BY id')).toEqual(proposalsBefore);
     expect(await notes.findByIds(originals.map(note => note.id))).toEqual(originals);
     expect(await reopen()).toEqual([]);
-    expect(await db.select('SELECT * FROM notes ORDER BY id')).toEqual(before);
+    expect(await db.select('SELECT * FROM notes ORDER BY id')).toEqual(before.map(row => ({ ...row, content_revision: 0 })));
     expect(await db.select('SELECT * FROM action_proposals ORDER BY id')).toEqual(proposalsBefore);
     expect(await db.select('PRAGMA integrity_check')).toEqual([{ integrity_check: 'ok' }]);
     expect(await db.select('PRAGMA foreign_key_check')).toEqual([]);
@@ -110,7 +110,7 @@ describe('knowledge upgrade from v2.0.0 on a disk-backed database', () => {
     await expect(db.migrate()).rejects.toThrow('missing_acceptance_table');
     expect((await db.listMigrations()).at(-1)?.version).toBe(26);
     expect(await db.select("SELECT name FROM sqlite_master WHERE name = 'note_organization_batches'")).toEqual([]);
-    expect((await reopen()).map(item => item.version)).toEqual([27, 28, 29, 30, 31]);
+    expect((await reopen()).map(item => item.version)).toEqual([27, 28, 29, 30, 31, 32]);
     expect(await notes.findByIds(originals.map(note => note.id))).toEqual(originals);
     expect(await db.select('PRAGMA integrity_check')).toEqual([{ integrity_check: 'ok' }]);
   });
@@ -127,7 +127,7 @@ describe('knowledge upgrade from v2.0.0 on a disk-backed database', () => {
     expect((await db.listMigrations()).at(-1)?.version).toBe(28);
     expect(await db.select('SELECT * FROM action_proposals ORDER BY id')).toEqual(before);
     expect(await db.select("SELECT name FROM sqlite_master WHERE name = 'action_proposals_before_knowledge'")).toEqual([]);
-    expect((await reopen()).map(item => item.version)).toEqual([29, 30, 31]);
+    expect((await reopen()).map(item => item.version)).toEqual([29, 30, 31, 32]);
     expect(await db.select('SELECT * FROM action_proposals ORDER BY id')).toEqual(before);
     expect(await db.select("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_action_proposals_%' ORDER BY name"))
       .toEqual([{ name: 'idx_action_proposals_created_at' }, { name: 'idx_action_proposals_status' }]);

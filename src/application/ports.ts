@@ -526,7 +526,14 @@ export interface AskNotesQuestion {
   onToken?: (delta: string, reset?: boolean) => void;
 }
 
+/** Read-only check of versioned chunk identities used in a model's context. */
+export interface NoteEvidenceGuardPort {
+  check(sources: { chunkId: UUID; noteId: UUID; title?: string }[], signal?: AbortSignal): Promise<boolean>;
+}
+
 export interface AskNotesAnswer {
+  /** Transient source failure, not an answer or proof of insufficient material. */
+  sourceIssue?: 'changed' | 'unavailable';
   /** 生成的回答；模型不可用时为「最相关片段」最佳努力 */
   answer: string;
   /** 引用的笔记片段 */

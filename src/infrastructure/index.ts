@@ -32,6 +32,7 @@ import {
 import { SqliteTodoRepository } from './db/repositories/todo-repository';
 
 import { ChromaProvider } from './vector-store/chroma-provider';
+import { currentVectorMatches } from './vector-store/current-vector-matches';
 import { SqliteVecProvider } from './vector-store/sqlite-vec-provider';
 import type { VectorStoreProvider } from './vector-store/vector-store-interface';
 
@@ -125,6 +126,7 @@ const createVectorStore = (db: Database, config: InfrastructureConfig): VectorSt
     return new ChromaProvider({
       baseUrl: config.vectorStore.baseUrl,
       dimension: config.vectorStore.dimension,
+      resolveMatches: matches => currentVectorMatches(db, matches),
     });
   }
   return new SqliteVecProvider(db, config.vectorStore?.dimension);

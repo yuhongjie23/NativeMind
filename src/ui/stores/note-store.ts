@@ -591,7 +591,7 @@ export const useNoteStore = create<NoteState>((set, get) => {
       if (seq !== askSeq) return;
       set({ deepAnswer: result, asking: false, streamingAnswer: '', askElapsedMs: performance.now() - started });
       // 落库进问答历史（无相关笔记的问答不值得存）
-      if (!result.empty) {
+      if (!result.empty && !result.sourceIssue) {
         try {
           await useCases.saveAskSession.execute({
             question: trimmed,

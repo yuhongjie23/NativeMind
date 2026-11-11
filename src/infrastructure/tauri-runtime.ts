@@ -16,6 +16,7 @@ import { createReminderNotifications } from './reminder-notifications';
  * 才能建 AI 层；而 application 又需要 AI 层的 ports。这条链决定了下面的顺序。
  */
 import { createAILayer, type AILayer } from '@ai/index';
+import { NoteEvidenceGuard } from './rag/note-evidence-guard';
 import { createApplication, type Application } from '@application/bootstrap';
 import { formatLocalDate } from '@application/shared/utils';
 import type { ConfirmPrompt, ConfirmationPrompt } from '@application/confirmation/confirmation-service';
@@ -111,6 +112,7 @@ export const createTauriRuntime = (options: TauriRuntimeOptions): TauriRuntime =
   };
 
   const ai = createAILayer({
+    evidenceGuard: new NoteEvidenceGuard(infra.db),
     readLanguage: async () => (await infra.repositories.settings.get('app.language')) === 'en' ? 'en' : 'zh',
     localOnly: options.localOnly,
     modelProvider,

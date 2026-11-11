@@ -43,6 +43,7 @@ import organizationBatches027 from './027_note_organization_batches.sql?raw';
 import topicPages028 from './028_topic_pages.sql?raw';
 import titleAction030 from './030_note_title_action.sql?raw';
 import knowledgeActions029 from './029_knowledge_action_types.sql?raw';
+import noteIndexRevision032 from './032_note_index_revision.sql?raw';
 
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'init', sql: init001 },
@@ -76,6 +77,7 @@ export const MIGRATIONS: Migration[] = [
   { version: 29, name: 'knowledge_action_types', sql: knowledgeActions029 },
   { version: 30, name: 'note_title_action', sql: titleAction030 },
   { version: 31, name: 'standard_note_action', sql: standardNote031 },
+  { version: 32, name: 'note_index_revision', sql: noteIndexRevision032 },
 ];
 
 

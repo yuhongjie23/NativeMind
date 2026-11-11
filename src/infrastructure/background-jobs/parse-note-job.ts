@@ -18,11 +18,14 @@ export class ParseNoteJob implements JobHandler {
     private readonly queue: JobQueue
   ) {}
 
-  async run(job: Job): Promise<void> {
-    const note = await this.notes.findById(job.entityId);
-    if (!note) return; // 笔记已被删除，静默结束
+  async run(job: Job, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    const source = await this.notes.findForIndex(job.entityId);
+    if (!source) return;
+    const { note, revision } = source;
 
-    await this.notes.updateIndexStatus(note.id, 'parsing');
+    if (!await this.notes.updateIndexStatus(note.id, 'parsing', {}, { revision })) return;
+    signal?.throwIfAborted();
 
     // 手动创建或粘贴导入的笔记没有源文件，正文即已有内容，直接进切块
     if (!note.sourceUri) {
@@ -32,25 +35,22 @@ export class ParseNoteJob implements JobHandler {
 
     // 手动编辑过的源文件笔记（indexStatus=stale）：不要重解析源文件 ——
     // 那会用文件原文覆盖用户的编辑。直接用库内当前内容进切块。
-    if (note.indexStatus === 'stale') {
+    if (note.indexStatus === 'stale' || revision > 0) {
       await this.queue.enqueue({ type: 'chunk_note', entityId: note.id });
       return;
     }
 
     // 走到这里 sourceUri 一定是文件路径：粘贴导入的笔记不会写这个字段
-    const parsed = await this.fileImport.parse({ kind: 'path', path: note.sourceUri });
+    const parsed = await this.fileImport.parse({ kind: 'path', path: note.sourceUri }, { signal });
+    signal?.throwIfAborted();
 
     const hash = await this.fileImport.hash(parsed.content);
+    signal?.throwIfAborted();
 
     if (hash !== note.contentHash) {
-      await this.notes.save({
-        ...note,
-        title: parsed.title || note.title,
-        content: parsed.content,
-        contentHash: hash,
-        indexStatus: 'parsing',
-        updatedAt: new Date().toISOString(),
-      });
+      if (!await this.notes.saveParsedContent(note, revision, parsed, hash)) return;
+    } else if (!await this.notes.isIndexCurrent(note.id, { revision })) {
+      return;
     }
 
     await this.queue.enqueue({ type: 'chunk_note', entityId: note.id });

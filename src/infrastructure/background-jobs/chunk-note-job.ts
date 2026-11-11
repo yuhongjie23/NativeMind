@@ -30,19 +30,23 @@ export class ChunkNoteJob implements JobHandler {
     private readonly vectorStore?: VectorStoreProvider
   ) {}
 
-  async run(job: Job): Promise<void> {
-    const note = await this.notes.findById(job.entityId);
-    if (!note) return;
+  async run(job: Job, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    const source = await this.notes.findForIndex(job.entityId);
+    if (!source) return;
+    const { note, revision } = source;
+    const snapshot = { revision };
 
-    await this.notes.updateIndexStatus(note.id, 'chunking');
+    if (!await this.notes.updateIndexStatus(note.id, 'chunking', {}, snapshot)) return;
+    signal?.throwIfAborted();
 
     const drafts = chunkText(note.content, toChunkSource(note.sourceType));
     if (drafts.length === 0) {
       // 空内容不算失败，直接标完成，否则会一直重试。
       // 同时清理向量库旧向量：内容清空后旧 chunk 还在库里，RAG 会命中过期片段。
-      await this.notes.replaceChunks(note.id, []);
+      if (!await this.notes.replaceChunks(note.id, [], snapshot)) return;
       await this.vectorStore?.deleteByNote(note.id).catch(() => undefined);
-      await this.notes.updateIndexStatus(note.id, 'indexed', { chunkCount: 0 });
+      await this.notes.updateIndexStatus(note.id, 'indexed', { chunkCount: 0 }, snapshot);
       return;
     }
 
@@ -59,9 +63,13 @@ export class ChunkNoteJob implements JobHandler {
       createdAt: now,
     }));
 
-    await this.notes.replaceChunks(note.id, chunks);
+    signal?.throwIfAborted();
+    if (!await this.notes.replaceChunks(note.id, chunks, snapshot)) return;
     await this.vectorStore?.deleteByNote(note.id).catch(() => undefined);
 
-    await this.queue.enqueue({ type: 'embed_chunks', entityId: note.id });
+    signal?.throwIfAborted();
+    if (await this.notes.isIndexCurrent(note.id, snapshot)) {
+      await this.queue.enqueue({ type: 'embed_chunks', entityId: note.id, payload: { contentRevision: revision } });
+    }
   }
 }

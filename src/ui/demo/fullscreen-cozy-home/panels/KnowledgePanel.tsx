@@ -686,7 +686,9 @@ export function KnowledgePanel({ active = true, onConfigureOrganization }: { act
               null
             )
           ) : deepAnswer ? (
-            deepAnswer.empty ? (
+            deepAnswer.sourceIssue ? (
+              <p role="status" className="cozy-knowledge-hint">{deepAnswer.answer}</p>
+            ) : deepAnswer.empty ? (
               <p className="cozy-knowledge-hint">{deepAnswer.ok
                 ? t('资料不足：未检索到可用资料，请补充资料或调整问题。')
                 : t('资料检索未完成，请重试；这不代表资料中没有答案。')}</p>

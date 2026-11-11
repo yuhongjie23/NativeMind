@@ -19,6 +19,8 @@ export interface ChromaOptions {
   dimension?: number;
   /** 注入 fetch 便于测试，默认用全局 fetch */
   fetchImpl?: typeof fetch;
+  /** Runtime resolves results against the authoritative local chunk catalog. */
+  resolveMatches?: (matches: VectorMatch[]) => Promise<VectorMatch[]>;
 }
 
 interface ChromaQueryResponse {
@@ -36,6 +38,7 @@ export class ChromaProvider implements VectorStoreProvider {
   private readonly baseUrl: string;
   private readonly collection: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly resolveMatches: ChromaOptions['resolveMatches'];
   /** collection 的内部 id，Chroma 的读写接口要用它而不是名字 */
   private collectionId: string | null = null;
 
@@ -44,6 +47,7 @@ export class ChromaProvider implements VectorStoreProvider {
     this.collection = options.collection ?? 'nativemind_notes';
     this.dimension = options.dimension ?? 384;
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    this.resolveMatches = options.resolveMatches;
 
     const host = new URL(this.baseUrl).hostname;
     if (!LOCAL_HOSTS.has(host)) {
@@ -110,12 +114,13 @@ export class ChromaProvider implements VectorStoreProvider {
 
     // Chroma 的返回是「每个查询一组」的二维数组，我们只发了一个查询
     const ids = result.ids?.[0] ?? [];
-    return ids.map((chunkId, index) => ({
+    const matches = ids.map((chunkId, index) => ({
       chunkId,
       noteId: result.metadatas?.[0]?.[index]?.note_id ?? '',
       text: result.documents?.[0]?.[index] ?? '',
       score: distanceToScore(result.distances?.[0]?.[index] ?? Number.POSITIVE_INFINITY),
     }));
+    return this.resolveMatches ? this.resolveMatches(matches) : matches;
   }
 
   async deleteByNote(noteId: string): Promise<void> {

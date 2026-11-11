@@ -6,6 +6,7 @@
  * 探不到就让 RAG 降级到关键词层（C3），而不是整个检索功能报废。
  */
 import type { Database } from '../db/database';
+import { currentVectorMatches } from './current-vector-matches';
 import {
   cosineDistanceToScore,
   type VectorMatch,
@@ -92,6 +93,11 @@ export class SqliteVecProvider implements VectorStoreProvider {
 
     await this.db.transaction(async (tx) => {
       for (const record of records) {
+        // Editing invalidates chunks in the same database transaction as saving.
+        // Check here too: the edit may occur after the embedding job's check.
+        const current = await tx.select('SELECT id FROM note_chunks WHERE id = ? AND note_id = ? AND text = ?',
+          [record.chunkId, record.noteId, record.text]);
+        if (!current.length) continue;
         // vec0 不支持 ON CONFLICT，重建走「先删后插」
         await tx.execute(`DELETE FROM ${TABLE} WHERE chunk_id = ?`, [record.chunkId]);
         await tx.execute(
@@ -110,6 +116,9 @@ export class SqliteVecProvider implements VectorStoreProvider {
     this.validateVector(embedding);
     if (!(await this.isAvailable())) return [];
 
+    // Otherwise orphan vectors can occupy the KNN quota before source filtering.
+    await this.db.execute(`DELETE FROM ${TABLE} WHERE chunk_id NOT IN (SELECT id FROM note_chunks)`);
+
     const rows = await this.db.select(
       `SELECT e.chunk_id, e.note_id, c.text, c.char_start, e.distance
        FROM ${TABLE} e
@@ -119,13 +128,13 @@ export class SqliteVecProvider implements VectorStoreProvider {
       [JSON.stringify(embedding), limit]
     );
 
-    return rows.map((row) => ({
+    return currentVectorMatches(this.db, rows.map((row) => ({
       chunkId: String(row.chunk_id),
       noteId: String(row.note_id),
       text: row.text === null || row.text === undefined ? '' : String(row.text),
       score: cosineDistanceToScore(Number(row.distance)),
       charStart: row.char_start === null || row.char_start === undefined ? undefined : Number(row.char_start),
-    }));
+    })));
   }
 
   private validateVector(vector: number[]): void {

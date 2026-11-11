@@ -27,6 +27,23 @@ import { enqueueJob } from '../../background-jobs/enqueue-job';
 
 export type IndexStatus = Note['indexStatus'];
 
+export interface NoteIndexSnapshot { revision: number; chunkIds?: string[] }
+
+const indexGuard = (snapshot?: NoteIndexSnapshot): { sql: string; params: SqlParam[] } => {
+  if (!snapshot) return { sql: '', params: [] };
+  let sql = ' AND content_revision = ?';
+  const params: SqlParam[] = [snapshot.revision];
+  if (snapshot.chunkIds) {
+    sql += ' AND (SELECT count(*) FROM note_chunks WHERE note_id = notes.id) = ?';
+    params.push(snapshot.chunkIds.length);
+    if (snapshot.chunkIds.length) {
+      sql += ` AND (SELECT count(*) FROM note_chunks WHERE note_id = notes.id AND id IN (${snapshot.chunkIds.map(() => '?').join(',')})) = ?`;
+      params.push(...snapshot.chunkIds, snapshot.chunkIds.length);
+    }
+  }
+  return { sql, params };
+};
+
 /** 笔记切片。text 是 embedding 与检索的输入单位 */
 export interface NoteChunk {
   id: UUID;
@@ -95,6 +112,27 @@ const toChunk = (row: SqlRow): NoteChunk => ({
 });
 
 export class SqliteNoteRepository implements NoteRepository, NoteCardRepository, TopicPageRepository, NoteRenameRepository {
+  async findForIndex(id: UUID): Promise<{ note: Note; revision: number } | null> {
+    const row = await this.db.selectOne(`SELECT ${COLUMNS}, content_revision FROM notes WHERE id = ?`, [id]);
+    return row ? { note: toNote(row), revision: Number(row.content_revision) } : null;
+  }
+
+  async isIndexCurrent(id: UUID, snapshot: NoteIndexSnapshot): Promise<boolean> {
+    const guard = indexGuard(snapshot);
+    return Boolean(await this.db.selectOne(`SELECT id FROM notes WHERE id = ?${guard.sql}`, [id, ...guard.params]));
+  }
+
+  /** Commit only the parsed fields, without overwriting concurrent title/tag edits. */
+  async saveParsedContent(source: Note, revision: number, parsed: { title?: string; content: string }, hash: string): Promise<boolean> {
+    const changed = await this.db.execute(
+      `UPDATE notes SET title = CASE WHEN title = ? THEN ? ELSE title END,
+       content = ?, content_hash = ?, updated_at = ?
+       WHERE id = ? AND content_revision = ? AND source_uri IS ?`,
+      [source.title, parsed.title || source.title, parsed.content, hash, new Date().toISOString(),
+        source.id, revision, source.sourceUri ?? null],
+    );
+    return changed > 0;
+  }
   async listGraphReferences(noteIds: string[], limit: number) {
     const db = this.db;
     async function* sources() {
@@ -212,6 +250,66 @@ export class SqliteNoteRepository implements NoteRepository, NoteCardRepository,
     const rows = await this.db.select(
       `SELECT ${COLUMNS} FROM notes WHERE title LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?`,
       [`%${escaped}%`, limit]
+    );
+    return rows.map(toNote);
+  }
+
+  /** Search semantics only: keep wiki-link resolution's case-sensitive lookup unchanged. */
+  async findBySearchTitle(title: string, excludeIds: string[], limit: number, signal?: AbortSignal): Promise<Note[]> {
+    signal?.throwIfAborted();
+    const normalized = title.trim().toLowerCase();
+    if (!normalized || limit <= 0) return [];
+    const excluded = new Set(excludeIds);
+    const ids: string[] = [];
+    const pageSize = 256;
+    let cursor: { updatedAt: string; id: string } | undefined;
+    // Only page metadata, never hundreds of long document bodies. JS folding
+    // matches retrieval's Unicode/whitespace rules, unlike SQLite NOCASE.
+    while (ids.length < limit) {
+      signal?.throwIfAborted();
+      const rows = await this.db.select(
+        `SELECT id, title, updated_at FROM notes
+         ${cursor ? 'WHERE updated_at < ? OR (updated_at = ? AND id > ?)' : ''}
+         ORDER BY updated_at DESC, id LIMIT ?`,
+        cursor ? [cursor.updatedAt, cursor.updatedAt, cursor.id, pageSize] : [pageSize]
+      );
+      signal?.throwIfAborted();
+      for (const row of rows) {
+        const id = String(row.id);
+        if (!excluded.has(id) && String(row.title).trim().toLowerCase() === normalized) ids.push(id);
+        if (ids.length >= limit) break;
+      }
+      if (rows.length < pageSize) break;
+      const last = rows[rows.length - 1];
+      cursor = { updatedAt: String(last.updated_at), id: String(last.id) };
+    }
+    const notes = await this.findByIds(ids, ids.length);
+    signal?.throwIfAborted();
+    const byId = new Map(notes.map(note => [note.id, note]));
+    return ids.flatMap(id => {
+      const note = byId.get(id);
+      // It may have been deleted or renamed while metadata was being paged.
+      return note?.title.trim().toLowerCase() === normalized ? [note] : [];
+    });
+  }
+
+  /** Read-only keyword fallback for saved notes that have no derived chunks yet. */
+  async findUnchunkedByKeywords(keywords: string[], excludeIds: string[], limit: number): Promise<Note[]> {
+    const terms = [...new Set(keywords.map(term => term.trim()).filter(Boolean))].slice(0, 8);
+    if (!terms.length || limit <= 0) return [];
+    const patterns = terms.flatMap(term => {
+      const pattern = `%${term.replace(/[\\%_]/g, ch => `\\${ch}`)}%`;
+      return [pattern, pattern];
+    });
+    const match = `(title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')`;
+    const score = terms.map(() => `CASE WHEN ${match} THEN 1 ELSE 0 END`).join(' + ');
+    const exclusion = excludeIds.length ? `AND id NOT IN (${excludeIds.map(() => '?').join(',')})` : '';
+    const rows = await this.db.select(
+      `SELECT ${COLUMNS}, (${score}) AS keyword_hits FROM notes
+       WHERE NOT EXISTS (SELECT 1 FROM note_chunks WHERE note_id = notes.id)
+       ${exclusion} AND (${terms.map(() => match).join(' OR ')})
+       ORDER BY keyword_hits DESC, updated_at DESC, id LIMIT ?`,
+      [...patterns, ...excludeIds, ...patterns, Math.min(Math.floor(limit), 20)]
     );
     return rows.map(toNote);
   }
@@ -362,17 +460,19 @@ export class SqliteNoteRepository implements NoteRepository, NoteCardRepository,
   async updateIndexStatus(
     id: UUID,
     status: IndexStatus,
-    detail: { error?: string; chunkCount?: number; embeddingVersion?: string } = {}
-  ): Promise<void> {
+    detail: { error?: string; chunkCount?: number; embeddingVersion?: string } = {},
+    snapshot?: NoteIndexSnapshot
+  ): Promise<boolean> {
     const indexedAt = status === 'indexed' ? new Date().toISOString() : null;
-    await this.db.execute(
+    const guard = indexGuard(snapshot);
+    const changed = await this.db.execute(
       `UPDATE notes SET
          index_status = ?,
          index_error = ?,
          chunk_count = COALESCE(?, chunk_count),
          embedding_version = COALESCE(?, embedding_version),
          indexed_at = COALESCE(?, indexed_at)
-       WHERE id = ?`,
+       WHERE id = ?${guard.sql}`,
       [
         status,
         optionalText(detail.error),
@@ -380,13 +480,19 @@ export class SqliteNoteRepository implements NoteRepository, NoteCardRepository,
         optionalText(detail.embeddingVersion),
         indexedAt,
         id,
+        ...guard.params,
       ]
     );
+    return changed > 0;
   }
 
   /** 内容变了要重新索引，先把旧 chunk 清掉再写新的，避免检索命中过期片段 */
-  async replaceChunks(noteId: UUID, chunks: NoteChunk[]): Promise<void> {
-    await this.db.transaction(async (tx: SqlDriver) => {
+  async replaceChunks(noteId: UUID, chunks: NoteChunk[], snapshot?: NoteIndexSnapshot): Promise<boolean> {
+    return this.db.transaction(async (tx: SqlDriver) => {
+      if (snapshot) {
+        const guard = indexGuard(snapshot);
+        if (!(await tx.select(`SELECT id FROM notes WHERE id = ?${guard.sql}`, [noteId, ...guard.params])).length) return false;
+      }
       await tx.execute('DELETE FROM note_chunks WHERE note_id = ?', [noteId]);
       for (const chunk of chunks) {
         await tx.execute(
@@ -405,6 +511,7 @@ export class SqliteNoteRepository implements NoteRepository, NoteCardRepository,
         );
       }
       await tx.execute('UPDATE notes SET chunk_count = ? WHERE id = ?', [chunks.length, noteId]);
+      return true;
     });
   }
 

@@ -178,8 +178,13 @@ export class RetrievalStrategy {
     const merged = new Map<string, RetrievalCandidate>();
     const literalLookup = query.preferLiteralMatches && !query.deep;
     const normalizedQuery = query.text.trim().toLowerCase();
+    const exactNoteIds = new Set<string>();
     const exactTitles = literalLookup && normalizedQuery
-      ? ruleCandidates.filter(c => !excluded.has(c.noteId) && c.title?.trim().toLowerCase() === normalizedQuery)
+      ? ruleCandidates.filter(c => {
+        if (excluded.has(c.noteId) || exactNoteIds.has(c.noteId) || c.title?.trim().toLowerCase() !== normalizedQuery) return false;
+        exactNoteIds.add(c.noteId);
+        return true;
+      })
       : [];
     if (exactTitles.length > 0) {
       return measureKnowledgeStage('keywords', query.onProgress, async () => {

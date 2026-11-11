@@ -8,9 +8,9 @@
 > 3. 把新旧知识自动关联
 > 4. 把学习结果沉淀成本地笔记和复盘
 
-## v2.0.0（2026-11）
+## v2.0.2（2026-11）
 
-[下载 Windows v2 安装包](https://github.com/yuhongjie23/NativeMind/releases/tag/v2.0.0) · [更新说明](docs/releases/v2.0.0.md) · [隐私说明](docs/PRIVACY.md)
+[下载 Windows v2 安装包](https://github.com/yuhongjie23/NativeMind/releases/tag/v2.0.2) · [更新说明](docs/releases/v2.0.2.md) · [隐私说明](docs/PRIVACY.md)
 
 已接入日常白天、春日白天、图书馆黄昏、夏日萤火虫夜晚四个动态背景，其他场景保留静态图。视频静音循环，支持用户按场景替换本地视频。
 
@@ -22,9 +22,11 @@ Windows 关闭应用后的提醒需要已安装应用的通知身份及用户开
 
 开发运行：`npm run desktop`；Windows 安装包构建：`npm run desktop:build -- --bundles nsis`。从旧版升级请先在设置中导出数据备份。详细验收与剩余项见 [开发记录](docs/exec-plans/tech-debt-tracker.md)。
 
-## v2.0.1 更新
+## v2.0.2 更新
 
-从 [GitHub Releases](https://github.com/yuhongjie23/NativeMind/releases/latest) 下载普通 Windows 安装包（`NativeMind_2.0.1_x64-setup.exe`）。更新前在设置中备份数据，退出旧程序后安装；设置顶部显示 `2.0.1` 才是新版本。`nativemind-2.0.1-windows-x86_64.zip` 是 Anna 专用本机启动工具包，不是普通桌面安装包。
+本次修复笔记修改后的旧索引、完整标题漏检与长笔记重复结果；AI 回答展示前重新检查来源，资料已变化时撤下草稿。1164 项自动化测试及 2 项原生集成测试通过。
+
+从 [GitHub Releases](https://github.com/yuhongjie23/NativeMind/releases/latest) 下载普通 Windows 安装包（`NativeMind_2.0.2_x64-setup.exe`）。更新前在设置中备份数据，退出旧程序后安装；设置顶部显示 `2.0.2` 才是新版本。`nativemind-2.0.2-windows-x86_64.zip` 是 Anna 专用本机启动工具包，不是普通桌面安装包。
 
 - 四个背景视频已打进程序，无需安装目录中的独立背景文件夹。在 **设置 → 内置视频场景** 选择日常白天、春日白天、图书馆黄昏或夏日萤火虫夜晚。其他场景/时段仍为静态图；自定义视频优先，减少动态效果或进入专注时会暂停背景视频。
 - 同步标准笔记、知识卡片、主题目录、标题整理、Wiki 链接、反向引用和局部知识图谱的改进。普通桌面的 AI 知识整理需 DeepSeek Key 与单独授权，AI 建议确认后保存；Anna Local 禁用云端整理，但保留手动笔记与图谱导航。
@@ -177,6 +179,7 @@ npm run lint       # ESLint
 ## License
 
 [GPL](LICENSE)
+
 
 
 

@@ -639,3 +639,10 @@ Tracking known technical debt, trade-offs, and cleanup items.
 - TD-002 数据库加密、TD-004 PDF 结构、TD-005 迁移回滚、TD-006 内存驱动不完整、TD-007/008 测试覆盖仍待补。
 - 无剩余 RAG 项：cross-encoder 与流式均已落地（见 Resolved）。
 
+
+### 2026-11-11：v2.0.2 发布与旧版本清理
+- GitHub v2.0.2 已公开：Windows NSIS、Anna ZIP、SHA256SUMS；逐个核对 GitHub SHA-256 与本地一致。源码 ca8621e 已推送。
+- Anna App 847：版本 2111 / 2.0.2，工具 1065，界面包 1929；审核候选已切换，pending_review。
+- GitHub v2.0.0/v2.0.1 发布记录删除，v0.1.0 的 NativeMind 旧安装包删除。保留背景音乐 ZIP、Ollama 安装依赖及脚本，原下载地址不变；v0.1.0 改名资源存档。
+- Anna CLI 没有单个 App 历史版本删除入口；旧 Executa 2.0.1 删除返回服务器 500。旧 Anna 记录暂留，不删除整个 App。
+- 完整自动化 1164 通过、4 可选跳过；此前原生集成 2 通过；打包时启动器 3 通过。全新电脑与 Anna Agent 实机升级验收仍待完成。

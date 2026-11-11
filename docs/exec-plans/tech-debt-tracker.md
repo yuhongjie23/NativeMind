@@ -6,11 +6,14 @@ Tracking known technical debt, trade-offs, and cleanup items.
 
 ### v2.0.1 发布同步（2026-11-11）
 
-- 用户要求更新 GitHub 与 Anna。线上 GitHub 最新仍为 v2.0.0；Anna App 847 的 v2.0.0 仍为 pending_review。本轮使用新补丁号 2.0.1，保留旧版资产。
+- 用户要求更新 GitHub 与 Anna。核对时 GitHub 最新为 v2.0.0、Anna App 847 审核候选为 v2.0.0；本轮已发布 GitHub v2.0.1，保留旧版资产。代码提交 `387c6e18b305841813add028e30cd08d570ff524`。
 - 四个视频在旧源码中已接入，但按场景/天气/时间选择，其他组合仍静态。设置新增四个内置视频快捷入口和构建版本显示；不覆盖用户的自定义视频与动态效果偏好。
 - 同步此前本地知识整理、图谱、阅读、检索与证据核验改进。普通桌面保留单独授权的 DeepSeek 整理，Anna Local 继续禁用云端。
 - 1,114 项回归通过、4 项可选集成跳过，类型与 ESLint 通过。原 release exe 被运行中的应用占用，改用独立 target-release 构建，不关闭用户应用；打包脚本允许 CARGO_TARGET_DIR 覆盖。
-- 上传及平台候选切换结果在完成后记录；全新电脑与 Anna Agent 的实际安装/升级仍待用户提供环境验收。
+- GitHub 的 Windows NSIS 安装包、Anna ZIP 与 SHA256SUMS 均已上传并核对服务端 digest。Anna 工具 1062/2.0.1、App 2108/2.0.1、UI bundle 1926 已创建并冻结绑定，重新提交后 review_candidate_version=2.0.1、status=pending_review；不是已经公开上架。
+- Rust 库 41 项、启动器 3 项测试及包内协议检查通过。生产前端中四个视频均 readyState=4、paused=false、无解码错误；设置显示 2.0.1。完整产物见 output/releases/v2.0.1（不入 Git）。
+- 发布首次遇到新候选目录丢失 CLI 工具身份缓存，平台拒绝重名创建；复用已验证的 Executa 1313 缓存后成功更新原 Tool ID，打包脚本已保留该缓存复制流程，不将缓存装进 ZIP。
+- 全新电脑与 Anna Agent 的实际安装/升级仍待用户提供环境验收，未关闭或替换用户正在运行的旧应用。以下历史条目的“尚未发布”描述的是各轮当时状态；本次已同步到 v2.0.1，不代表原有问答限制已消除。
 
 ### 逐条隔离的证据复核（2026-11-11，源码候选，尚未发布）
 

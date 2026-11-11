@@ -2,12 +2,12 @@
 
 用户于 2026-11-09 确认采用此路线。此目录是新的发布候选入口；`anna/native`、`anna/bundle` 仍是旧的本机内嵌开发路径，不应把旧 `native_command` 工具发布给 Agent。
 
-发布进度：2026-11-09 已上传工具 2.0.0（工具版本 1046）和 App 2.0.0（版本 2084），绑定现有 App 847。启动界面已上传并通过校验；App 为 `pending_review`，尚未正式上架。GitHub [v2.0.0](https://github.com/yuhongjie23/NativeMind/releases/tag/v2.0.0) 已公开。
+发布进度：2026-11-11 已上传工具 2.0.1（工具版本 1062）和 App 2.0.1（版本 2108），绑定现有 App 847。启动界面已上传并冻结，审核候选已从 2.0.0 切换为 2.0.1；App 仍为 `pending_review`，尚未正式上架。GitHub [v2.0.1](https://github.com/yuhongjie23/NativeMind/releases/tag/v2.0.1) 已公开，旧版资产保留。
 
 ## 当前实现
 
 - `ui/` 是 Anna 内的小型启动页，点击按钮才发 `open_app`，参数永远 `{}`；不加载学习界面、学习数据或本地数据桥。启动请求与固定状态经过 Anna，学习内容不经过。
-- `../launcher` 是 Windows x64 独立 Rust Executa，只提供一个无参数启动工具。真实 Tool ID 为 `tool-forforever23-hongjie-yu-3qny9w3z`，当前工具版本 `2.0.0`。拒绝旧数据库桥、路径、模型参数；不采纳调用者传来的账号或本地路径。
+- `../launcher` 是 Windows x64 独立 Rust Executa，只提供一个无参数启动工具。真实 Tool ID 为 `tool-forforever23-hongjie-yu-3qny9w3z`，当前工具版本 `2.0.1`。拒绝旧数据库桥、路径、模型参数；不采纳调用者传来的账号或本地路径。
 - 完整 App 来自原桌面源码，以 `anna-local` 功能构建，使用 `com.nativemind.anna-local` 身份及独立单实例端口。版本/身份配置不匹配会在打开数据库前停止。
 - 数据目录默认 `%APPDATA%\com.nativemind.anna-local`，与原桌面版分开。旧数据只通过用户主动恢复备份/选择目录迁入；包内不带用户数据库、密钥、模型或音乐。
 - 纯本地构建禁用 DeepSeek 路由和外部搜索，CSP 不允许远程请求；Ollama 限制本机地址、禁代理与重定向。设置页隐藏无法启用的云端选项。
@@ -31,7 +31,9 @@
 - `acceptance.json`：归档大小和哈希、已做检查、待做验收。`publishReady` 保持 false。
 - `check-new-pc.ps1`：只读依赖/包完整性检查，不自动下载或安装任何东西。
 
-构建复用 `src-tauri/target` 缓存，因此其中的 `release/nativemind.exe` 会是最近构建的版本；运行/分发应使用候选包内 exe，普通桌面包重新用默认桌面构建命令生成。
+默认构建复用 `src-tauri/target` 缓存；可设置 `CARGO_TARGET_DIR` 指向独立目录，避免覆盖正在运行的 exe。本次使用 `src-tauri/target-release`。运行/分发应使用候选包内 exe，普通桌面包另用默认桌面配置重建，不能混用两个身份的 exe。
+
+后续发布保留 `anna/desktop/.anna/executa.json` 中已验证的服务端工具身份缓存。打包脚本会将其复制到新候选目录，避免 CLI 将更新误认为创建重名工具；缓存不包含在分发 ZIP 中，也不上传 Git。首次发布仍按平台流程获取身份。
 
 ## 安装与更新
 

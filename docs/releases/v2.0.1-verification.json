@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-11",
+  "version": "2.0.1",
+  "codeCommit": "387c6e18b305841813add028e30cd08d570ff524",
+  "githubRelease": "https://github.com/yuhongjie23/NativeMind/releases/tag/v2.0.1",
+  "githubPublished": true,
+  "githubAssetDigestsMatched": true,
+  "assets": {
+    "NativeMind_2.0.1_x64-setup.exe": { "bytes": 45410024, "sha256": "c8dd8b6135bbdd06b7577b2d4a4401c95ffa7565641108328c7aa3acbd5c91f5" },
+    "nativemind-2.0.1-windows-x86_64.zip": { "bytes": 47173853, "sha256": "71093fa1f98d5eb678931d7a31a88e662e41224d7be2cf98cfdffda14439fabb" }
+  },
+  "anna": { "appId": 847, "appVersionId": 2108, "toolId": "tool-forforever23-hongjie-yu-3qny9w3z", "executaId": 1313, "executaVersionId": 1062, "frozenToolVersion": "2.0.1", "bundleId": 1926, "reviewCandidateVersion": "2.0.1", "status": "pending_review", "isPublished": false },
+  "tests": { "vitestPassed": 1114, "vitestSkipped": 4, "rustLibraryPassed": 41, "launcherPassed": 3, "typecheck": "passed", "eslint": "passed", "packageProtocolSmoke": "passed", "productionFrontendVideoSwitches": 4 },
+  "pending": ["clean Windows installation", "actual Anna Agent installation/update", "reliable general long-document QA"],
+  "userDataModified": false,
+  "runningUserAppClosed": false
+}
